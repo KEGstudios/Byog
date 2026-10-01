@@ -63,7 +63,7 @@ def _load():
         for i in range(cnt):
             at = b + aoff + i * 88
             items[struct.unpack_from("<I", cs, at + 8)[0]] = struct.unpack_from("<Q", cs, at + 32)[0]
-    _state = dict(d=d, base=base, so=so, co=co, do=do, xo=xo, hm=hm, items=items)
+    _state = dict(d=d, base=base, so=so, co=co, do=do, xo=xo, hm=hm, items=items, data_count=xc)
     return _state
 
 

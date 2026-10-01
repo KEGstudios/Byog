@@ -118,7 +118,7 @@ def first_line(status):
     return status.split("\r\n", 1)[0]
 
 
-BASE_CONFIG = "[weapon: assault_rifle]\ndamage = 120\ndamage_bonus = +25\nrpm = 150%\n"
+BASE_CONFIG = "[weapon: assault_rifle]\ndamage = 120\nap_bonus = +2\nrpm = 150%\n"
 
 
 # ------------------------------------------------------------------ scenarios
@@ -128,7 +128,7 @@ def check_applies_exactly_what_was_asked(mutate=None):
         status = rig.settle()
         assert first_line(status) == "OK - 3 values applied", first_line(status)
         assert rig.mem.peek(rig.damage, "<I") == 120
-        assert rig.mem.peek(rig.bonus, "<f") == 25.0
+        assert rig.mem.peek(rig.bonus, "<f") == 2.0
         assert rig.mem.peek(rig.rpm, "<f") == 960.0
         # nothing else was written: exactly three 4-byte writes, at exactly these addresses
         assert sorted(a for a, _d in rig.mem.writes) == sorted([rig.damage, rig.bonus, rig.rpm]), \
@@ -309,7 +309,7 @@ def check_read_only_pages_are_opened_for_one_write_and_closed(mutate=None):
         region["protect"] = harness.PAGE_READONLY
         status = rig.settle()
         assert first_line(status) == "OK - 3 values applied", first_line(status)
-        assert rig.mem.peek(rig.rpm, "<f") == 960.0 and rig.mem.peek(rig.bonus, "<f") == 25.0
+        assert rig.mem.peek(rig.rpm, "<f") == 960.0 and rig.mem.peek(rig.bonus, "<f") == 2.0
         assert region["protect"] == harness.PAGE_READONLY          # closed again
         page = lambda a: a - a % 4096
         assert sorted(rig.mem.protects) == sorted(
@@ -493,6 +493,175 @@ def check_fallback_enumeration(mutate=None):
         rig.close()
 
 
+# ------------------------------------------------------------------ own bullet (row takeover)
+OWN_CONFIG = "[weapon: assault_rifle]\nown_bullet = true\ndamage = 5000\nvelocity = 1200\nrpm = 700\n"
+SRC_PROJECTILE, NEW_PROJECTILE, SRC_DAMAGE, NEW_DAMAGE = 276, 267, 108, 55
+
+
+def own_addresses(rig):
+    import deltas
+    d = deltas._load()
+    override = deltas.default_overrides(LIBERATOR)[("ProjectileWeaponComponent", 0)]
+    return dict(
+        new_projectile=rig.row_field("ProjectileSettings", NEW_PROJECTILE, 0),
+        src_projectile=rig.row_field("ProjectileSettings", SRC_PROJECTILE, 0),
+        new_damage=rig.row_field("DamageSettings", NEW_DAMAGE, 0),
+        src_damage=rig.row_field("DamageSettings", SRC_DAMAGE, 0),
+        pointer=rig.keyed_field("ProjectileWeaponComponentData", LIBERATOR, 0),
+        ammo=rig.blocks["ComponentEntityDeltaStorage"][0] + 24 + override[1],
+        stalwart=rig.keyed_field("ProjectileWeaponComponentData",
+                                 entity("primary_weapons/lmg_stalwart/lmg_stalwart"), 0),
+    )
+
+
+def row_bytes(rig, address, size):
+    r = rig.mem.find(address)
+    o = address - r["base"]
+    return bytes(r["data"][o:o + size])
+
+
+def snapshot(rig):
+    return {r["base"]: bytes(r["data"]) for r in rig.mem.regions}
+
+
+def check_own_bullet_gives_the_weapon_private_rows(mutate=None):
+    rig = Rig(OWN_CONFIG, mutate)
+    try:
+        a = own_addresses(rig)
+        before = snapshot(rig)
+        stock_projectile = row_bytes(rig, a["src_projectile"], 272)
+        stock_damage = row_bytes(rig, a["src_damage"], 76)
+        assert rig.mem.peek(a["ammo"], "<I") == SRC_PROJECTILE          # the fixture is what we think it is
+        status = rig.settle()
+        assert first_line(status) == "OK - 3 values applied, 1 weapons on their own bullet", first_line(status)
+        # the spare projectile row is now the Liberator's round, with its own damage row and the new speed
+        want = bytearray(stock_projectile)
+        struct.pack_into("<I", want, 0, NEW_PROJECTILE)
+        struct.pack_into("<I", want, 60, NEW_DAMAGE)
+        struct.pack_into("<f", want, 32, 1200.0)
+        assert row_bytes(rig, a["new_projectile"], 272) == bytes(want)
+        want = bytearray(stock_damage)
+        struct.pack_into("<I", want, 0, NEW_DAMAGE)
+        struct.pack_into("<i", want, 4, 5000)
+        assert row_bytes(rig, a["new_damage"], 76) == bytes(want)
+        # the weapon and its ammo attachment point at the new row; nobody else does
+        assert rig.mem.peek(a["pointer"], "<I") == NEW_PROJECTILE
+        assert rig.mem.peek(a["ammo"], "<I") == NEW_PROJECTILE
+        assert rig.mem.peek(a["stalwart"], "<I") == SRC_PROJECTILE
+        # the shared rows are untouched: the Stalwart still fires the stock round
+        assert row_bytes(rig, a["src_projectile"], 272) == stock_projectile
+        assert row_bytes(rig, a["src_damage"], 76) == stock_damage
+        # the two switches were thrown last, after every row field was in place
+        order = [address for address, _data in rig.mem.writes]
+        last_row_write = max(i for i, address in enumerate(order) if address not in (a["pointer"], a["ammo"]))
+        first_switch = min(i for i, address in enumerate(order) if address in (a["pointer"], a["ammo"]))
+        assert first_switch > last_row_write, (first_switch, last_row_write)
+        assert "OWN BULLET ACTIVE: projectile row 276 -> 267, damage row 108 -> 55" in status
+        assert "damage: 90 -> 5000 (own row)  APPLIED" in status
+        assert "also affects" not in status.split("damage: 90 -> 5000")[1].split("\r\n")[0]
+        # take it all back: switches first, then every byte as it was
+        writes_before = len(rig.mem.writes)
+        status = rig.reload("")
+        assert first_line(status) == "OK - no changes configured", first_line(status)
+        restore_order = [address for address, _data in rig.mem.writes[writes_before:]]
+        assert set(restore_order[:2]) == {a["pointer"], a["ammo"]}, [hex(x) for x in restore_order[:3]]
+        assert snapshot(rig) == before
+    finally:
+        rig.close()
+
+
+def check_own_bullet_does_not_switch_onto_an_unexpected_row(mutate=None):
+    rig = Rig(OWN_CONFIG, mutate)
+    try:
+        a = own_addresses(rig)
+        rig.mem.poke(a["new_projectile"] + 36, "<f", 123.0)   # the "spare" row is not what this build expects
+        status = rig.settle()
+        assert rig.mem.peek(a["pointer"], "<I") == SRC_PROJECTILE
+        assert rig.mem.peek(a["ammo"], "<I") == SRC_PROJECTILE
+        assert rig.mem.peek(a["new_projectile"] + 36, "<f") == 123.0
+        assert "OWN BULLET FAILED" in status and "unexpected content" in status, status[:1500]
+        assert first_line(status).startswith("PARTIAL"), first_line(status)
+    finally:
+        rig.close()
+
+
+def check_own_bullet_waits_for_the_weapon_tables(mutate=None):
+    rig = Rig(OWN_CONFIG, mutate)
+    try:
+        a = own_addresses(rig)
+        late = [r for r in rig.mem.regions if r["base"] == 0x1E100000000][0]     # component tables
+        rig.mem.regions.remove(late)
+        status = rig.settle()
+        assert "OWN BULLET WAITING" in status, status[:1500]
+        # The ammo attachment lives in another table and may already point at the new row: that is
+        # safe, because a switch is only thrown once every field of the new rows is in place.
+        if rig.mem.peek(a["ammo"], "<I") == NEW_PROJECTILE:
+            assert rig.mem.peek(a["new_projectile"] + 60, "<I") == NEW_DAMAGE
+            assert rig.mem.peek(a["new_damage"] + 4, "<i") == 5000
+        rig.mem.regions.append(late)
+        rig.mem.regions.sort(key=lambda r: r["base"])
+        for _ in range(6):
+            status = rig.later(31)
+            if "OWN BULLET ACTIVE" in status:
+                break
+        assert "OWN BULLET ACTIVE" in status, status[:1500]
+        assert rig.mem.peek(a["pointer"], "<I") == NEW_PROJECTILE and rig.mem.peek(a["ammo"], "<I") == NEW_PROJECTILE
+    finally:
+        rig.close()
+
+
+def check_own_bullet_only_where_defined(mutate=None):
+    rig = Rig("[weapon: lmg_stalwart]\nown_bullet = true\ndamage = 100\n[weapon: assault_rifle]\nown_bullet = maybe\n", mutate)
+    try:
+        status = rig.settle()
+        assert "own_bullet is not available for this weapon yet" in status
+        assert "own_bullet takes true or false" in status
+        assert rig.mem.peek(rig.damage, "<I") == 100              # the plain line still works (shared row)
+        assert len(rig.mem.writes) == 1
+    finally:
+        rig.close()
+
+
+def check_probe_finds_pointer_arrays_and_writes_nothing(mutate=None):
+    rig = Rig("[settings]\nprobe = true\n", mutate)
+    try:
+        t = hd2db.table("ProjectileSettings")
+        rows_at = rig.blocks["ProjectileSettings"][0] + 24 + 16
+        ids = sorted(t.by_id())
+        # what an engine-side index could look like: one pointer per id, in id order ...
+        by_id = bytearray(8 * (max(ids) + 1))
+        for row_id, row in t.by_id().items():
+            struct.pack_into("<Q", by_id, 8 * row_id, rows_at + row * t.stride)
+        # ... plus a lone pointer to one row somewhere else, and noise that must not count
+        heap = bytearray(4096 * 4)
+        struct.pack_into("<Q", heap, 0x120, rows_at + 5 * t.stride)
+        struct.pack_into("<Q", heap, 0x200, 0x1E000000000 - 8)            # just below the block
+        struct.pack_into("<Q", heap, 0x1008, rows_at + 9 * t.stride)       # on a page that is not in memory
+        rig.mem.add(0x1EC00000000, bytes(by_id))
+        rig.mem.add(0x1ED00000000, bytes(heap), absent={1})
+        rig.game.frames(4000, until=lambda: "probe: done" in rig.game.status())
+        status = rig.game.status()
+        assert "probe: done" in status, status[:900]
+        report = rig.game.read_out("PROBE.txt")
+        section = report.split("[ProjectileSettings]")[1].split("[DamageSettings]")[0]
+        present = sum(1 for i in ids)                                      # every id has a pointer in the array
+        assert "at 0x1EC00000000:" in section or "at 0x1EC0000" in section, section[:800]
+        import re
+        m = re.search(r"at (0x1EC[0-9A-F]+): (\d+) pointers, (\d+) to row starts; row id = slot ([+-]\d+) for (\d+) of them", section)
+        assert m, section[:800]
+        # one pointer per row, and the engine-style index is recognised as "indexed by row id"
+        assert int(m.group(2)) == len(ids) == int(m.group(3)), m.groups()
+        assert int(m.group(5)) >= 300, m.groups()
+        assert "0x1ED00000120->" in section                               # the lone pointer
+        assert "0x1ED00001008" not in report                              # absent page: never read
+        assert "0x1ED00000200" not in report                              # outside the table: not a hit
+        assert rig.mem.writes == [] and rig.mem.protects == []
+        assert rig.mem.absent_reads == 0
+        assert max(rig.game.frame_cost) <= BUDGET_US + STEP_SLACK_US, max(rig.game.frame_cost)
+    finally:
+        rig.close()
+
+
 CHECKS = [v for k, v in sorted(globals().items()) if k.startswith("check_")]
 
 
@@ -598,8 +767,8 @@ MUTATIONS = [
      "if write_memory(process, address, out, 4, got) == 0 then return false end",
      check_applies_exactly_what_was_asked),
     ("removed lines are not restored",
-     "            sync_field(entry, nil)\n",
-     "",
+     "        sync_field(entry, nil)\n        if not entry.note or copies == 0 then applied[key] = nil",
+     "        if not entry.note or copies == 0 then applied[key] = nil",
      check_removed_lines_are_restored),
     ("float written as a truncated integer",
      "        local bits = A.f32_bits(value)\n",
@@ -625,6 +794,34 @@ MUTATIONS = [
      "if down and not key_was_down and A.game_in_front() then",
      "if down and not key_was_down then",
      check_reload_key_needs_the_game_in_front),
+    ("own bullet: stats still go to the shared row",
+     "            if own_bullet[item] then\n                local field, redirected = own_row_field(item, entry.field)",
+     "            if false then\n                local field, redirected = own_row_field(item, entry.field)",
+     check_own_bullet_gives_the_weapon_private_rows),
+    ("own bullet: weapon switched although its rows are not in place",
+     "            if ready[want.group] == false then\n                want.blocked = true",
+     "            if false then\n                want.blocked = true",
+     check_own_bullet_does_not_switch_onto_an_unexpected_row),
+    ("own bullet: spare row overwritten without checking its content",
+     "                    elseif field.exact and not copy.written and not same_value(field.storage, current, field.stock) then",
+     "                    elseif false then",
+     check_own_bullet_does_not_switch_onto_an_unexpected_row),
+    ("own bullet: ammo attachment not redirected",
+     "        if item.ammo_delta then\n            want(",
+     "        if false then\n            want(",
+     check_own_bullet_gives_the_weapon_private_rows),
+    ("own bullet: new projectile keeps the shared damage row",
+     "                if offset == patch_at then value = patch_value end",
+     "",
+     check_own_bullet_gives_the_weapon_private_rows),
+    ("own bullet: rows restored before the weapon is switched back",
+     "        if not desired[key] and entry.order == 2 then restore(key, entry) end",
+     "",
+     check_own_bullet_gives_the_weapon_private_rows),
+    ("probe reads pages that are not in memory",
+     "                    if usable[k] then\n                        local last = k",
+     "                    if true then\n                        local last = k",
+     check_probe_finds_pointer_arrays_and_writes_nothing),
     ("reload key not debounced",
      "        if pressed_at - last_key_reload >= RELOAD_DEBOUNCE then",
      "        if true then",

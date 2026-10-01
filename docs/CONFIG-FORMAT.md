@@ -45,11 +45,16 @@ is **rejected** (never clamped) and reported in STATUS.txt with the range.
   If two lines ask for different values of the same shared value, **both are rejected**.
 * `ap = N` sets every armor-penetration angle that is not 0 in the game's data; `ap_direct`,
   `ap_slight`, `ap_large`, `ap_extreme` set a single angle.
-* Per-weapon alternatives that are not shared: `damage_bonus`, `durable_damage_bonus`, `ap_bonus`,
-  `durable_ap_bonus` (added to the projectile's values for this weapon only) and `speed_multiplier`.
-  These are in the game data "for weapon customizations". **Tested in game: `damage_bonus` and
-  `durable_damage_bonus` are written correctly but did not change the weapon's damage.** The others
-  are untested. For now, change damage with `damage` (shared).
+* Per-weapon values that are never shared: `ap_bonus`, `durable_ap_bonus` (armor penetration added for
+  this weapon only; tested in game: works) and `speed_multiplier` (untested). `bonus2` /
+  `durable_bonus2` are the second addend pair of the weapon record; their effect is unknown.
+  There is **no per-weapon damage addend** in the game data that works.
+* **`own_bullet = true`** (experimental, only for weapons listed with it in catalog.txt): the weapon
+  gets a projectile row and a damage row of its own, copied from the ones it shares. After that,
+  `damage`, `ap`, `velocity` and the other projectile / damage stats of this weapon change this weapon
+  only. The rows it takes over are rows nothing in the game data refers to; if the game uses them after
+  all, whatever uses them fires this weapon's round while the mod is active. Removing the line puts the
+  weapon and both rows back exactly as they were.
 * Stats whose live value comes from a default attachment (magazine size on some weapons, see
   STAT-MAP §6.2) are refused in this version with a clear reason; they are Stage 3 work.
 * The mod writes nothing unless the game's executable and game.dll match a build it was verified on.

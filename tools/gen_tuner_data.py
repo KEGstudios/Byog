@@ -17,18 +17,26 @@ Line format ('|' separated):
       this field (STAT-MAP §6.2): the engine refuses to edit it.
   R|stat|min|max|integer
   A|alias|mode|stat,stat,...     mode: all | nonzero (only fields whose stock value is not 0)
+  O|item_index|base_projectile|src_projectile|new_projectile|src_damage|new_damage
+      "own bullet": rows nothing references that this weapon may take over (see TAKEOVERS).
+      base_projectile is the value in the weapon's own record (0 when only an attachment sets it).
+  W|table|row_id|hex            stock bytes of a row involved in a takeover
+  X|item_index|offset|expected  the default ammo attachment's projectile value: offset inside the
+                                delta storage's data array, and the value expected there
 
     python tools/gen_tuner_data.py        # -> build/tuner_data.txt
 """
 import json
 import os
 import re
+import struct
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 
+import deltas  # noqa: E402
 import hd2db  # noqa: E402
 from dump_typelib import dlsum  # noqa: E402
 
@@ -49,11 +57,9 @@ SKIP_STATS = {"mode"}          # enum fields are not numbers; id-type stats come
 # (regex on the stat id, min, max, integer) -- first match wins. Sanity bounds, not balance advice.
 RANGES = [
     (r"(^|_)ap_(direct|slight|large|extreme)$", 0, 10, 1),
-    # The second addend pair (+136 / +140). Both name sources call it "ap_addends", but the game's own
-    # barrel attachments write +10 / -5 there, which looks like damage. Wide range until tested in game.
-    (r"^(durable_)?ap_bonus$", -100000, 100000, 0),
+    (r"^(durable_)?ap_bonus$", -10, 10, 0),
+    (r"^(durable_)?bonus2$", -100000, 100000, 0),      # +136 / +140: effect unknown
     (r"(^|_)(durable_)?damage$", 0, 100000, 1),
-    (r"^(durable_)?damage_bonus$", -100000, 100000, 0),
     (r"(^|_)(demolition|stagger|push)$", 0, 10000, 1),
     (r"^(rpm|rpm_low|rpm_high|arc_rpm)$", 1, 6000, 0),
     (r"^speed_multiplier$", 0.01, 100, 0),
@@ -81,6 +87,13 @@ RANGES = [
     (r"^ergonomics$", 0, 1000, 0),
     (r"^arc_range$", 0, 1000, 0),
 ]
+
+# item name -> spare rows it may take over (STAT-MAP §6.5). Spare = referenced by no entity component,
+# no attachment delta and no explosion; the damage row belongs to a spare projectile row only.
+# 267 is the unused near-twin of the Liberator's round (same calibre, same damage row).
+TAKEOVERS = {
+    "assault_rifle": {"projectile": 267, "damage": 55},
+}
 
 ALIASES = [
     ("ap", "nonzero", ["ap_direct", "ap_slight", "ap_large", "ap_extreme"]),
@@ -136,10 +149,44 @@ def generate(builds=None):
                 index, s["id"], s["table"], s["key"], s["offset"], storage, num(s["original"], storage), flags))
     if unranged:
         raise ValueError("stats without a range: %s" % sorted(unranged))
+    # takeovers
+    extra, stock_rows = [], {}
+    P, Dm = hd2db.table("ProjectileSettings"), hd2db.table("DamageSettings")
+    fire = hd2db.table("ProjectileWeaponComponentData")
+    data_start = deltas._load()["xo"]
+    for index, line in enumerate(items):
+        _i, _idx, _cat, name, entity_hex = line.split("|")
+        spec = TAKEOVERS.get(name)
+        if not spec:
+            continue
+        ent = int(entity_hex, 16)
+        base_projectile = struct.unpack_from("<I", fire.record(ent), 0)[0]
+        override = deltas.default_overrides(ent).get(("ProjectileWeaponComponent", 0))
+        src_projectile = struct.unpack("<I", override[0])[0] if override else base_projectile
+        src_row = P.record(P.by_id()[src_projectile])
+        src_damage = struct.unpack_from("<I", src_row, 60)[0]
+        new_projectile, new_damage = spec["projectile"], spec["damage"]
+        assert new_projectile in P.by_id() and new_damage in Dm.by_id() and src_damage in Dm.by_id()
+        extra.append("O|%d|%d|%d|%d|%d|%d" % (index, base_projectile, src_projectile, new_projectile,
+                                              src_damage, new_damage))
+        for pid in (src_projectile, new_projectile):
+            stock_rows[("ProjectileSettings", pid)] = P.record(P.by_id()[pid])
+        for did in (src_damage, new_damage):
+            stock_rows[("DamageSettings", did)] = Dm.record(Dm.by_id()[did])
+        if override:
+            extra.append("X|%d|%d|%d" % (index, override[1] - data_start, src_projectile))
+            tables["ComponentEntityDeltaStorage"] = True
+        tables["ProjectileSettings"] = tables["DamageSettings"] = True
+        tables["ProjectileWeaponComponentData"] = True
+    for (table, row_id), raw in sorted(stock_rows.items()):
+        extra.append("W|%s|%d|%s" % (table, row_id, raw.hex().upper()))
     for name in sorted(tables):
+        if name == "ComponentEntityDeltaStorage":
+            lines.append("T|%s|%08X|D|0|0" % (name, dlsum(name)))
+            continue
         _rt, stride, shape = hd2db.record_type(name)
         lines.append("T|%s|%08X|%s|%d|0" % (name, dlsum(name), "R" if shape == "rows" else "K", stride))
-    lines += items + fields
+    lines += items + fields + extra
     for stat in sorted(stats_seen):
         lo, hi, integer = stat_range(stat)
         lines.append("R|%s|%s|%s|%d" % (stat, repr(lo), repr(hi), integer))

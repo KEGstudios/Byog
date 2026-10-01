@@ -206,10 +206,12 @@ def resolve_weapon(T, ent):
                 stat(stats, sid, "ProjectileWeaponComponentData", key, "ProjectileWeaponComponent",
                      "rounds_per_minute[%d]" % i, fire)
     if fire:
-        # the only per-weapon damage / speed knobs (everything else sits in shared rows)
-        for sid, path in (("damage_bonus", "damage_addends.normal"),
-                          ("durable_damage_bonus", "damage_addends.durable"),
-                          ("ap_bonus", "ap_addends.normal"), ("durable_ap_bonus", "ap_addends.durable"),
+        # Per-weapon addends. Both name sources call +128 "damage_addends" and +136 "ap_addends", but
+        # in game (tuner v0.2.1 / v0.2.2) +128 / +132 changed armor penetration and never damage. The
+        # stat ids follow what the game does; +136 / +140 keep a neutral name until their effect is known.
+        for sid, path in (("ap_bonus", "damage_addends.normal"),
+                          ("durable_ap_bonus", "damage_addends.durable"),
+                          ("bonus2", "ap_addends.normal"), ("durable_bonus2", "ap_addends.durable"),
                           ("speed_multiplier", "speed_multiplier")):
             stat(stats, sid, "ProjectileWeaponComponentData", key, "ProjectileWeaponComponent", path, fire)
     if proj and projectile_stats(T, stats, proj) is not None:

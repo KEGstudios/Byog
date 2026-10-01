@@ -441,6 +441,27 @@ component-index -> component-type mapping inside the delta storage is **inferred
 offsets the deltas touch (5 = magazine, 236 = weapon data, 266 = heat, 271 = customization,
 321 = projectile weapon); recon must confirm it. Non-default attachments carry their own copies.
 
+### 6.2b Per-weapon damage: addends do not work, row takeover is under test
+
+In-game results (tuner v0.2.1 / v0.2.2, one tester): the pair both name sources call `damage_addends`
+(+128 / +132) does not change damage even on a weapon created after the write; writing 10 there made
+the Liberator hurt heavily armored targets, so **+128 / +132 are armor-penetration addends** (per
+weapon, working). The pair at +136 / +140 was set to +5000 and, per the tester's summary, did not act
+as damage either (logs for that round were not returned). No per-weapon damage knob exists.
+
+Row takeover ("own bullet", tuner v0.3.0): a weapon is given a projectile row and a damage row that
+nothing in the offline data refers to. The engine copies the shared rows into them word by word
+(stock values, generated offline), points the new projectile row at the new damage row, and only when
+every field is in place switches the weapon's `projectile_type` (+0 of its ProjectileWeaponComponent)
+and, where a default ammo attachment sets the projectile, that attachment's delta value. Each field is
+only overwritten if it holds exactly the expected stock value. Restore is the reverse, switches first.
+
+Spare rows (offline): 80 projectile rows are referenced by no entity component, attachment delta or
+explosion; 32 of them have a damage row nothing else references. For the Liberator: projectile 267 (an
+unused near-twin of its round 276: same calibre and damage row, 12 words differ) and damage row 55
+(owned by the equally unreferenced projectile 221). **"Unreferenced" is not proof of "unused"**: game
+code, or tables outside the plaintext bundle, may refer to a row by enum value. Not yet tested in game.
+
 ### 6.3 Copies, reloads, drift
 Per the skill's case studies: several copies of a table can exist in memory, new copies appear on
 mission load, table sizes / record counts / enum ids change with game updates. Hence: locate by
