@@ -1,0 +1,7 @@
+reference/
+data/
+build/
+.venv/
+.claude/
+__pycache__/
+*.pyc
