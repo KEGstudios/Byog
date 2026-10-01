@@ -1,7 +1,7 @@
 # STAT-MAP — Stage 0 (offline research)
 
-Status: **read-verified in game** (recon v0.1.0, 2026-10-01, see §0). No value has been WRITTEN yet;
-what a write does in game is still untested for every stat.
+Status: **read-verified in game** (recon v0.1.0, 2026-10-01, see §0). Writing is verified for one stat so far;
+what a write does in game is still untested for every other stat.
 Every offset below is derived, not guessed; the derivation is reproducible with `tools/` (see §9).
 
 ## 0. In-game verification (recon v0.1.0, one tester, ship + one mission)
@@ -23,7 +23,16 @@ Result line: `OK - all 28 tables found, all 4074 watched values match the offlin
 | Attachment deltas | Same component-index histogram as offline (5 / 236 / 266 / 271 / 321 at the expected offsets). |
 | Cost | Worst frame 9.9 ms, caused by a single VirtualQuery call on a very large region (9.9 ms); average busy frame 1.6 ms; allocation-start pass 4.0 s over 23,524 regions. The patch engine must not query whole regions this way. |
 
-**Open issue from this round:** the tester's game closed (process left hanging) at the moment he threw
+**First write test (tuner v0.2.0, same tester, same build):**
+
+| Question | Answer from the live game |
+|---|---|
+| Does a written value take effect? | Yes for `DamageSettings` (`damage`, `durable_damage` set to 5000: confirmed in play by the tester, and restoring them brought the weapon back to normal). This is the first **write-verified** stat. |
+| Are all tables writable? | No. The settings row tables are in read-write pages; the **entity component tables are in read-only pages** (`ProjectileWeaponComponentData`: protection PAGE_READONLY). v0.2.0 refused them, so `rpm` and the per-weapon `damage_bonus` were never written and remain untested. v0.2.1 opens the page for the single write and closes it again. |
+| Build gate, config template, reload key | Work in game. |
+| Table search without VirtualQuery | 16,365 allocations in 1.5 s per pass; average working frame 1.0 ms. |
+
+**Open issue from the recon round:** the tester's game closed (process left hanging) at the moment he threw
 the tank stratagem call-in during the mission. The recon log shows no error and the build is read-only,
 but the cause is NOT established. A/B follow-up by the same tester: same tank call-in with the recon
 disabled: no crash; with the recon enabled again: no crash. The crash did not reproduce in either

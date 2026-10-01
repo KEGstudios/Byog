@@ -301,15 +301,28 @@ def check_second_copy_is_patched_too(mutate=None):
         rig.close()
 
 
-def check_read_only_pages_are_left_alone(mutate=None):
-    rig = Rig("[weapon: assault_rifle]\ndamage = 120\n", mutate)
+def check_read_only_pages_are_opened_for_one_write_and_closed(mutate=None):
+    # in game the component tables (fire rate, handling...) are in read-only pages
+    rig = Rig(BASE_CONFIG, mutate)
     try:
-        region = [r for r in rig.mem.regions if r["base"] == 0x1E000000000][0]
+        region = [r for r in rig.mem.regions if r["base"] == 0x1E100000000][0]
         region["protect"] = harness.PAGE_READONLY
         status = rig.settle()
-        assert rig.mem.writes == [], rig.mem.writes
-        assert "not writable" in status
-        assert first_line(status).startswith("PARTIAL - 0 values applied, 0 waiting for their table, 1 failed")
+        assert first_line(status) == "OK - 3 values applied", first_line(status)
+        assert rig.mem.peek(rig.rpm, "<f") == 960.0 and rig.mem.peek(rig.bonus, "<f") == 25.0
+        assert region["protect"] == harness.PAGE_READONLY          # closed again
+        page = lambda a: a - a % 4096
+        assert sorted(rig.mem.protects) == sorted(
+            [(page(rig.rpm), harness.PAGE_READWRITE), (page(rig.rpm), harness.PAGE_READONLY),
+             (page(rig.bonus), harness.PAGE_READWRITE), (page(rig.bonus), harness.PAGE_READONLY)]), rig.mem.protects
+        # every "open" is followed at once by its "close"
+        for i in range(0, len(rig.mem.protects), 2):
+            assert rig.mem.protects[i][1] == harness.PAGE_READWRITE
+            assert rig.mem.protects[i + 1] == (rig.mem.protects[i][0], harness.PAGE_READONLY)
+        assert "read-only pages opened for a write=2, not closed again=0" in status
+        assert len(rig.mem.writes) == 3
+        # the writable settings table never needs it
+        assert all(p != page(rig.damage) for p, _prot in rig.mem.protects)
     finally:
         rig.close()
 
@@ -321,6 +334,11 @@ def check_a_write_that_did_not_stick_is_reported(mutate=None):
         status = rig.settle()
         assert "read-back mismatch: wrote 120, read 90" in status, status[:1200]
         assert first_line(status).startswith("PARTIAL - 0 values applied")
+        # a failed value is reported once, not retried every few seconds
+        for _ in range(6):
+            rig.later(6, frames=120)
+        assert "changed back" not in rig.game.log_text(), rig.game.log_text()[-600:]
+        assert len(rig.mem.writes) == 1, len(rig.mem.writes)
     finally:
         rig.close()
 
@@ -533,10 +551,22 @@ MUTATIONS = [
      "    if not same_value(field.storage, back, value) then\n        return false, 'read-back mismatch",
      "    if false then\n        return false, 'read-back mismatch",
      check_a_write_that_did_not_stick_is_reported),
-    ("page protection not checked",
-     "if not present or shared or protection ~= PAGE_READWRITE then",
-     "if false then",
-     check_read_only_pages_are_left_alone),
+    ("read-only page not opened before the write",
+     "        if address % 4096 > 4092 or not A.protect(address, PAGE_READWRITE) then",
+     "        if address % 4096 > 4092 then",
+     check_read_only_pages_are_opened_for_one_write_and_closed),
+    ("read-only page left writable after the write",
+     "        local restored = A.protect(address, PAGE_READONLY)\n",
+     "        local restored = true\n",
+     check_read_only_pages_are_opened_for_one_write_and_closed),
+    ("writable pages are 'opened' too",
+     "    if protection == PAGE_READONLY then\n        -- In game the component tables",
+     "    if true then\n        -- In game the component tables",
+     check_read_only_pages_are_opened_for_one_write_and_closed),
+    ("a refused write is retried forever",
+     "            if entry.value ~= nil and copy.written then",
+     "            if entry.value ~= nil then",
+     check_a_write_that_did_not_stick_is_reported),
     ("record address forgets the bucket array",
      "block.records_at, block.index, block.count = payload + fit.buckets * 16, index, fit.records",
      "block.records_at, block.index, block.count = payload, index, fit.records",

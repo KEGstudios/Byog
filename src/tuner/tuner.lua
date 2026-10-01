@@ -11,6 +11,8 @@
 --   * nothing is written unless the game executable and game.dll hash to a verified build;
 --   * every write is range-checked before, done through the OS (never a raw pointer), read back
 --     with an independent decoder, and undone when the config no longer asks for it;
+--   * the game keeps its component tables in read-only pages: such a page is made writable for
+--     the one 4-byte write and put back to read-only at once (checked);
 --   * tables are located by 'LDLD' + version + type hash only; counts and layouts are derived;
 --   * all work is sliced: at most FRAME_BUDGET seconds on every STEP_EVERY-th frame.
 
@@ -42,7 +44,8 @@ local HASH_CHUNK = 65536         -- bytes hashed per step while checking the bui
 
 local state = {
     title = MOD.title, version = MOD.version, phase = 'starting', verdict = 'WAITING',
-    frame = 0, errors = 0, writes = 0, restores = 0, rewrites = 0, passes = 0,
+    frame = 0, errors = 0, writes = 0, restores = 0, rewrites = 0, passes = 0, unlocks = 0, left_open = 0,
+    reloads = 0,
     worst_frame = 0, busy_frames = 0, busy_seconds = 0,
 }
 rawset(_G, MOD.global, state)
@@ -140,6 +143,7 @@ local function build_api()
     local read_memory = resolve(K, 'ReadProcessMemory', 'int (*)(void *, const void *, void *, size_t, size_t *)')
     local write_memory = resolve(K, 'WriteProcessMemory', 'int (*)(void *, void *, const void *, size_t, size_t *)')
     local virtual_query = resolve(K, 'VirtualQuery', 'size_t (*)(const void *, void *, size_t)')
+    local virtual_protect = resolve(K, 'VirtualProtect', 'int (*)(void *, size_t, uint32_t, uint32_t *)')
     local working_set = resolve(K, 'K32QueryWorkingSetEx', 'int (*)(void *, void *, uint32_t)')
     local create_directory = resolve(K, 'CreateDirectoryA', 'int (*)(const char *, void *)')
     local get_last_error = resolve(K, 'GetLastError', 'uint32_t (*)(void)')
@@ -233,6 +237,12 @@ local function build_api()
         out[0] = bits
         if write_memory(process, ffi.cast(void, address), out, 4, got) == 0 then return false end
         return tonumber(got[0]) == 4
+    end
+
+    -- Changes the protection of the one page holding `address`. -> true when Windows accepted it.
+    local old_protection = ffi.new('uint32_t[1]')
+    function a.protect(address, protection)
+        return virtual_protect(ffi.cast(void, address - address % 4096), 4096, protection, old_protection) ~= 0
     end
 
     -- f32 -> bit pattern, by copying the bytes of a float (no pointer aliasing).
@@ -636,6 +646,7 @@ end
 
 local function parse_block(block)
     if block.index or block.problem then return block.index ~= nil end
+    state.step = 'reading table ' .. block.spec.name
     local ok, why
     if block.spec.shape == 'K' then ok, why = parse_keyed(block) else ok, why = parse_rows(block) end
     if not ok then
@@ -685,6 +696,9 @@ end
 local config = { text = nil, enabled = true, reload_vk = 0x79, reload_key = 'F10', auto_reload = 0,
                  rescan = DEFAULT_RESCAN_SECONDS, requests = {}, problems = {} }
 local overrides = {}     -- 'category:item:stat' -> expression, set through the API (a future UI)
+-- field key -> { field, value, copies = { [block address] = { address, original, block } },
+--                state, note }: what the engine has touched in memory
+local applied = {}
 local desired = {}       -- field key -> { field, value, sources = { request, ... } }
 
 local TEMPLATE = table.concat({
@@ -908,13 +922,30 @@ local function load_config()
     build_desired(text)
     local accepted = 0
     for _ in pairs(desired) do accepted = accepted + 1 end
-    log('config loaded: ' .. #config.requests .. ' lines, ' .. accepted .. ' values to set')
+    state.reloads = state.reloads + 1
+    state.report_pending = true
+    log('#' .. state.reloads .. ' config loaded: ' .. #config.requests .. ' lines, ' .. accepted .. ' values to set')
+end
+
+-- STATUS.txt only shows the latest state; the log keeps what every reload did.
+local function log_results()
+    state.report_pending = false
+    local tag = '#' .. state.reloads .. ' '
+    for _, request in ipairs(config.requests) do
+        local head = tag .. '[' .. request.category .. ': ' .. request.item .. '] ' .. request.text
+        if request.status ~= 'accepted' then
+            log(head .. ' -> ' .. tostring(request.status) .. ': ' .. tostring(request.reason))
+        else
+            for _, target in ipairs(request.targets) do
+                local entry = applied[target.field.key]
+                log(head .. ' -> ' .. target.stat .. ' = ' .. show(target.value, target.field.storage) .. ' '
+                    .. (entry and entry.state or 'waiting') .. (entry and entry.note and (' (' .. entry.note .. ')') or ''))
+            end
+        end
+    end
 end
 
 -- ---------------------------------------------------------------- applying
--- field key -> { field, value, copies = { [block address] = { address, original, block } },
---                state, note }
-local applied = {}
 
 local function needed_tables()
     local needed = {}
@@ -941,10 +972,30 @@ local function write_checked(address, field, value)
     local bits = encode(value, field.storage)
     if bits == nil then return false, 'value cannot be stored' end
     local present, protection, shared = A.page(address)
-    if not present or shared or protection ~= PAGE_READWRITE then
+    if not present or shared then return false, 'memory page is not present or not private' end
+    local unlocked = false
+    if protection == PAGE_READONLY then
+        -- In game the component tables (fire rate, handling, magazines...) are in read-only pages.
+        if address % 4096 > 4092 or not A.protect(address, PAGE_READWRITE) then
+            return false, 'the read-only page could not be made writable'
+        end
+        unlocked = true
+        state.unlocks = state.unlocks + 1
+    elseif protection ~= PAGE_READWRITE then
         return false, 'memory page is not writable (protection ' .. tostring(protection) .. ')'
     end
-    if not A.write_u32(address, bits) then return false, 'the write was refused by Windows' end
+    local wrote = A.write_u32(address, bits)
+    if unlocked then
+        -- back to read-only whatever happened, and make sure it really is
+        local restored = A.protect(address, PAGE_READONLY)
+        local _, now = A.page(address)
+        if not restored or now ~= PAGE_READONLY then
+            state.left_open = state.left_open + 1
+            state.errors = state.errors + 1
+            log('page of ' .. hex(address) .. ' could not be put back to read-only')
+        end
+    end
+    if not wrote then return false, 'the write was refused by Windows' end
     state.writes = state.writes + 1
     local back = read_field(address, field.storage)
     if not same_value(field.storage, back, value) then
@@ -956,6 +1007,7 @@ end
 -- Brings one field to `value` in every copy of its table (value nil: back to the original).
 local function sync_field(entry, value)
     local field, spec = entry.field, SPECS[entry.field.table]
+    state.step = 'applying ' .. field.table
     local range = nil
     for _, user in ipairs(field.users) do range = range or RANGES[user:match('%.(.+)$')] end
     local seen, done, waiting = {}, 0, 0
@@ -1045,7 +1097,8 @@ local function recheck()
             if not valid_block(copy.block) then
                 return 'lost'
             end
-            if entry.value ~= nil then
+            -- only values we actually wrote can be "changed back"; a refused write is not retried
+            if entry.value ~= nil and copy.written then
                 local current = read_field(copy.address, entry.field.storage)
                 if not same_value(entry.field.storage, current, entry.value) then result = 'changed' end
             end
@@ -1096,8 +1149,9 @@ local function build_status()
     state.verdict = verdict
     add(verdict)
     add(MOD.title .. ' v' .. MOD.version)
-    add(string.format('phase=%s frame=%d errors=%d writes=%d restores=%d rewrites=%d', state.phase, state.frame,
-                      state.errors, state.writes, state.restores, state.rewrites))
+    add(string.format('phase=%s frame=%d errors=%d writes=%d restores=%d rewrites=%d reloads=%d', state.phase,
+                      state.frame, state.errors, state.writes, state.restores, state.rewrites, state.reloads))
+    add(string.format('read-only pages opened for a write=%d, not closed again=%d', state.unlocks, state.left_open))
     local loader = rawget(_G, 'CowboyBingusModLoader')
     add('loader: ' .. (type(loader) == 'table' and ('api=' .. tostring(loader.api) .. ' version=' .. tostring(loader.version))
                        or 'CowboyBingusModLoader global not found'))
@@ -1202,14 +1256,18 @@ local function write_status(force)
     if log_dirty then flush_log() end
 end
 
+-- Written a few items at a time, so that no frame pays for the whole file.
 local function write_catalog()
-    local L = { MOD.title .. ' v' .. MOD.version .. ' catalog',
-                'category | item | stat | game value | allowed range | notes',
-                'Use these names in config.txt:  [category: item]  then  stat = value', '' }
+    local dir = ensure_out_dir()
+    local handle = dir and io.open(dir .. '\\' .. MOD.catalog, 'wb')
+    if not handle then return end
+    handle:write(table.concat({ MOD.title .. ' v' .. MOD.version .. ' catalog',
+        'category | item | stat | game value | allowed range | notes',
+        'Use these names in config.txt:  [category: item]  then  stat = value', '', '' }, '\r\n'))
     for index = 0, #ITEMS do
         local item = ITEMS[index]
         if item then
-            L[#L + 1] = '[' .. item.category .. ': ' .. item.name .. ']'
+            local L = { '[' .. item.category .. ': ' .. item.name .. ']' }
             for _, stat in ipairs(item.stat_order) do
                 local entry, range = item.stats[stat], RANGES[stat]
                 local notes = {}
@@ -1220,11 +1278,13 @@ local function write_catalog()
                     #notes > 0 and ('   # ' .. table.concat(notes, '; ')) or '')
             end
             L[#L + 1] = ''
+            handle:write(table.concat(L, '\r\n') .. '\r\n')
         end
-        if index % 4 == 0 then pause() end
+        if index % 2 == 0 then pause() end
     end
-    L[#L + 1] = 'Shortcuts: ap, blast_ap (every angle that is not 0), recoil, recoil_h, recoil_v, spread, magazine, spare_magazines, carried'
-    write_file(MOD.catalog, table.concat(L, '\r\n') .. '\r\n')
+    handle:write('Shortcuts: ap, blast_ap (every angle that is not 0), recoil, recoil_h, recoil_v, spread, magazine, '
+        .. 'spare_magazines, carried\r\n')
+    handle:close()
 end
 
 -- ---------------------------------------------------------------- the worker
@@ -1271,6 +1331,10 @@ local function worker_main()
                 state.phase, state.step = 'applying', 'applying values'
                 sync()
                 state.step = 'writing STATUS.txt'
+            end
+            if state.report_pending then
+                local ok_report, why_report = pcall(log_results)
+                if not ok_report then log('report: ' .. tostring(why_report)) end
             end
             missing = missing_tables()
             if not have_work then

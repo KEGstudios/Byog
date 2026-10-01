@@ -51,6 +51,7 @@ class FakeMemory:
         self.absent_reads = 0      # reads that touched a page marked as not present
         self.bytes_read = 0
         self.writes = []           # (address, bytes) accepted by the fake WriteProcessMemory
+        self.protects = []         # (page address, new protection) accepted by the fake VirtualProtect
         self.write_ignored = False # True: writes "succeed" but change nothing (read-back must notice)
 
     def add(self, base, data, protect=PAGE_READWRITE, mtype=MEM_PRIVATE, state=MEM_COMMIT,
@@ -136,11 +137,24 @@ class FakeMemory:
         size = max(x["base"] + x["size"] for x in same) - r["allocation"]
         return struct.pack("<QIIQQ16x", r["allocation"], r["protect"], 0, size, size)
 
+    def protect(self, address, size, protection):
+        """Like VirtualProtect, at region granularity. -> old protection, or None."""
+        r = self.find(int(address))
+        if not r or r["state"] != MEM_COMMIT:
+            return None
+        old = r["protect"]
+        r["protect"] = int(protection)
+        self.protects.append((int(address), int(protection)))
+        return old
+
     def write(self, address, data):
-        """Like WriteProcessMemory: works on any committed page, read-only ones included."""
+        """Like WriteProcessMemory: fails on read-only and no-access pages (it only forces
+        execute-read ones, which tables never are)."""
         address = int(address)
         r = self.find(address)
         if not r or r["state"] != MEM_COMMIT or address + len(data) > r["base"] + r["size"]:
+            return False
+        if r["protect"] != PAGE_READWRITE:
             return False
         self.writes.append((address, bytes(data)))
         if not self.write_ignored:
@@ -424,6 +438,13 @@ F['kernel32.dll'] = {
         return 1
     end,
     GetCurrentProcessId = function() return 4242 end,
+    VirtualProtect = function(address, size, protection, old)
+        pointer(address, 'address'); pointer(old, 'old')
+        local previous = py.protect(address_of(address), tonumber(size), protection)
+        if previous == nil then return 0 end
+        old[0] = previous
+        return 1
+    end,
     WriteProcessMemory = function(process, address, buffer, size, got)
         pointer(process, 'process'); pointer(address, 'address'); pointer(buffer, 'buffer'); pointer(got, 'got')
         if not py.write(address_of(address), ffi.string(buffer, size)) then got[0] = 0; return 0 end
@@ -549,7 +570,8 @@ class Game:
         g[b"HD2ST_PY"] = self.lua.table_from({
             b"read": self._read, b"query": self._query, b"present": self.memory.present,
             b"attributes": self.memory.attributes, b"allocation": self._allocation,
-            b"write": self.memory.write, b"key": lambda vk: int(vk) in self.keys,
+            b"write": self.memory.write, b"protect": self.memory.protect,
+            b"key": lambda vk: int(vk) in self.keys,
             b"foreground": lambda: self.in_front,
             b"region_info_unsupported": lambda: not self.region_info,
             b"working_set_fails": lambda: self.working_set_fails,
