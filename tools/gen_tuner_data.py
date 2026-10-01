@@ -49,7 +49,9 @@ SKIP_STATS = {"mode"}          # enum fields are not numbers; id-type stats come
 # (regex on the stat id, min, max, integer) -- first match wins. Sanity bounds, not balance advice.
 RANGES = [
     (r"(^|_)ap_(direct|slight|large|extreme)$", 0, 10, 1),
-    (r"^(durable_)?ap_bonus$", -10, 10, 0),
+    # The second addend pair (+136 / +140). Both name sources call it "ap_addends", but the game's own
+    # barrel attachments write +10 / -5 there, which looks like damage. Wide range until tested in game.
+    (r"^(durable_)?ap_bonus$", -100000, 100000, 0),
     (r"(^|_)(durable_)?damage$", 0, 100000, 1),
     (r"^(durable_)?damage_bonus$", -100000, 100000, 0),
     (r"(^|_)(demolition|stagger|push)$", 0, 10000, 1),

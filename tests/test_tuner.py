@@ -391,9 +391,27 @@ def check_reload_key_needs_the_game_in_front(mutate=None):
         rig.game.frames(300)
         assert rig.mem.peek(rig.damage, "<I") == 120          # another window had the focus
         rig.game.in_front = True
+        rig.game.skip_time(2)
         rig.game.press(F10)
         rig.game.frames(300)
         assert rig.mem.peek(rig.damage, "<I") == 150
+    finally:
+        rig.close()
+
+
+def check_reload_key_is_debounced(mutate=None):
+    rig = Rig("[weapon: assault_rifle]\ndamage = 120\n", mutate)
+    try:
+        rig.settle()
+        before = rig.game.state()[b"reloads"]
+        for _ in range(5):                                    # five presses within a quarter of a second
+            rig.game.press(F10)
+        rig.game.frames(200)
+        assert rig.game.state()[b"reloads"] == before + 1, rig.game.state()[b"reloads"] - before
+        rig.game.skip_time(2)
+        rig.game.press(F10)
+        rig.game.frames(200)
+        assert rig.game.state()[b"reloads"] == before + 2
     finally:
         rig.close()
 
@@ -607,6 +625,10 @@ MUTATIONS = [
      "if down and not key_was_down and A.game_in_front() then",
      "if down and not key_was_down then",
      check_reload_key_needs_the_game_in_front),
+    ("reload key not debounced",
+     "        if pressed_at - last_key_reload >= RELOAD_DEBOUNCE then",
+     "        if true then",
+     check_reload_key_is_debounced),
     ("implausible values are overwritten",
      "                    elseif range and (current < range.min - 0.5 or current > range.max + 0.5)\n                        and not same_value(field.storage, current, field.stock) then",
      "                    elseif false then",

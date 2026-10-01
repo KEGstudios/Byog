@@ -7,7 +7,7 @@ memory, for private lobbies with friends. No in-game UI yet; the engine will rea
 |---|---|
 | 0 Offline research | done — `docs/STAT-MAP.md` |
 | 1 Read-only recon addon | done — first in-game round OK: 28 of 28 tables, 4074 of 4074 values (`docs/STAT-MAP.md` §0) |
-| 2 Patch engine + config format | **v0.2.1: `damage` write-verified in game; component-table stats (fire rate, handling, per-weapon bonus) waiting for the next test** (`TEST-v0.2.1.md`, `docs/CONFIG-FORMAT.md`) |
+| 2 Patch engine + config format | **v0.2.2: damage, fire rate and recoil write-verified in game; per-weapon damage still open (second addend pair under test)** (`TEST-v0.2.2.md`, `docs/CONFIG-FORMAT.md`) |
 | 3 All categories | not started |
 | 4 Multiplayer presets | not started |
 

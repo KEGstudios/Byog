@@ -32,6 +32,24 @@ Result line: `OK - all 28 tables found, all 4074 watched values match the offlin
 | Build gate, config template, reload key | Work in game. |
 | Table search without VirtualQuery | 16,365 allocations in 1.5 s per pass; average working frame 1.0 ms. |
 
+**Second write test (tuner v0.2.1, same tester, same build):**
+
+| Stat | Written and read back | Effect in game (tester's report) |
+|---|---|---|
+| `rpm` 200 % and 400 % (`ProjectileWeaponComponent.rounds_per_minute`, read-only page) | yes | **works** |
+| `recoil = 0` (`WeaponDataComponent.recoil_info`, four fields, read-only page) | yes | **works** |
+| restore (empty config) | yes | **works** |
+| `damage_bonus`, `durable_damage_bonus` (`ProjectileWeaponComponent.damage_addends`), tried with +5000, +500, +50 | yes | **no effect** |
+
+Read-only pages were opened for a write 18 times and closed again every time; errors 0. So writing to
+the component tables is verified. The per-weapon damage addend is NOT a usable knob as tested: the
+value is in memory but the weapon's damage did not change. The tester wrote it on the ship, saw no
+change on the weapon's stat card, then dropped into a mission and still saw none, so "only read when the
+weapon is created" is ruled out too. Damage can only be changed through the shared rows (§6.1).
+
+Side observation from the same tester: for the stats that work (damage, fire rate, recoil) the
+weapon's stat card in the armory already shows the changed numbers before the mission.
+
 **Open issue from the recon round:** the tester's game closed (process left hanging) at the moment he threw
 the tank stratagem call-in during the mission. The recon log shows no error and the build is read-only,
 but the cause is NOT established. A/B follow-up by the same tester: same tank call-in with the recon
@@ -151,6 +169,20 @@ Also in the weapon's own record: `ProjectileWeaponComponent.speed_multiplier` (+
 projectile's speed per weapon, and `damage_addends` / `ap_addends` (+128 / +136, 2 x f32 each) add
 damage / AP per weapon ("used by weapon customizations"). These are the only **per-weapon** damage and
 speed knobs; everything in §4.1 and §4.2 is per *row* and shared (§6.1). Conf O (names agree), not used by SHODAN.
+**In-game result (v0.2.1): writing `damage_addends` (+128 / +132) had no effect on the weapon's damage** (§0);
+`ap_addends` and `speed_multiplier` are untested.
+
+Offline evidence about the two addend pairs (attachment deltas, `tools/deltas.py`): no shipped attachment
+writes +128 / +132 at all. The Senator's barrel attachments write +136 and +140: long barrel +10 / +10
+with speed x1.2, short barrel -5 / -5 with speed x0.8. On a 0..10 armor-penetration scale "+10" makes no
+sense, as damage it does. **Hypothesis under test (v0.2.2): +136 / +140 is what actually changes a
+weapon's damage; +128 / +132 may be the armor-penetration pair or unused.** Not established.
+
+How much sharing there is (offline, all 1899 entities): of the 92 projectile weapons, **56 have a
+projectile row and a damage row nobody else uses**, so for them `damage` already is per-weapon. The
+rest share with family members (Liberator / Stalwart / Patriot ...), sentries, vehicles or drones.
+146 of the 350 projectile rows are not referenced by any entity component; whether those are free to
+borrow is unknown (code can reference rows by enum).
 
 ### 4.3 Explosion — `ExplosionSettings` (0x2AEA2592), rows of `ExplosionInfo` (152 B)
 

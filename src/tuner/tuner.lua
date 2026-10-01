@@ -33,6 +33,7 @@ local START_FRAME = 120          -- let the game start before touching anything
 local STEP_EVERY = 2             -- heavy work on every 2nd frame only
 local FRAME_BUDGET = 0.001       -- seconds of work per working frame
 local RECHECK_SECONDS = 5        -- read back every applied value this often
+local RELOAD_DEBOUNCE = 0.75     -- seconds: further presses of the reload key within this time are ignored
 local SEARCH_BACKOFF = { 5, 10, 20, 30 }   -- seconds between searches while tables are missing
 local DEFAULT_RESCAN_SECONDS = 120          -- look for new copies of patched tables this often
 local MAX_BLOCK = 0x10000000
@@ -476,7 +477,7 @@ local function check_build()
 end
 
 -- ---------------------------------------------------------------- finding tables
-local search = { passes = 0, allocations = 0, seconds = 0, last_cost = 0 }
+local search = { passes = 0, allocations = 0, seconds = 0, slowest_query = 0, slowest_at = 0 }
 
 local function valid_block(block)
     return A.u32(block.address) == LDLD and A.u32(block.address + 4) == 1
@@ -516,7 +517,10 @@ local function find_tables()
     search.allocations = 0
     local cursor = ADDRESS_START
     while cursor < ADDRESS_END do
+        local t0 = A.now()
         local base, size, allocated = A.allocation(cursor)
+        local cost = A.now() - t0
+        if cost > search.slowest_query then search.slowest_query, search.slowest_at = cost, cursor end
         if not base then break end
         if allocated then
             search.allocations = search.allocations + 1
@@ -1184,8 +1188,9 @@ local function build_status()
         end
     end
     if #names == 0 then add('none') end
-    add(string.format('search: passes=%d allocations=%d last_pass_seconds=%.2f', search.passes, search.allocations,
-                      search.seconds))
+    add(string.format('search: passes=%d allocations=%d last_pass_seconds=%.2f slowest_query_ms=%.2f at %s',
+                      search.passes, search.allocations, search.seconds, search.slowest_query * 1000,
+                      hex(search.slowest_at)))
     add('')
     add('[config lines]')
     for _, request in ipairs(config.requests) do
@@ -1373,7 +1378,7 @@ local function worker_main()
 end
 
 -- ---------------------------------------------------------------- per frame
-local worker, key_was_down = nil, false
+local worker, key_was_down, last_key_reload = nil, false, -1000
 
 local function request_reload()
     wake.reload, wake.at = true, 0
@@ -1385,8 +1390,12 @@ local function tick()
     -- the reload key: one key-state read per frame; the window is only checked on a press
     local down = A.key_down(config.reload_vk)
     if down and not key_was_down and A.game_in_front() then
-        log('reload key pressed')
-        request_reload()
+        local pressed_at = A.now()
+        if pressed_at - last_key_reload >= RELOAD_DEBOUNCE then
+            last_key_reload = pressed_at
+            log('reload key pressed')
+            request_reload()
+        end
     end
     key_was_down = down
     if state.frame % STEP_EVERY ~= 0 then return end

@@ -47,7 +47,9 @@ is **rejected** (never clamped) and reported in STATUS.txt with the range.
   `ap_slight`, `ap_large`, `ap_extreme` set a single angle.
 * Per-weapon alternatives that are not shared: `damage_bonus`, `durable_damage_bonus`, `ap_bonus`,
   `durable_ap_bonus` (added to the projectile's values for this weapon only) and `speed_multiplier`.
-  These are in the game data "for weapon customizations"; what they do when edited is being tested.
+  These are in the game data "for weapon customizations". **Tested in game: `damage_bonus` and
+  `durable_damage_bonus` are written correctly but did not change the weapon's damage.** The others
+  are untested. For now, change damage with `damage` (shared).
 * Stats whose live value comes from a default attachment (magazine size on some weapons, see
   STAT-MAP §6.2) are refused in this version with a clear reason; they are Stage 3 work.
 * The mod writes nothing unless the game's executable and game.dll match a build it was verified on.
