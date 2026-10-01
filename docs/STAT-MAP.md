@@ -1,7 +1,36 @@
 # STAT-MAP — Stage 0 (offline research)
 
-Status: **offline only**. Nothing in this document has been verified in the running game by us.
+Status: **read-verified in game** (recon v0.1.0, 2026-10-01, see §0). No value has been WRITTEN yet;
+what a write does in game is still untested for every stat.
 Every offset below is derived, not guessed; the derivation is reproducible with `tools/` (see §9).
+
+## 0. In-game verification (recon v0.1.0, one tester, ship + one mission)
+
+Result line: `OK - all 28 tables found, all 4074 watched values match the offline data`.
+
+| Question | Answer from the live game |
+|---|---|
+| Is the offline snapshot the live build? | Yes: 4074 of 4074 values read at the mapped offsets equal the offline values (weapons, throwables, backpacks, shields, vehicles, avatar). Every stat rated O / O- below is therefore **read-verified (G-read)**. |
+| Game version | Main menu shows `release/01.007.101/19155 live.prod`. FileDiver labels its data `01.007.100`; the tables are nevertheless identical (all 4074 values, all sizes). Other mods active: Bingus Shared Loader and HD2 Runtime only. |
+| Build identity | `helldivers2.exe` 14,957,160 B, SHA-256 `F5FEE03DCFDB2E553A4752C283590950AC13316B376D8196AA556FF0400D5F06`, PE timestamp 0x6AB382E4. `game.dll` 15,522,408 B, SHA-256 `2E2C3B7C2500646DADD5F2B4C6E0504DBB7E7896139F64CDDC0D1813C718F51E`, PE timestamp 0x6AB3B43F. |
+| Copies | Exactly **one** copy of every table, before and during the mission. |
+| Where | Every wanted table sits at the start of an allocation (+4) or in the chain behind one. The full sweep (5.07 GB) found nothing the cheap allocation-start pass does not find. |
+| Array form in memory | Absolute pointers, inside the block (+16), for every row table and for the delta storage. |
+| When | 10 of 28 tables at frame 254 (title screen), 23 on the ship, all 28 only after the mission loaded (frame ~11400). The engine must keep looking until a mission. |
+| Table sizes | Identical to the offline snapshot (350 projectile rows, 649 damage rows, 422 explosion rows, 366 weapon records...). |
+| Stratagem cooldown offset | **+104** (90 of the 100 live rows that are also in the snapshot vote for +104, at most 2 for any other offset; the other 10 changed cooldown since the snapshot). The type-alignment guess of +100 was wrong; SHODAN's +104 is right. |
+| Status effects | 71 rows. "Acid Storm" is id 55; its live record has no damage row and no stat multipliers (see §4.8). |
+| Attachment deltas | Same component-index histogram as offline (5 / 236 / 266 / 271 / 321 at the expected offsets). |
+| Cost | Worst frame 9.9 ms, caused by a single VirtualQuery call on a very large region (9.9 ms); average busy frame 1.6 ms; allocation-start pass 4.0 s over 23,524 regions. The patch engine must not query whole regions this way. |
+
+**Open issue from this round:** the tester's game closed (process left hanging) at the moment he threw
+the tank stratagem call-in during the mission. The recon log shows no error and the build is read-only,
+but the cause is NOT established. A/B follow-up by the same tester: same tank call-in with the recon
+disabled: no crash; with the recon enabled again: no crash. The crash did not reproduce in either
+configuration, so it is not attributed to the recon, and it remains a single unexplained event.
+
+Not answered by this round: anything about writing; whether other machines / language versions load
+the tables the same way (one tester so far); which five tables arrive only with the mission.
 
 ## 1. Sources and data snapshot
 
@@ -242,6 +271,13 @@ write. Whether it then does anything to an enemy is open on three counts:
   and the tag component speaks of players, not enemies;
 * even when applied, the effect itself may be nothing but the screen tint.
 
+Live result (recon v0.1.0): the status exists as id 55 "Acid Storm" in the current build, and its
+record is as empty as the snapshot's: strength 1, duration 1, a shading environment, no damage row, no
+multiplier array. So the armor loss is NOT data in this record; it is done by game code. Whether that
+code looks at "this unit has status 55" (then a weapon-applied status would work) or at "the weather is
+an acid storm" (then it would not) can only be found by trying it in Stage 2. The gas statuses are ids
+42/43 ("Gas", 6 s and 10 s) and 44/45 ("Gas_Confusion").
+
 Alternatives that stay inside known mechanics, for the same "acid" idea: (a) the bile acid statuses
 "Acid Splash" / "Acid Stream" — real damage-over-time rows plus a slow, already applied by enemies to
 players; (b) raising the armor penetration of the gas damage-over-time row, which is what "eats armor"
@@ -273,13 +309,14 @@ same fields as §4.1-§4.3. The 5 that reach none are backpacks and shields (§4
 | Stat | Field | Off | T | Conf |
 |---|---|---|---|---|
 | Uses per mission | `uses` (0xFFFFFFFF = unlimited) | +80 | u32 | O-, S |
-| Cooldown | `cooldown_duration_success` | **+100 or +104** | f32 | see below |
+| Cooldown | `cooldown_duration_success` | +104 | f32 | G-read (whole-table vote in game, §0), S |
 | Payload entities | `payload` (array) | +152 | u64[] | O-, S |
 
-**Unresolved offset:** the current record has one more f32 in the run +84..+108 than the old field list.
-Aligning by type puts the cooldown at +100; SHODAN writes +104. With no plaintext copy of this table the
-two cannot be told apart offline. The recon build must settle it by reproducing known values across the
-whole table — the "whole-table self-calibration" the skill describes, needed here for the same reason.
+**Resolved in game:** the current record has one more f32 in the run +84..+108 than the old field list.
+Aligning by type put the cooldown at +100; the recon build compared every live row with the community
+snapshot and +104 won clearly (§0). Lesson kept: a name source that is older than the build cannot place
+a field inside a run of same-typed members; such fields need a whole-table check against known values.
+The live table has 149 rows in 11 groups, including stratagems that are not in the snapshot.
 
 ### 4.10 Energy shields — `ShieldComponentData` (0x5154DB66), keyed, `ShieldComponent` (344 B)
 

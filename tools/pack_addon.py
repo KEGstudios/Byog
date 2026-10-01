@@ -51,6 +51,18 @@ FORBIDDEN = [(re.compile(r"[\w\)\]]\s*//\s*[\w\(]"), "integer division '//'"),
              (re.compile(r"[\w\)\]]\s*(<<|>>)\s*[\w\(]"), "bit shift operator")]
 
 ADDONS = {
+    "tuner": {
+        "source": os.path.join("src", "tuner", "tuner.lua"),
+        "version_file": os.path.join("src", "tuner", "version.txt"),
+        "data": os.path.join("build", "tuner_data.txt"),
+        "resource": "mods/keg/stat_tuner",
+        "title": "HD2 Stat Tuner",
+        "zip": "HD2-Stat-Tuner-v%s.zip",
+        "description": ("Changes weapon and throwable values from a config file: "
+                        "%LOCALAPPDATA%\\HD2StatTuner\\config.txt (created on first run, reload with F10). "
+                        "What happened is written to STATUS.txt in the same folder. "
+                        "Needs Bingus Shared Loader v15 or newer (the loader is the only requirement)."),
+    },
     "recon": {
         "source": os.path.join("src", "recon", "recon.lua"),
         "version_file": os.path.join("src", "recon", "version.txt"),
@@ -140,8 +152,9 @@ def compile_check(text):
     return "ok"
 
 
-def render(kind, version=None):
-    """Substitute version and generated data into the addon source. -> (text, version)."""
+def render(kind, version=None, data=None):
+    """Substitute version and generated data into the addon source. -> (text, version).
+    `data` replaces the generated blob (tests use it to pin their own fake build)."""
     spec = ADDONS[kind]
     with open(os.path.join(ROOT, spec["source"]), encoding="utf-8", newline="") as f:
         text = f.read().replace("\r\n", "\n")
@@ -150,8 +163,9 @@ def render(kind, version=None):
             version = f.read().strip()
     if not re.fullmatch(r"\d+\.\d+\.\d+", version):
         raise ValueError("version must look like 1.2.3")
-    with open(os.path.join(ROOT, spec["data"]), encoding="utf-8") as f:
-        data = f.read()
+    if data is None:
+        with open(os.path.join(ROOT, spec["data"]), encoding="utf-8") as f:
+            data = f.read()
     if "]==]" in data:
         raise ValueError("data blob contains the long-string terminator")
     for token in ("@@VERSION@@", "@@DATA@@"):
@@ -160,7 +174,7 @@ def render(kind, version=None):
     return text.replace("@@VERSION@@", version).replace("@@DATA@@", data), version
 
 
-def package(kind, version=None, out_dir=None):
+def package(kind, version=None, out_dir=None, flat=False):
     spec = ADDONS[kind]
     text, version = render(kind, version)
     check_lua_source(text, spec["resource"])
@@ -192,16 +206,29 @@ def package(kind, version=None, out_dir=None):
         "Addon/" + ARCHIVE_FILE + ".stream": b"",
         "Addon/" + ARCHIVE_FILE + ".gpu_resources": b"",
     }
+    # Second layout seen in released mods: no options, the archive at the zip root. Only built on
+    # request (--flat), as a fallback for a mod manager that refuses the options layout.
+    flat_manifest = {k: v for k, v in manifest.items() if k != "Options"}
+    flat_files = {
+        "manifest.json": (json.dumps(flat_manifest, indent=2) + "\n").encode("utf-8"),
+        ARCHIVE_FILE: archive,
+        ARCHIVE_FILE + ".stream": b"",
+        ARCHIVE_FILE + ".gpu_resources": b"",
+    }
     out_dir = out_dir or os.path.join(ROOT, "dist")
     os.makedirs(out_dir, exist_ok=True)
     zip_path = os.path.join(out_dir, spec["zip"] % version)
-    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as z:
-        for path, content in sorted(files.items()):
-            info = zipfile.ZipInfo(path, date_time=(1980, 1, 1, 0, 0, 0))
-            info.compress_type = zipfile.ZIP_DEFLATED
-            info.external_attr = 0o100644 << 16
-            z.writestr(info, content)
-    return {"zip": zip_path, "version": version, "lua_bytes": len(body), "archive_bytes": len(archive),
+    flat_path = zip_path[:-4] + "-flat.zip"
+    targets = [(zip_path, files)] + ([(flat_path, flat_files)] if flat else [])
+    for target, contents in targets:
+        with zipfile.ZipFile(target, "w", compression=zipfile.ZIP_DEFLATED) as z:
+            for path, content in sorted(contents.items()):
+                info = zipfile.ZipInfo(path, date_time=(1980, 1, 1, 0, 0, 0))
+                info.compress_type = zipfile.ZIP_DEFLATED
+                info.external_attr = 0o100644 << 16
+                z.writestr(info, content)
+    return {"zip": zip_path, "flat_zip": flat_path if flat else None, "version": version, "lua_bytes": len(body),
+            "archive_bytes": len(archive),
             "compile": compiled, "resource_hash": "0x%016X" % murmur64a(spec["resource"].encode())}
 
 
@@ -209,8 +236,9 @@ def main():
     ap = argparse.ArgumentParser(description="Build and package an addon.")
     ap.add_argument("kind", choices=sorted(ADDONS))
     ap.add_argument("--version")
+    ap.add_argument("--flat", action="store_true", help="also build the flat-layout zip")
     a = ap.parse_args()
-    info = package(a.kind, a.version)
+    info = package(a.kind, a.version, flat=a.flat)
     print("built %s" % os.path.relpath(info["zip"], ROOT))
     for k in ("version", "lua_bytes", "archive_bytes", "compile", "resource_hash"):
         print("  %-14s %s" % (k, info[k]))

@@ -50,6 +50,8 @@ class FakeMemory:
         self.read_log = []         # (address, size, ok)
         self.absent_reads = 0      # reads that touched a page marked as not present
         self.bytes_read = 0
+        self.writes = []           # (address, bytes) accepted by the fake WriteProcessMemory
+        self.write_ignored = False # True: writes "succeed" but change nothing (read-back must notice)
 
     def add(self, base, data, protect=PAGE_READWRITE, mtype=MEM_PRIVATE, state=MEM_COMMIT,
             allocation=None, absent=()):
@@ -65,7 +67,16 @@ class FakeMemory:
         return region
 
     def find(self, address):
-        for r in self.regions:
+        # regions are kept sorted by base; tests may also edit the list directly
+        lo, hi = 0, len(self.regions)
+        while lo < hi:
+            mid = (lo + hi) // 2
+            if self.regions[mid]["base"] <= address:
+                lo = mid + 1
+            else:
+                hi = mid
+        if lo:
+            r = self.regions[lo - 1]
             if r["base"] <= address < r["base"] + r["size"]:
                 return r
         return None
@@ -80,8 +91,11 @@ class FakeMemory:
             return struct.pack("<QQIHHQIII4x", r["base"], r["allocation"], r["protect"], 0, 0,
                                r["size"], r["state"], r["protect"], r["type"])
         base = address & ~(PAGE - 1)
-        following = [x["base"] for x in self.regions if x["base"] > address]
-        end = min(following) if following else ADDRESS_END
+        end = ADDRESS_END
+        for x in self.regions:
+            if x["base"] > address:
+                end = x["base"]
+                break
         return struct.pack("<QQIHHQIII4x", base, 0, 0, 0, 0, end - base, MEM_FREE, PAGE_NOACCESS, 0)
 
     def read(self, address, size):
@@ -105,6 +119,42 @@ class FakeMemory:
         if not r or r["state"] != MEM_COMMIT:
             return False
         return ((int(address) - r["base"]) // PAGE) not in r["absent"]
+
+    def attributes(self, address):
+        """PSAPI_WORKING_SET_EX_BLOCK bits: valid, Win32 protection (bits 4..14), shared (bit 15)."""
+        if not self.present(address):
+            return 0
+        r = self.find(int(address))
+        return 1 | ((r["protect"] & 0x7FF) << 4) | (0x8000 if r["type"] != MEM_PRIVATE else 0)
+
+    def allocation(self, address):
+        """MEMORY_REGION_INFORMATION (48 bytes) of the allocation holding `address`, or None when free."""
+        r = self.find(int(address))
+        if not r:
+            return None
+        same = [x for x in self.regions if x["allocation"] == r["allocation"]]
+        size = max(x["base"] + x["size"] for x in same) - r["allocation"]
+        return struct.pack("<QIIQQ16x", r["allocation"], r["protect"], 0, size, size)
+
+    def write(self, address, data):
+        """Like WriteProcessMemory: works on any committed page, read-only ones included."""
+        address = int(address)
+        r = self.find(address)
+        if not r or r["state"] != MEM_COMMIT or address + len(data) > r["base"] + r["size"]:
+            return False
+        self.writes.append((address, bytes(data)))
+        if not self.write_ignored:
+            o = address - r["base"]
+            r["data"][o:o + len(data)] = data
+        return True
+
+    def peek(self, address, fmt):
+        r = self.find(int(address))
+        return struct.unpack_from(fmt, r["data"], int(address) - r["base"])[0]
+
+    def poke(self, address, fmt, value):
+        r = self.find(int(address))
+        struct.pack_into(fmt, r["data"], int(address) - r["base"], value)
 
 
 # ------------------------------------------------------------------ world building
@@ -208,7 +258,8 @@ def _payloads():
     return _cache
 
 
-def build_world(cooldown_at=104, second_copy=True, corrupt=None, corrupt_copy=None, exe_bytes=None):
+def build_world(cooldown_at=104, second_copy=True, corrupt=None, corrupt_copy=None, exe_bytes=None,
+                filler=0):
     """A fake process that looks like the game after its tables are loaded.
 
     cooldown_at    where the synthetic stratagem rows keep their cooldown (the real offset is unknown)
@@ -316,6 +367,15 @@ def build_world(cooldown_at=104, second_copy=True, corrupt=None, corrupt_copy=No
     info["exe_base"] = 0x7FF600000000
     info["exe_bytes"] = bytes(exe)
     mem.add(info["exe_base"], exe[:PAGE * 4], protect=PAGE_READONLY, mtype=MEM_IMAGE)
+    # many small unrelated allocations, like a real process has
+    for i in range(filler):
+        mem.regions.append(dict(base=0x20000000000 + i * 0x10000, size=PAGE, protect=PAGE_READWRITE,
+                                type=MEM_PRIVATE, state=MEM_COMMIT, allocation=0x20000000000 + i * 0x10000,
+                                data=bytearray(PAGE), absent=set()))
+    mem.regions.sort(key=lambda r: r["base"])
+    info["dll_base"] = 0x7FF700000000
+    info["dll_bytes"] = b"MZ" + bytes(range(255, -1, -1)) * 700
+    mem.add(info["dll_base"], info["dll_bytes"][:PAGE * 2], protect=PAGE_READONLY, mtype=MEM_IMAGE)
     return mem, info
 
 
@@ -359,8 +419,15 @@ F['kernel32.dll'] = {
         if py.working_set_fails() then return 0 end
         local entries = ffi.cast('uint64_t *', pages)
         for k = 0, tonumber(bytes) / 16 - 1 do
-            entries[2 * k + 1] = py.present(tonumber(entries[2 * k])) and 1 or 0
+            entries[2 * k + 1] = py.attributes(tonumber(entries[2 * k]))
         end
+        return 1
+    end,
+    GetCurrentProcessId = function() return 4242 end,
+    WriteProcessMemory = function(process, address, buffer, size, got)
+        pointer(process, 'process'); pointer(address, 'address'); pointer(buffer, 'buffer'); pointer(got, 'got')
+        if not py.write(address_of(address), ffi.string(buffer, size)) then got[0] = 0; return 0 end
+        got[0] = size
         return 1
     end,
     CreateDirectoryA = function(path, security) py.mkdir(text(path, 'path')); return 1 end,
@@ -394,6 +461,26 @@ F['kernel32.dll'] = {
         return 1
     end,
     CloseHandle = function(handle) pointer(handle, 'handle'); py.file_close(address_of(handle)); return 1 end,
+}
+F['ntdll.dll'] = {
+    NtQueryVirtualMemory = function(process, address, class, info, size, returned)
+        pointer(process, 'process'); pointer(address, 'address'); pointer(info, 'info'); pointer(returned, 'returned')
+        if class ~= 3 or py.region_info_unsupported() then return -1073741821 end   -- STATUS_INVALID_INFO_CLASS
+        local data = py.allocation(address_of(address))
+        if data == nil then return -1073741503 end                                 -- STATUS_INVALID_ADDRESS
+        if tonumber(size) < 32 then return -1073741820 end
+        ffi.copy(info, data, math.min(tonumber(size), 48))
+        return 0
+    end,
+}
+F['user32.dll'] = {
+    GetAsyncKeyState = function(vk) return py.key(vk) and -32768 or 0 end,
+    GetForegroundWindow = function() return ffi.cast('void *', py.foreground() and 0x777 or 0x888) end,
+    GetWindowThreadProcessId = function(window, id)
+        pointer(window, 'window'); pointer(id, 'id')
+        id[0] = address_of(window) == 0x777 and 4242 or 1
+        return 1
+    end,
 }
 F['bcrypt.dll'] = {
     BCryptOpenAlgorithmProvider = function(algorithm, name, implementation, flags)
@@ -438,8 +525,11 @@ class Game:
 
     FRAME_US = 16667
 
-    def __init__(self, source, memory, info, loader_api=1, has_update=True, working_set_fails=False):
+    def __init__(self, source, memory, info, loader_api=1, has_update=True, working_set_fails=False,
+                 global_name="HD2StatTunerRecon", log_name="recon.log", config=None, region_info=True):
         self.memory, self.info = memory, info
+        self.global_name, self.log_name = global_name, log_name
+        self.keys, self.in_front, self.region_info = set(), True, region_info
         self.clock_us = 1000000
         self.frame_cost = []           # fake microseconds the addon spent in each frame
         self.resolved = []
@@ -448,11 +538,20 @@ class Game:
         self.exe_path = os.path.join(self.tmp, "helldivers2.exe")
         with open(self.exe_path, "wb") as f:
             f.write(info["exe_bytes"])
+        self.dll_path = os.path.join(self.tmp, "game.dll")
+        with open(self.dll_path, "wb") as f:
+            f.write(info.get("dll_bytes", b""))
+        if config is not None:
+            self.write_config(config)
         self.working_set_fails = working_set_fails
         self.lua = LuaRuntime(encoding=None, unpack_returned_tuples=True)
         g = self.lua.globals()
         g[b"HD2ST_PY"] = self.lua.table_from({
-            b"read": self._read, b"query": self.memory.query, b"present": self.memory.present,
+            b"read": self._read, b"query": self._query, b"present": self.memory.present,
+            b"attributes": self.memory.attributes, b"allocation": self._allocation,
+            b"write": self.memory.write, b"key": lambda vk: int(vk) in self.keys,
+            b"foreground": lambda: self.in_front,
+            b"region_info_unsupported": lambda: not self.region_info,
             b"working_set_fails": lambda: self.working_set_fails,
             b"mkdir": self._mkdir, b"clock": self._clock, b"module": self._module,
             b"module_path": self._module_path, b"file_open": self._file_open,
@@ -485,16 +584,50 @@ class Game:
         self.clock_us += 2 + int(size) // 4000         # 256 KB costs about 65 fake microseconds
         return self.memory.read(address, size)
 
+    def _query(self, address):
+        self.clock_us += 2
+        return self.memory.query(address)
+
+    def _allocation(self, address):
+        self.clock_us += 2
+        return self.memory.allocation(address)
+
+    def write_config(self, text):
+        folder = os.path.join(self.tmp, "HD2StatTuner")
+        os.makedirs(folder, exist_ok=True)
+        with open(os.path.join(folder, "config.txt"), "wb") as f:
+            f.write(text.replace("\n", "\r\n").encode("utf-8"))
+
+    def read_out(self, name):
+        try:
+            with open(self.out_path(name), "rb") as f:
+                return f.read().decode("utf-8", "replace")
+        except OSError:
+            return ""
+
+    def press(self, vk=0x79):
+        """Holds a key for two frames (F10 by default)."""
+        self.keys.add(vk)
+        self.frames(2)
+        self.keys.discard(vk)
+        self.frames(1)
+
     def _mkdir(self, path):
         os.makedirs(path.decode(), exist_ok=True)
 
     def _module(self, name):
         if name is None:
             return self.info["exe_base"]
-        return None                                      # game.dll is not loaded in the fake
+        if name == b"game.dll" and self.global_name != "HD2StatTunerRecon":
+            return self.info.get("dll_base")
+        return None                                      # the recon tests run without game.dll
 
     def _module_path(self, base):
-        return self.exe_path.encode() if int(base) == self.info["exe_base"] else None
+        if int(base) == self.info["exe_base"]:
+            return self.exe_path.encode()
+        if int(base) == self.info.get("dll_base"):
+            return self.dll_path.encode()
+        return None
 
     def _file_open(self, path):
         try:
@@ -548,7 +681,7 @@ class Game:
         self.clock_us += int(seconds * 1000000)
 
     def state(self):
-        return self.lua.globals()[b"HD2StatTunerRecon"]
+        return self.lua.globals()[self.global_name.encode()]
 
     def out_path(self, name):
         return os.path.join(self.tmp, "HD2StatTuner", name)
@@ -562,7 +695,7 @@ class Game:
 
     def log_text(self):
         try:
-            with open(self.out_path("recon.log"), "rb") as f:
+            with open(self.out_path(self.log_name), "rb") as f:
                 return f.read().decode("utf-8", "replace")
         except OSError:
             return ""
@@ -577,6 +710,6 @@ class Game:
         shutil.rmtree(self.tmp, ignore_errors=True)
 
 
-def addon_source(kind="recon"):
-    text, _version = pack_addon.render(kind)
+def addon_source(kind="recon", data=None):
+    text, _version = pack_addon.render(kind, data=data)
     return text

@@ -205,6 +205,13 @@ def resolve_weapon(T, ent):
             if v > 0:
                 stat(stats, sid, "ProjectileWeaponComponentData", key, "ProjectileWeaponComponent",
                      "rounds_per_minute[%d]" % i, fire)
+    if fire:
+        # the only per-weapon damage / speed knobs (everything else sits in shared rows)
+        for sid, path in (("damage_bonus", "damage_addends.normal"),
+                          ("durable_damage_bonus", "damage_addends.durable"),
+                          ("ap_bonus", "ap_addends.normal"), ("durable_ap_bonus", "ap_addends.durable"),
+                          ("speed_multiplier", "speed_multiplier")):
+            stat(stats, sid, "ProjectileWeaponComponentData", key, "ProjectileWeaponComponent", path, fire)
     if proj and projectile_stats(T, stats, proj) is not None:
         source.append("projectile:%d" % proj)
     bw = T.beam_weapon.record(ent)

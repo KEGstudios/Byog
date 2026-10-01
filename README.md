@@ -6,8 +6,8 @@ memory, for private lobbies with friends. No in-game UI yet; the engine will rea
 | Stage | State |
 |---|---|
 | 0 Offline research | done — `docs/STAT-MAP.md` |
-| 1 Read-only recon addon | **built and tested offline, waiting for the first in-game test round** (`TEST-v0.1.md`) |
-| 2 Patch engine + config format | not started |
+| 1 Read-only recon addon | done — first in-game round OK: 28 of 28 tables, 4074 of 4074 values (`docs/STAT-MAP.md` §0) |
+| 2 Patch engine + config format | **v0.2.0 built and tested offline, waiting for the first in-game write test** (`TEST-v0.2.md`, `docs/CONFIG-FORMAT.md`) |
 | 3 All categories | not started |
 | 4 Multiplayer presets | not started |
 
@@ -17,7 +17,9 @@ memory, for private lobbies with friends. No in-game UI yet; the engine will rea
 |---|---|
 | `docs/STAT-MAP.md` | every stat: table, field, offset, type, source, confidence |
 | `docs/LAYOUTS.txt` | generated record layouts |
+| `src/tuner/tuner.lua` | the patch engine (config-driven; version in `src/tuner/version.txt`) |
 | `src/recon/recon.lua` | the recon addon (read-only; version in `src/recon/version.txt`) |
+| `docs/CONFIG-FORMAT.md` | the config file format |
 | `tools/` | offline analysis and build tooling (Python 3.10+, standard library only) |
 | `tests/` | offline tests: fake game (`harness.py`), mutation tests, real-Windows-API test |
 | `TEST-v0.1.md` | tester checklist for the current build (Turkish) |
@@ -31,7 +33,9 @@ python tools/dump_typelib.py          # typelib -> data/typelib_all.json
 python tools/build_catalog.py         # every stat chain resolved -> data/catalog.json
 python tools/gen_recon_data.py        # what the recon addon looks for -> build/recon_data.txt
 python tools/pack_addon.py recon      # -> build/recon.lua, dist/HD2-Stat-Tuner-Recon-v<ver>.zip
-python -m unittest tests.test_recon tests.test_real_ffi
+python tools/gen_tuner_data.py        # items, fields, ranges, verified builds -> build/tuner_data.txt
+python tools/pack_addon.py tuner      # -> build/tuner.lua, dist/HD2-Stat-Tuner-v<ver>.zip
+python -m unittest tests.test_tuner tests.test_real_tuner tests.test_recon tests.test_real_ffi
 ```
 
 The tests need `lupa` (LuaJIT runtime for Python): `python -m venv .venv`, then
