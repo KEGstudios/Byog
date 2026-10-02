@@ -615,7 +615,7 @@ def check_own_bullet_only_where_defined(mutate=None):
     try:
         status = rig.settle()
         assert "own_bullet is not available for this weapon yet" in status
-        assert "own_bullet takes true or false" in status
+        assert "own_bullet takes true, false or new" in status
         assert rig.mem.peek(rig.damage, "<I") == 100              # the plain line still works (shared row)
         assert len(rig.mem.writes) == 1
     finally:
@@ -769,6 +769,119 @@ def check_probe_waits_until_every_table_is_loaded(mutate=None):
         assert "probe: done" in rig.game.status(), rig.game.status()[:900]
         assert "[DamageSettings] block" in rig.game.read_out("PROBE.txt")
         assert rig.mem.writes == []
+    finally:
+        rig.close()
+
+
+INDEX_RVA, INDEX_SLOTS = gen_tuner_data.INDEXES["release/01.007.101/19155"]["ProjectileSettings"]
+NEW_CONFIG = "[weapon: assault_rifle]\nown_bullet = new\ndamage = 5000\nvelocity = 1200\n"
+
+
+def add_game_index(rig, wrong_id=None, block=None):
+    """game.dll's id-indexed array of projectile row pointers, in image pages the game has written to.
+
+    wrong_id: that id leads to the row of another id (an index this version was not measured on)."""
+    t = hd2db.table("ProjectileSettings")
+    rows_at = (block if block is not None else rig.blocks["ProjectileSettings"][0]) + 24 + 16
+    page = bytearray(0x2000)
+    ids = t.by_id()
+    assert max(ids) + 1 == INDEX_SLOTS
+    for row_id, row in ids.items():
+        if row_id == wrong_id:
+            row = ids[row_id + 1]
+        struct.pack_into("<Q", page, INDEX_RVA % 0x1000 + 8 * row_id, rows_at + row * t.stride)
+    base = rig.info["dll_base"] + INDEX_RVA - INDEX_RVA % 0x1000
+    region = rig.mem.add(base, bytes(page), mtype=harness.MEM_IMAGE, allocation=rig.info["dll_base"])
+    region["written"] = True
+    return rig.info["dll_base"] + INDEX_RVA
+
+
+def in_game_dll(rig, address):
+    return rig.info["dll_base"] <= address < rig.info["dll_base"] + INDEX_RVA + 0x1000   # the fake image ends there
+
+
+def check_new_projectile_id_in_memory_of_our_own(mutate=None):
+    rig = Rig(NEW_CONFIG, mutate)
+    try:
+        a = own_addresses(rig)
+        index = add_game_index(rig)
+        before = snapshot(rig)
+        stock_projectile = row_bytes(rig, a["src_projectile"], 272)
+        spare_projectile = row_bytes(rig, a["new_projectile"], 272)
+        stock_damage = row_bytes(rig, a["src_damage"], 76)
+        status = rig.settle()
+        assert first_line(status) == "OK - 2 values applied, 1 weapons on their own bullet", status[:1500]
+        # one allocation of our own, above game.dll
+        assert len(rig.mem.allocs) == 1, rig.mem.allocs
+        own_base, own_size = rig.mem.allocs[0]
+        assert own_base > index and own_size == 0x10000
+        # the weapon and its ammo attachment carry an id no real row has, and it fits 31 bits
+        new_id = rig.mem.peek(a["pointer"], "<I")
+        assert INDEX_SLOTS < new_id < 2 ** 31, new_id
+        assert rig.mem.peek(a["ammo"], "<I") == new_id
+        assert rig.mem.peek(a["stalwart"], "<I") == SRC_PROJECTILE
+        # what the game does with that id: [index + id * 8] is a pointer to the row
+        row = rig.mem.peek(index + 8 * new_id, "<Q")
+        assert own_base <= row and row + 272 <= own_base + own_size, hex(row)
+        want = bytearray(stock_projectile)
+        struct.pack_into("<I", want, 0, new_id)
+        struct.pack_into("<I", want, 60, NEW_DAMAGE)
+        struct.pack_into("<f", want, 32, 1200.0)
+        assert row_bytes(rig, row, 272) == bytes(want)
+        # damage still goes to the spare damage row
+        want = bytearray(stock_damage)
+        struct.pack_into("<I", want, 0, NEW_DAMAGE)
+        struct.pack_into("<i", want, 4, 5000)
+        assert row_bytes(rig, a["new_damage"], 76) == bytes(want)
+        # no projectile row of the game was touched, and nothing inside game.dll was written
+        assert row_bytes(rig, a["src_projectile"], 272) == stock_projectile
+        assert row_bytes(rig, a["new_projectile"], 272) == spare_projectile
+        assert not [hex(address) for address, _data in rig.mem.writes if in_game_dll(rig, address)]
+        # the switches came last
+        order = [address for address, _data in rig.mem.writes]
+        first_switch = min(i for i, address in enumerate(order) if address in (a["pointer"], a["ammo"]))
+        assert all(address in (a["pointer"], a["ammo"]) for address in order[first_switch:]), order[first_switch:]
+        assert "OWN BULLET ACTIVE: projectile row 276 -> NEW ID %d, damage row 108 -> 55" % new_id in status, status
+        assert "[own rows] ready" in status and "assault_rifle: projectile id %d" % new_id in status
+        # take it back: the game's memory is exactly as before (our own block stays, unused)
+        status = rig.reload("")
+        assert first_line(status) == "OK - no changes configured", first_line(status)
+        after = snapshot(rig)
+        assert all(after[base] == data for base, data in before.items())
+        # asking again reuses the same id: no second allocation, no second row
+        rig.reload(NEW_CONFIG)
+        assert rig.mem.peek(a["pointer"], "<I") == new_id and len(rig.mem.allocs) == 1
+    finally:
+        rig.close()
+
+
+def check_new_projectile_id_needs_a_proven_index(mutate=None):
+    for world in ("wrong", "absent", "moved"):
+        rig = Rig(NEW_CONFIG, mutate)
+        try:
+            a = own_addresses(rig)
+            if world == "wrong":
+                add_game_index(rig, wrong_id=200)                 # one id leads to another row
+            elif world == "moved":
+                add_game_index(rig, block=0x1EF00000000)          # pointers into a table that is not there
+            status = rig.settle()
+            assert rig.mem.peek(a["pointer"], "<I") == SRC_PROJECTILE, world
+            assert rig.mem.peek(a["ammo"], "<I") == SRC_PROJECTILE, world
+            assert "OWN BULLET WAITING" in status, (world, status[:1500])
+            reason = "is not in memory yet" if world == "absent" else "does not lead to the rows of the table"
+            assert reason in status, (world, status[:1500])
+            assert first_line(status).startswith("PARTIAL"), first_line(status)
+        finally:
+            rig.close()
+
+
+def check_new_projectile_id_only_on_a_verified_build(mutate=None):
+    rig = Rig(NEW_CONFIG, mutate, wrong_build=True)
+    try:
+        add_game_index(rig)
+        rig.settle()
+        rig.game.frames(300)
+        assert rig.mem.allocs == [] and rig.mem.writes == []
     finally:
         rig.close()
 
@@ -949,6 +1062,27 @@ MUTATIONS = [
      "            probe.note = 'waiting for ' .. name .. ', which is not loaded yet'\n            return false",
      "            probe.note = 'waiting for ' .. name .. ', which is not loaded yet'",
      check_probe_waits_until_every_table_is_loaded),
+    ("new id: weapon switched although the index is not proven",
+     "            elseif want.needs_index and not index_ok then",
+     "            elseif false then",
+     check_new_projectile_id_needs_a_proven_index),
+    ("new id: index accepted without comparing it with the table",
+     "                    if id < 1 or id >= known.slots or A.words[2 * id + 1] ~= high\n"
+     "                        or A.words[2 * id] ~= address - high * 4294967296 then",
+     "                    if id < 1 or id >= known.slots then",
+     check_new_projectile_id_needs_a_proven_index),
+    ("new id: our row keeps the shared damage row",
+     "        if offset == 0 then word = id elseif offset == OWN_DAMAGE_AT then word = damage end",
+     "        if offset == 0 then word = id end",
+     check_new_projectile_id_in_memory_of_our_own),
+    ("new id: slot and id do not belong together",
+     "    own.index, own.first_id, own.state = index, (address + OWN_SLOTS_AT - index) / 8, 'ready'",
+     "    own.index, own.first_id, own.state = index, (address - index) / 8, 'ready'",
+     check_new_projectile_id_in_memory_of_our_own),
+    ("new id: stats still go to the shared projectile row",
+     "        if t.fresh then\n            -- a row of our own starts as a copy of the weapon's round",
+     "        if false then\n            -- a row of our own starts as a copy of the weapon's round",
+     check_new_projectile_id_in_memory_of_our_own),
     ("reload key not debounced",
      "        if pressed_at - last_key_reload >= RELOAD_DEBOUNCE then",
      "        if true then",

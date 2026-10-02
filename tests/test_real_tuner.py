@@ -90,7 +90,9 @@ class RealApi(unittest.TestCase):
             f.write("[settings]\nauto_reload_seconds = 1\n[weapon: assault_rifle]\n"
                     "damage = 120\nrpm = 150%\nvelocity = 1000\n")
 
-        blob, _stats = gen_tuner_data.generate(builds=[("this python", exe_hash, dll_hash)])
+        # test_5 plants an id-indexed array of row pointers at rva 0x3100 of game.dll (the slot of id 1)
+        blob, _stats = gen_tuner_data.generate(builds=[("this python", exe_hash, dll_hash)],
+                                               indexes={"ProjectileSettings": (0x30F8, 351)})
         source, _version = pack_addon.render("tuner", data=blob)
         cls.lua = LuaRuntime(encoding=None, unpack_returned_tuples=True)
         cls.lua.execute(b"""
@@ -233,6 +235,35 @@ class RealApi(unittest.TestCase):
         self.assertIn("module: game.dll, array at rva 0x3100 (section .rdata,", section)
         self.assertIn("code naming array +0: 1\r\n  rip at rva 0x%X: " % (code_rva + 3), section)
         self.assertRegex(section, r"64 slots before: .* 0x%X\r\n" % len(ids))
+
+    def test_6_new_projectile_id_through_real_memory(self):
+        import re
+        base = self.dll._handle
+        ctypes.memmove(base + 0x30F8, bytes(8), 8)                      # the slot of id 0 is empty in the game
+        with open(self.config_path, "w") as f:
+            f.write("[settings]\nauto_reload_seconds = 1\n[weapon: assault_rifle]\nown_bullet = new\nvelocity = 1200\n")
+        status = type(self).run_until(lambda s: "velocity: 900 -> 1200 (own row)  APPLIED" in s, seconds=120)
+        self.assertIn("[own rows] ready", status, status[:2500])
+        m = re.search(r"block (0x[0-9A-F]+), game index (0x[0-9A-F]+), first new id (\d+)", status)
+        self.assertTrue(m, status[:2500])
+        block, index, new_id = int(m.group(1), 16), int(m.group(2), 16), int(m.group(3))
+        self.assertEqual(index, base + 0x30F8)
+        self.assertGreater(block, index)
+        self.assertLess(new_id, 2 ** 31)
+        # the block is real, private, writable memory that Windows gave us at the address we asked for
+        self.assertEqual(self.page_protection(block), PAGE_READWRITE)
+        # what the game would do with the new id: [index + id * 8] -> the row
+        row = self.peek(index + 8 * new_id, "<Q")
+        self.assertTrue(block <= row < block + 0x10000, hex(row))
+        self.assertEqual(self.peek(row, "<I"), new_id)
+        self.assertEqual(self.peek(row + 32, "<f"), 1200.0)
+        self.assertEqual(self.peek(row + 60, "<I"), 55)
+        # the weapon was switched to it; the shared row of the game is untouched
+        deadline = time.time() + 60
+        while time.time() < deadline and self.peek(self.fire_block + 24 + self.fire_table.record_offset(LIBERATOR), "<I") != new_id:
+            type(self).run_until(lambda s: False, seconds=1)
+        self.assertEqual(self.peek(self.fire_block + 24 + self.fire_table.record_offset(LIBERATOR), "<I"), new_id)
+        self.assertEqual(self.peek(self.velocity_address(), "<f"), 900.0)
 
 
 if __name__ == "__main__":

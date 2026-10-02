@@ -473,6 +473,21 @@ ids are fixed at build time (an id without a slot cannot be looked up, so tables
 extended with new ids), and the number of things that can have a projectile of their own is bounded by
 the number of unused ids: 80 projectile, 164 damage, 225 explosion rows offline.
 
+**Second probe (v0.3.2): the lookups, decoded from the code that uses the arrays.** game.dll keeps the
+arrays in its writable data section (rva: damage 0x37C60C8, projectile 0x37C7678, explosion 0x37CC928 for
+the slot of id 1; the code addresses `array - 8`, the slot of id 0). A lookup is
+`id == 0 ? &default_row : index[id]`, inlined in 64 (projectile), 487 (damage) and 46 (explosion) places.
+ProjectileSettings and DamageSettings ids are NOT compared with a row count (8 projectile sites and the
+stand-alone damage accessor at rva 0x11F8EA7 were read); ExplosionSettings ids are (`cmp eax, 423`), with
+the default row as fallback. The table loader clears slots 0..N and refills them on every load.
+
+**New ids without touching game code (tuner v0.4.0, `own_bullet = new`, not yet tested in game):**
+because the projectile id is unchecked and 32 bits wide, an id far above 350 reads its slot from memory
+above game.dll. The mod allocates a block there, puts a copy of the weapon's row and a pointer to it
+inside, and gives the weapon the id that lands on that pointer. Open questions only the game can
+answer: other per-projectile-id arrays, narrower copies of the id (network packing), the 56 sites not
+read. Explosion rows cannot get new ids (bounds check); 225 spare rows exist there.
+
 ### 6.3 Copies, reloads, drift
 Per the skill's case studies: several copies of a table can exist in memory, new copies appear on
 mission load, table sizes / record counts / enum ids change with game updates. Hence: locate by

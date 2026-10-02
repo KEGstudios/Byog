@@ -55,6 +55,11 @@ is **rejected** (never clamped) and reported in STATUS.txt with the range.
   only. The rows it takes over are rows nothing in the game data refers to; if the game uses them after
   all, whatever uses them fires this weapon's round while the mod is active. Removing the line puts the
   weapon and both rows back exactly as they were.
+* **`own_bullet = new`** (more experimental; solo play only): the same, but the projectile row is a
+  brand-new one in memory the mod allocates, reached through a projectile id the game does not have.
+  No spare projectile row is used up. The game is never switched to the new id unless its row index
+  was first checked against the table. Other players without the mod do not have this id: do not use
+  it in multiplayer until that has been tested.
 * Stats whose live value comes from a default attachment (magazine size on some weapons, see
   STAT-MAP §6.2) are refused in this version with a clear reason; they are Stage 3 work.
 * The mod writes nothing unless the game's executable and game.dll match a build it was verified on.

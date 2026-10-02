@@ -54,6 +54,7 @@ class FakeMemory:
         self.writes = []           # (address, bytes) accepted by the fake WriteProcessMemory
         self.protects = []         # (page address, new protection) accepted by the fake VirtualProtect
         self.write_ignored = False # True: writes "succeed" but change nothing (read-back must notice)
+        self.allocs = []           # (address, size) handed out by the fake VirtualAlloc
 
     def add(self, base, data, protect=PAGE_READWRITE, mtype=MEM_PRIVATE, state=MEM_COMMIT,
             allocation=None, absent=()):
@@ -165,6 +166,18 @@ class FakeMemory:
             o = address - r["base"]
             r["data"][o:o + len(data)] = data
         return True
+
+    def alloc(self, address, size):
+        """Like VirtualAlloc(address, size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE) with a fixed address."""
+        address, size = int(address), page_up(int(size))
+        if address == 0 or address % 0x10000 or address + size > ADDRESS_END:
+            return None
+        for r in self.regions:
+            if address < r["base"] + r["size"] and r["base"] < address + size:
+                return None
+        self.add(address, bytes(size))
+        self.allocs.append((address, size))
+        return address
 
     def peek(self, address, fmt):
         r = self.find(int(address))
@@ -449,6 +462,11 @@ F['kernel32.dll'] = {
         old[0] = previous
         return 1
     end,
+    VirtualAlloc = function(address, size, kind, protection)
+        pointer(address, 'address')
+        if kind ~= 0x3000 or protection ~= 4 then return ffi.cast('void *', 0) end
+        return ffi.cast('void *', py.alloc(address_of(address), tonumber(size)) or 0)
+    end,
     WriteProcessMemory = function(process, address, buffer, size, got)
         pointer(process, 'process'); pointer(address, 'address'); pointer(buffer, 'buffer'); pointer(got, 'got')
         if not py.write(address_of(address), ffi.string(buffer, size)) then got[0] = 0; return 0 end
@@ -574,7 +592,7 @@ class Game:
         g[b"HD2ST_PY"] = self.lua.table_from({
             b"read": self._read, b"query": self._query, b"present": self.memory.present,
             b"attributes": self.memory.attributes, b"allocation": self._allocation,
-            b"write": self.memory.write, b"protect": self.memory.protect,
+            b"write": self.memory.write, b"protect": self.memory.protect, b"alloc": self.memory.alloc,
             b"key": lambda vk: int(vk) in self.keys,
             b"foreground": lambda: self.in_front,
             b"region_info_unsupported": lambda: not self.region_info,

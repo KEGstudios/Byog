@@ -50,6 +50,12 @@ BUILDS = [
      "2E2C3B7C2500646DADD5F2B4C6E0504DBB7E7896139F64CDDC0D1813C718F51E"),
 ]
 
+# Where game.dll keeps its id-indexed arrays of row pointers, measured in game (probe v0.3.2):
+# build label -> table -> (rva of the slot of id 0, number of slots = highest id + 1).
+INDEXES = {
+    "release/01.007.101/19155": {"ProjectileSettings": (0x37C7670, 351)},
+}
+
 CATEGORY = {"primary": "weapon", "secondary": "weapon", "support": "weapon", "melee": "weapon",
             "throwable": "throwable"}
 SKIP_STATS = {"mode"}          # enum fields are not numbers; id-type stats come in Stage 3
@@ -121,13 +127,19 @@ def num(v, storage):
     return str(int(v))
 
 
-def generate(builds=None):
-    """-> (blob text, stats dict)"""
+def generate(builds=None, indexes=None):
+    """-> (blob text, stats dict)
+
+    builds   test builds instead of BUILDS: [(label, exe sha256, dll sha256)]
+    indexes  {table: (rva, slots)} for those test builds (default: the latest measured ones)"""
     with open(os.path.join(ROOT, "data", "catalog.json"), encoding="utf-8") as f:
         cat = json.load(f)
     lines = []
     for label, exe, dll in (BUILDS if builds is None else builds):
         lines.append("V|%s|%s|%s" % (label, exe, dll))
+        known = indexes if indexes is not None else INDEXES.get(label, list(INDEXES.values())[-1])
+        for table, (rva, slots) in sorted(known.items()):
+            lines.append("N|%s|%s|%X|%d" % (label, table, rva, slots))
     tables, items, fields, stats_seen, unranged = {}, [], [], set(), set()
     for it in cat["items"]:
         category = CATEGORY.get(it["category"])
