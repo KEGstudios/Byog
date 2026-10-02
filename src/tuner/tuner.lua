@@ -1740,7 +1740,7 @@ local function sync_field(entry, value)
     state.step = 'applying ' .. field.table
     local range = nil
     for _, user in ipairs(field.users) do range = range or RANGES[user:match('%.(.+)$')] end
-    local seen, done, waiting = {}, 0, 0
+    local seen, done, waiting, absent = {}, 0, 0, 0
     for _, block in ipairs(spec.blocks) do
         seen[block.address] = true
         if parse_block(block) then
@@ -1793,12 +1793,17 @@ local function sync_field(entry, value)
                     end
                 end
             else
-                entry.note = 'record not found in the table'
+                absent = absent + 1
             end
         else
             waiting = waiting + 1
         end
         pause()
+    end
+    -- Several blocks of one type are either copies of one table or its groups (stratagems): the record
+    -- has to be in at least one of them.
+    if absent > 0 and done == 0 and waiting == 0 and not entry.note and next(entry.copies) == nil then
+        entry.note = 'record not found in the table'
     end
     for address in pairs(entry.copies) do
         if not seen[address] then entry.copies[address] = nil end   -- that copy is gone

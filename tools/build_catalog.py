@@ -296,6 +296,64 @@ def resolve_throwable(T, ent):
     return {"sources": ["throwable"] if th else [], "stats": stats}
 
 
+def resolve_equipment(T):
+    """Backpacks, shields and vehicles: one component record per entity, nothing shared."""
+    out = []
+
+    def add(category, ent, path, stats):
+        if stats and not any("error" in s for s in stats):
+            out.append({"category": category, "entity": "%016X" % ent, "path": path, "sources": [category],
+                        "stats": stats})
+
+    deposit, shield = hd2db.table("DepositComponentData"), hd2db.table("ShieldComponentData")
+    health, vehicle = hd2db.table("HealthComponentData"), hd2db.table("VehicleComponentData")
+    for ent in sorted(deposit.index):
+        path = hashnames.name(ent)
+        if path and "/fac_helldivers/equipment/backpacks/" in path:
+            stats, key, rec = [], "%016X" % ent, deposit.record(ent)
+            for sid, field in (("charges", "capacity"), ("charges_start", "start_amount"),
+                               ("charges_refill", "refill_amount")):
+                stat(stats, sid, "DepositComponentData", key, "DepositComponent", field, rec)
+            add("backpack", ent, path, stats)
+    for ent in sorted(shield.index):
+        path = hashnames.name(ent)
+        if path and "/fac_helldivers/" in path:
+            stats, key, rec = [], "%016X" % ent, shield.record(ent)
+            stat(stats, "shield_health", "ShieldComponentData", key, "ShieldComponent", "charge", rec)
+            stat(stats, "shield_radius", "ShieldComponentData", key, "ShieldComponent", "radius", rec)
+            add("shield", ent, path, stats)
+    for ent in sorted(vehicle.index):
+        path = hashnames.name(ent)
+        rec = health.record(ent)
+        if path and "/fac_helldivers/vehicles/" in path and rec is not None:
+            stats, key = [], "%016X" % ent
+            stat(stats, "health", "HealthComponentData", key, "HealthComponent", "health", rec)
+            add("vehicle", ent, path, stats)
+    return out
+
+
+def live_stratagems():
+    """Stratagem rows as read in game (tools/live_stratagems.txt): the table is not in the offline data.
+    Offsets: uses +80 and cooldown +104 of StratagemInfo, both settled by the recon run (STAT-MAP 4.9)."""
+    out, seen = [], {}
+    with open(os.path.join(HERE, "live_stratagems.txt"), encoding="utf-8") as f:
+        for line in f:
+            if line.startswith("#") or not line.strip():
+                continue
+            row_id, name, uses, cooldown = line.rstrip("\n").split("|")
+            slug = "_".join("".join(c.lower() if c.isalnum() else " " for c in name).split())
+            seen[slug] = seen.get(slug, 0) + 1
+            if seen[slug] > 1:
+                slug += "_%d" % seen[slug]
+            row = {"table": "StratagemSettings", "key": int(row_id), "record": "StratagemInfo"}
+            out.append({"category": "stratagem", "entity": "%016X" % int(row_id), "path": "stratagems/" + slug,
+                        "sources": ["live:" + name], "stats": [
+                            dict(row, id="cooldown", field="cooldown_duration_success", offset=104, storage="FP32",
+                                 original=float(cooldown)),
+                            dict(row, id="uses", field="uses", offset=80, storage="UINT32", original=int(uses))]})
+    return out
+
+
 def armor(T):
     """Armor kits (weight class per piece), passives (modifier lists) and the avatar's movement block."""
     out = {"kits": [], "passives": [], "avatar": []}
@@ -373,6 +431,7 @@ def main():
             seen.add(ent)
             r = resolve_throwable(T, ent) if cat == "throwable" else resolve_weapon(T, ent)
             items.append({"category": cat, "entity": "%016X" % ent, "path": path, **r})
+    items += resolve_equipment(T) + live_stratagems()
     unnamed = sorted("%016X" % e for e in T.weapon.index if hashnames.name(e) is None)
     cat = {"snapshot": {"source": "FileDiver datalibrary mirror", "projectile_rows": T.projectile.count,
                         "damage_rows": T.damage.count, "explosion_rows": T.explosion.count},
@@ -391,7 +450,7 @@ def main():
     src = collections.Counter(tuple(s.split(":")[0] for s in i["sources"]) for i in items)
     print("damage sources:", dict(src))
     nostat = [i["path"] for i in items if not any(s.get("id") == "damage" for s in i["stats"])
-              and i["category"] != "throwable"]
+              and i["category"] in ("primary", "secondary", "support", "melee")]
     print("weapons with no damage row resolved: %d" % len(nostat))
     for p in nostat:
         print("    ", p)

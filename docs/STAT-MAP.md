@@ -358,6 +358,9 @@ Aligning by type put the cooldown at +100; the recon build compared every live r
 snapshot and +104 won clearly (§0). Lesson kept: a name source that is older than the build cannot place
 a field inside a run of same-typed members; such fields need a whole-table check against known values.
 The live table has 149 rows in 11 groups, including stratagems that are not in the snapshot.
+Tuner v0.10.0 (offline-tested, not yet in game) edits `cooldown` and `uses` per row; the rows and their
+stock values come from that recon run (`tools/live_stratagems.txt`), not from the snapshot. The row id
+is at +4 and a row is in exactly one of the 11 group blocks.
 
 ### 4.10 Energy shields — `ShieldComponentData` (0x5154DB66), keyed, `ShieldComponent` (344 B)
 
@@ -557,6 +560,9 @@ only) and byte-for-byte twins of rows in use, and avoids large or silent rows. A
 word-by-word copy of the item's row; the array head at +40..+52 holds addresses and is copied from the
 source row in memory. Switches: the weapon's own projectile row (+144 / +156), or the item's component
 record. `canary = true` marks all 24 rows with the smoke grenade's explosion as the in-game test.
+**In game (v0.9.0, one tester): works** - GL-21 on borrowed row 258 and the frag grenade on 371, each
+with a new damage id; other grenades and explosives unchanged; restore ok; errors 0. Canary: two
+missions, no unexpected smoke, limited coverage. Open, like the multiplayer host test.
 
 ### 6.3 Copies, reloads, drift
 Per the skill's case studies: several copies of a table can exist in memory, new copies appear on

@@ -447,7 +447,7 @@ def check_api(mutate=None):
     try:
         rig.settle()
         api = rig.game.state()[b"api"]
-        assert sorted(x for x in api[b"categories"]().values()) == [b"throwable", b"weapon"]
+        assert sorted(x for x in api[b"categories"]().values()) == [b"backpack", b"shield", b"stratagem", b"throwable", b"vehicle", b"weapon"]
         stats = {s[b"id"]: s for s in api[b"stats"](b"weapon", b"assault_rifle").values()}
         assert stats[b"damage"][b"game"] == 90 and stats[b"damage"][b"shared_with"] == 3
         assert stats[b"capacity"][b"editable"] is False
@@ -977,7 +977,7 @@ def catalog_stat(weapon, stat):
     if not _CATALOG:
         with open(os.path.join(ROOT, "data", "catalog.json"), encoding="utf-8") as f:
             for it in json.load(f)["items"]:
-                _CATALOG[it["path"].rsplit("/", 1)[-1]] = it
+                _CATALOG.setdefault(it["path"].rsplit("/", 1)[-1], it)      # weapons and throwables come first
     it = _CATALOG[weapon]
     return it, next(s for s in it["stats"] if s.get("id") == stat)
 
@@ -1293,6 +1293,67 @@ def check_canary_marks_every_row_that_may_be_borrowed(mutate=None):
         rig.close()
 
 
+def stratagem_in_the_fake_world(rig):
+    """A stratagem that is both in the list read in game and in the synthetic tables of the fake world.
+    -> (config name, address of its row, cooldown, uses)"""
+    import build_catalog
+    rows = {}
+    for block in rig.blocks["StratagemSettings"]:
+        count = rig.mem.peek(block + 24 + 8, "<Q")
+        for n in range(count):
+            at = block + 24 + 16 + n * 400
+            rows[rig.mem.peek(at + 4, "<I")] = at
+    assert len(rig.blocks["StratagemSettings"]) > 1                    # the table is split into groups
+    for item in build_catalog.live_stratagems():
+        row_id = int(item["entity"], 16)
+        cooldown = next(s["original"] for s in item["stats"] if s["id"] == "cooldown")
+        uses = next(s["original"] for s in item["stats"] if s["id"] == "uses")
+        at = rows.get(row_id)
+        # not in the first group, with a cooldown the fixture agrees on
+        if at and at > rig.blocks["StratagemSettings"][1] and cooldown >= 60 and rig.mem.peek(at + 104, "<f") == cooldown \
+                and rig.mem.peek(at + 80, "<I") == uses:
+            return item["path"].rsplit("/", 1)[-1], at, cooldown, uses
+    raise AssertionError("no common stratagem")
+
+
+def check_stratagems_backpacks_shields_and_vehicles(mutate=None):
+    probe = Rig("", None)
+    name, _at, cooldown, _uses = stratagem_in_the_fake_world(probe)
+    probe.close()
+    config = ("[stratagem: %s]\ncooldown = 50%%\nuses = 5\n"
+              "[backpack: recoilless_rifle_backpack]\ncharges = 10\ncharges_start = 4\n"
+              "[shield: energy_shield_backpack]\nshield_health = 300\n"
+              "[vehicle: combat_walker]\nhealth = 200%%\n") % name
+    rig = Rig(config, mutate)
+    try:
+        _name, row, cooldown, uses = stratagem_in_the_fake_world(rig)
+        backpack = rig.keyed_field("DepositComponentData",
+                                   entity("backpacks/recoilless_rifle_backpack/recoilless_rifle_backpack"), 0)
+        shield = rig.keyed_field("ShieldComponentData",
+                                 entity("backpacks/energy_shield_backpack/energy_shield_backpack"), 76)
+        walker = rig.keyed_field("HealthComponentData",
+                                 murmur64a(b"content/fac_helldivers/vehicles/combat_walker/combat_walker"), 0)
+        before = snapshot(rig)
+        assert rig.mem.peek(backpack, "<I") == 5 and rig.mem.peek(backpack + 4, "<i") == -1
+        assert rig.mem.peek(shield, "<f") == 150.0 and rig.mem.peek(walker, "<i") == 1800
+        status = rig.settle()
+        assert first_line(status) == "OK - 6 values applied", status[:2000]
+        assert rig.mem.peek(row + 104, "<f") == cooldown / 2 and rig.mem.peek(row + 80, "<I") == 5
+        assert rig.mem.peek(backpack, "<I") == 10 and rig.mem.peek(backpack + 4, "<i") == 4
+        assert rig.mem.peek(shield, "<f") == 300.0 and rig.mem.peek(walker, "<i") == 3600
+        assert sorted(a for a, _d in rig.mem.writes) == sorted([row + 104, row + 80, backpack, backpack + 4, shield, walker])
+        assert "also affects" not in status
+        status = rig.reload("")
+        assert snapshot(rig) == before
+        catalog = rig.game.read_out("catalog.txt")
+        for header in ("[stratagem: %s]" % name, "[backpack: recoilless_rifle_backpack]",
+                       "[shield: energy_shield_backpack]", "[vehicle: combat_walker]"):
+            assert header in catalog, header
+        assert "  charges_start = -1   (-1 .. 9999, whole numbers)" in catalog
+    finally:
+        rig.close()
+
+
 CHECKS = [v for k, v in sorted(globals().items()) if k.startswith("check_")]
 
 
@@ -1475,6 +1536,14 @@ MUTATIONS = [
      "            if limit and start and start > limit then",
      "            if false then",
      check_magazine_values_of_the_weapons_own),
+    ("a row in another group of its table counts as missing",
+     "                absent = absent + 1\n",
+     "                entry.note = 'record not found in the table'\n",
+     check_stratagems_backpacks_shields_and_vehicles),
+    ("row ids always read at the start of the row",
+     "stride = tonumber(f[5]), id_at = tonumber(f[6]), blocks = {} }",
+     "stride = tonumber(f[5]), id_at = 0, blocks = {} }",
+     check_stratagems_backpacks_shields_and_vehicles),
     ("attachment values written 4 bytes off",
      "        local address = block.records_at + field.offset\n",
      "        local address = block.records_at + field.offset + 4\n",

@@ -18,8 +18,18 @@ recoil_v = -20            # the game's value minus 20
 
 ## Sections
 
-`[<category>: <item>]`. Categories in this version: `weapon`, `throwable`.
-Planned (Stage 3): `stratagem`, `backpack`, `shield`, `vehicle`.
+`[<category>: <item>]`. Categories: `weapon`, `throwable`, and since v0.10.0 (not yet tested in game):
+
+| Category | Items | Stats |
+|---|---|---|
+| `stratagem` | 149 rows of the game's stratagem table, named after the game's own debug names (`eagle_500kg_bomb`, `orbital_laser`, `sentrys_machinegun`...) | `cooldown` (seconds), `uses` (4294967295 = unlimited) |
+| `backpack` | 18 backpacks (`recoilless_rifle_backpack`, `ammo_backpack`...) | `charges`, `charges_start` (-1 = start full), `charges_refill` |
+| `shield` | 4 (`energy_shield_backpack`, `directional_energy_shield`, `energy_shield` = the relay, `energy_shield_grenade`) | `shield_health`, `shield_radius` |
+| `vehicle` | 14 (`combat_walker` = Patriot, `frv`, `tank`...) | `health` |
+
+Each of these is one record per item: nothing is shared, nothing else changes. Not included yet, because
+their offsets are not settled: a stratagem's call-in time, a shield's recharge values, a vehicle's armor
+and per-part health.
 
 `<item>` is the game's internal name (for example `assault_rifle` is the AR-23 Liberator). Every item
 and stat the mod knows, with the game's value and the allowed range, is listed in
@@ -75,7 +85,7 @@ is **rejected** (never clamped) and reported in STATUS.txt with the range.
   v0.7.0 behaviour.
 * `mags_start` above `mags_max` is capped by the game (seen in game: 10 with a maximum of 8 started
   with 8). STATUS.txt puts a WARNING on the line; the mod does not raise the maximum by itself.
-* **Explosions of an item's own (v0.9.0, not yet tested in game).** With `own_rows = auto` a `blast_*`
+* **Explosions of an item's own (v0.9.0, works in game).** With `own_rows = auto` a `blast_*`
   or `expiry_*` stat reaches the item it is written for only:
   * 31 of the 57 explosions behind catalog items already belong to one item; their values are written
     in place.
@@ -87,6 +97,9 @@ is **rejected** (never clamped) and reported in STATUS.txt with the range.
     copy of the item's row and put back when the line is removed. STATUS.txt lists them under
     `[borrowed rows]`. A row that only game code uses would be invisible to that check: if some other
     explosion in the game suddenly looks like the edited weapon's, that row was not free.
+  In game (v0.9.0, one tester): GL-21 and the frag grenade got explosions of their own, everything
+  else stayed normal. The canary ran for two missions without unexpected smoke; not every exploding
+  thing in the game was tried, so an odd explosion later is to be reported.
 * **`[settings] canary = true`** (research): turns all 24 rows of the borrowing list into copies of
   the smoke grenade's explosion. Anything in the game that uses one of them then shows smoke instead
   of its own explosion. While it is on, no row is borrowed.

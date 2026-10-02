@@ -80,7 +80,9 @@ INDEXES = {
 }
 
 CATEGORY = {"primary": "weapon", "secondary": "weapon", "support": "weapon", "melee": "weapon",
-            "throwable": "throwable"}
+            "throwable": "throwable", "backpack": "backpack", "shield": "shield", "vehicle": "vehicle",
+            "stratagem": "stratagem"}
+ID_AT = {"StratagemSettings": 4}       # where a row keeps its id (0 unless listed)
 SKIP_STATS = {"mode"}          # enum fields are not numbers; id-type stats come in Stage 3
 
 # (regex on the stat id, min, max, integer) -- first match wins. Sanity bounds, not balance advice.
@@ -102,6 +104,14 @@ RANGES = [
     (r"^penetration_slowdown$", 0, 1, 0),
     (r"^arming_distance$", 0, 10000, 0),
     (r"^capacity$", 1, 9999, 1),
+    (r"^charges$", 1, 9999, 1),
+    (r"^charges_start$", -1, 9999, 1),             # -1 = start full
+    (r"^charges_refill$", 0, 9999, 1),
+    (r"^shield_health$", 1, 1000000, 0),
+    (r"^shield_radius$", 0, 500, 0),
+    (r"^health$", 1, 1000000, 1),
+    (r"^cooldown$", 0, 7200, 0),
+    (r"^uses$", 1, 4294967295, 1),                 # 4294967295 = unlimited
     (r"^mags_(start|supply|max)$", 0, 999, 1),
     (r"^rounds_(start|supply|max)$", 0, 9999, 1),
     (r"_(inner|outer|stagger)_radius$", 0, 500, 0),
@@ -260,7 +270,8 @@ def generate(builds=None, indexes=None):
             tables[s["table"]] = True
         own_magazines += 1
     # explosions: which items need a row of their own, and the rows that may be borrowed for it
-    index_of = dict((line.split("|")[3], int(line.split("|")[1])) for line in items)
+    index_of = dict((line.split("|")[3], int(line.split("|")[1])) for line in items
+                    if line.split("|")[2] in ("weapon", "throwable"))
     with_rows = set(int(x.split("|")[1]) for x in extra if x.startswith("O|"))
     Xp = hd2db.table("ExplosionSettings")
     found, own_blasts = blasts.item_blasts(cat), 0
@@ -309,7 +320,8 @@ def generate(builds=None, indexes=None):
             lines.append("T|%s|%08X|D|0|0" % (name, dlsum(name)))
             continue
         _rt, stride, shape = hd2db.record_type(name)
-        lines.append("T|%s|%08X|%s|%d|0" % (name, dlsum(name), "R" if shape == "rows" else "K", stride))
+        lines.append("T|%s|%08X|%s|%d|%d" % (name, dlsum(name), "R" if shape == "rows" else "K", stride,
+                                             ID_AT.get(name, 0)))
     lines += items + fields + extra
     for stat in sorted(stats_seen):
         lo, hi, integer = stat_range(stat)
