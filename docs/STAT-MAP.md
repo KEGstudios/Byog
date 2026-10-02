@@ -481,7 +481,8 @@ ProjectileSettings and DamageSettings ids are NOT compared with a row count (8 p
 stand-alone damage accessor at rva 0x11F8EA7 were read); ExplosionSettings ids are (`cmp eax, 423`), with
 the default row as fallback. The table loader clears slots 0..N and refills them on every load.
 
-**New ids without touching game code (tuner v0.4.0, `own_bullet = new`, not yet tested in game):**
+**New ids without touching game code (tuner v0.4.1, `own_bullet = new`): works in game, solo** (one tester:
+Liberator on projectile id 14569810, damage 5000 on it alone, second mission, restore; errors 0). How it works:
 because the projectile id is unchecked and 32 bits wide, an id far above 350 reads its slot from memory
 above game.dll. The mod allocates a block there, puts a copy of the weapon's row and a pointer to it
 inside, and gives the weapon the id that lands on that pointer. Open questions only the game can
