@@ -18,18 +18,23 @@ recoil_v = -20            # the game's value minus 20
 
 ## Sections
 
-`[<category>: <item>]`. Categories: `weapon`, `throwable`, and since v0.10.0 (not yet tested in game):
+`[<category>: <item>]`. Categories: `weapon`, `throwable`, and since v0.10.0 (works in game: cooldown,
+uses, backpack charges, shield health, vehicle health; the stats added in v0.11.0 are not yet tested):
 
 | Category | Items | Stats |
 |---|---|---|
-| `stratagem` | 149 rows of the game's stratagem table, named after the game's own debug names (`eagle_500kg_bomb`, `orbital_laser`, `sentrys_machinegun`...) | `cooldown` (seconds), `uses` (4294967295 = unlimited) |
+| `stratagem` | 149 rows of the game's stratagem table, named after the game's own debug names (`eagle_500kg_bomb`, `orbital_laser`, `sentrys_machinegun`...) | `cooldown` (seconds), `uses` (4294967295 = unlimited), `call_in_time` (seconds, v0.11.0) |
 | `backpack` | 18 backpacks (`recoilless_rifle_backpack`, `ammo_backpack`...) | `charges`, `charges_start` (-1 = start full), `charges_refill` |
-| `shield` | 4 (`energy_shield_backpack`, `directional_energy_shield`, `energy_shield` = the relay, `energy_shield_grenade`) | `shield_health`, `shield_radius` |
-| `vehicle` | 14 (`combat_walker` = Patriot, `frv`, `tank`...) | `health` |
+| `shield` | 4 (`energy_shield_backpack`, `directional_energy_shield`, `energy_shield` = the relay, `energy_shield_grenade`) | `shield_health`, `shield_radius`; `shield_value_80` .. `shield_value_100` (v0.11.0, research: the recharge values, offered by offset until a test in game tells which is which) |
+| `vehicle` | 14 (`combat_walker` = Patriot, `frv`, `tank`...) | `health`, `armor` (main body, v0.11.0), and per part `part_<name>_health` / `part_<name>_armor` (v0.11.0) |
 
-Each of these is one record per item: nothing is shared, nothing else changes. Not included yet, because
-their offsets are not settled: a stratagem's call-in time, a shield's recharge values, a vehicle's armor
-and per-part health.
+Each of these is one record per item: nothing is shared, nothing else changes. A stratagem value changed
+during a mission takes effect after the stratagem's next use (seen in game).
+
+**Vehicle parts.** A vehicle's parts (legs, cockpit, doors, tracks...) have their own health and armor.
+The game stores a part's name as a hash; 35 of the 88 names were recovered (`part_leg_left_health`,
+`part_cockpit_rear_armor`, `part_left_track_health`...), the others appear with their hash
+(`part_fed0a478_health`). The Patriot exosuit's eight parts are all named.
 
 `<item>` is the game's internal name (for example `assault_rifle` is the AR-23 Liberator). Every item
 and stat the mod knows, with the game's value and the allowed range, is listed in

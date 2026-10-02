@@ -358,7 +358,12 @@ Aligning by type put the cooldown at +100; the recon build compared every live r
 snapshot and +104 won clearly (§0). Lesson kept: a name source that is older than the build cannot place
 a field inside a run of same-typed members; such fields need a whole-table check against known values.
 The live table has 149 rows in 11 groups, including stratagems that are not in the snapshot.
-Tuner v0.10.0 (offline-tested, not yet in game) edits `cooldown` and `uses` per row; the rows and their
+**In game (v0.10.0, one tester): works** - cooldown 80 -> 10, uses 1 -> 4 and 3 -> 10; a change during a
+mission takes effect after the next use. The other float fields were then settled offline by the same
+comparison of the rows read in game with the snapshot: `spawn_time` +84 (76 of 76 informative rows),
+`spawn_radius` +88, `beacon_linger_time` +96, `extra_travel_time` +100, `cooldown_duration_fail` +108; the
+member the current build added sits at +92. Tuner v0.10.0 edits `cooldown` and `uses` per row (v0.11.0
+adds `call_in_time` = `spawn_time`); the rows and their
 stock values come from that recon run (`tools/live_stratagems.txt`), not from the snapshot. The row id
 is at +4 and a row is in exactly one of the 11 group blocks.
 
@@ -374,7 +379,9 @@ is at +4 and a row is in exactly one of the 11 group blocks.
 | Recharge delay / delay once broken / recharge rate / charge when it comes back | `recharge_delay`, `broken_recharge_delay`, `recharge_rate`, `starter_charge_on_recharge` | **+80..+100, one slot uncertain** | f32 | type alignment says +80/+88/+92/+96, SHODAN says +88/+92/+96/+100 |
 
 Same ambiguity as the stratagem cooldown (new members inside a run of floats). Shield health itself is
-not affected. To be settled in recon / Stage 2.
+not affected: **in game (v0.10.0): `charge` works** (150 -> 5000). Tuner v0.11.0 offers the five floats at
++80, +88, +92, +96, +100 as `shield_value_<offset>` so that a tester can tell which one is which; the
+Shield Generator Pack holds 0, 60, 12, 150, 150 there.
 
 ### 4.11 Vehicles (exosuits, FRVs, tanks) — `HealthComponentData` (0xB3915DE3), keyed, `HealthComponent` (22096 B)
 
@@ -386,6 +393,12 @@ record is in the same table as every other unit's (502 records, enemies included
 | Health | `health` ("Max health") | +0 | i32 | O, S |
 | Armor (main body) | `default_damageable_zone_info.armor` | +64 + 216 = +280 | u32 | O-, S (the zone struct gained members since both name sources; the value fits: FRV 3, exosuits 4, tanks 4) |
 | Per-part health / armor (legs, cockpit, tracks...) | `damageable_zones[38]` from +520, 552 B each: zone `armor` +216, zone health +232, `zone_name` +96 | | u32 / i32 | S only for the two offsets inside the zone; O for the array itself |
+
+**In game (v0.10.0): `health` works** (Patriot 1800 -> 9000). Tuner v0.11.0 adds `armor` (+280: the two
+name sources and the values agree) and the parts: `damageable_zones[38]`, 552 B each from +520, zone
+`armor` +216, `health` +232, `zone_name` +96 (the upper half of murmur64a of the name; 35 of 88 names of
+the helldiver vehicles recovered by hashing plausible words, `tools/zone_names.txt`). Patriot: cockpit
+front left / front right / rear and hips 400 health / armor 4, legs 550 / 3, the two front lights 10 / 0.
 
 Offline values: exosuits (Patriot, Emancipator, Lumberer, Breacher) 1800 health / armor 4; FRVs 2400 / 3
 (flamer FRV 2900); tanks 8000 / 4. The unit sits in the shared health table, so an edit is per vehicle

@@ -2182,8 +2182,10 @@ local function write_catalog()
             end
             L[#L + 1] = ''
             handle:write(table.concat(L, '\r\n') .. '\r\n')
+            -- hand every item to the system at once: one large flush at the end cost a 9..15 ms frame in game
+            handle:flush()
         end
-        if index % 2 == 0 then pause() end
+        pause()
     end
     handle:write('Shortcuts: ap, blast_ap (every angle that is not 0), recoil, recoil_h, recoil_v, spread, magazine, '
         .. 'spare_magazines, carried\r\n')

@@ -1320,10 +1320,11 @@ def check_stratagems_backpacks_shields_and_vehicles(mutate=None):
     probe = Rig("", None)
     name, _at, cooldown, _uses = stratagem_in_the_fake_world(probe)
     probe.close()
-    config = ("[stratagem: %s]\ncooldown = 50%%\nuses = 5\n"
+    config = ("[stratagem: %s]\ncooldown = 50%%\nuses = 5\ncall_in_time = 1\n"
               "[backpack: recoilless_rifle_backpack]\ncharges = 10\ncharges_start = 4\n"
-              "[shield: energy_shield_backpack]\nshield_health = 300\n"
-              "[vehicle: combat_walker]\nhealth = 200%%\n") % name
+              "[shield: energy_shield_backpack]\nshield_health = 300\nshield_value_92 = 1\n"
+              "[vehicle: combat_walker]\nhealth = 200%%\narmor = 6\npart_leg_left_health = 2000\n"
+              "part_leg_left_armor = 5\n") % name
     rig = Rig(config, mutate)
     try:
         _name, row, cooldown, uses = stratagem_in_the_fake_world(rig)
@@ -1336,12 +1337,24 @@ def check_stratagems_backpacks_shields_and_vehicles(mutate=None):
         before = snapshot(rig)
         assert rig.mem.peek(backpack, "<I") == 5 and rig.mem.peek(backpack + 4, "<i") == -1
         assert rig.mem.peek(shield, "<f") == 150.0 and rig.mem.peek(walker, "<i") == 1800
+        assert rig.mem.peek(shield + 16, "<f") == 12.0 and rig.mem.peek(walker + 280, "<I") == 4
         status = rig.settle()
-        assert first_line(status) == "OK - 6 values applied", status[:2000]
+        assert first_line(status) == "OK - 11 values applied", status[:2000]
+        # a part of the vehicle: its own health and armor, somewhere inside the 22 KB health record
+        leg = walker + catalog_stat("combat_walker", "part_leg_left_health")[1]["offset"]
+        leg_armor = walker + catalog_stat("combat_walker", "part_leg_left_armor")[1]["offset"]
+        assert leg - walker > 520 and leg_armor == leg - 16
+        assert rig.mem.peek(leg, "<i") == 2000 and rig.mem.peek(leg_armor, "<I") == 5
+        other_leg = walker + catalog_stat("combat_walker", "part_leg_right_health")[1]["offset"]
+        assert rig.mem.peek(other_leg, "<i") == 550
         assert rig.mem.peek(row + 104, "<f") == cooldown / 2 and rig.mem.peek(row + 80, "<I") == 5
+        assert rig.mem.peek(row + 84, "<f") == 1.0
+        assert rig.mem.peek(shield + 16, "<f") == 1.0 and rig.mem.peek(walker + 280, "<I") == 6
         assert rig.mem.peek(backpack, "<I") == 10 and rig.mem.peek(backpack + 4, "<i") == 4
         assert rig.mem.peek(shield, "<f") == 300.0 and rig.mem.peek(walker, "<i") == 3600
-        assert sorted(a for a, _d in rig.mem.writes) == sorted([row + 104, row + 80, backpack, backpack + 4, shield, walker])
+        assert sorted(a for a, _d in rig.mem.writes) == sorted([row + 104, row + 80, row + 84, backpack, backpack + 4,
+                                                                shield, shield + 16, walker, walker + 280,
+                                                                leg, leg_armor])
         assert "also affects" not in status
         status = rig.reload("")
         assert snapshot(rig) == before

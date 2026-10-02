@@ -1,0 +1,39 @@
+# Names of vehicle parts (HealthComponent damageable zones). The game stores only a 32-bit hash of the
+# name (the upper half of murmur64a); these names were found by hashing plausible words, so each one
+# is confirmed by its hash. Parts whose name was not found are offered by their hash in the catalog.
+# hash|name
+ECD09CBC|antenna
+FA833708|back_hatch
+AA1DB0B0|body
+924D58A6|bonnet
+CA47A7A9|cockpit_front_left
+2739DFAC|cockpit_front_right
+E1B844F5|cockpit_rear
+668F6A68|hips
+D67B6D46|hull_front
+C5327761|l_back_panel
+4F9B390E|l_engine
+04361A85|left_box_0
+F72A6714|left_box_1
+B01597A3|left_box_2
+5518D31D|left_front_door
+8BBF3B21|left_mirror
+30A051A9|left_rear_door
+474C6747|left_track
+64A3FA1D|leg_left
+87B05FF4|leg_right
+657FFA09|light_left_front
+2BE9516E|light_right_front
+B28AF559|r_back_panel
+3A492993|r_engine
+FD477E17|radar
+91F0B029|right_box_0
+D7533836|right_box_1
+4AD0B30A|right_box_2
+A7DE41F3|right_front_door
+6EAA2901|right_mirror
+6C73E136|right_rear_door
+900F8255|right_track
+7982237C|tail_engine
+88638E96|top_left_hatch
+67943A63|top_right_hatch

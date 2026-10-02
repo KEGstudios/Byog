@@ -109,6 +109,11 @@ RANGES = [
     (r"^charges_refill$", 0, 9999, 1),
     (r"^shield_health$", 1, 1000000, 0),
     (r"^shield_radius$", 0, 500, 0),
+    (r"^shield_value_\d+$", 0, 100000, 0),          # research: recharge values, meaning being settled in game
+    (r"^armor$", 0, 10, 1),
+    (r"^part_.+_health$", 1, 1000000, 1),
+    (r"^part_.+_armor$", 0, 10, 1),
+    (r"^call_in_time$", 0, 600, 0),
     (r"^health$", 1, 1000000, 1),
     (r"^cooldown$", 0, 7200, 0),
     (r"^uses$", 1, 4294967295, 1),                 # 4294967295 = unlimited

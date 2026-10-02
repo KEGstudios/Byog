@@ -296,6 +296,14 @@ def resolve_throwable(T, ent):
     return {"sources": ["throwable"] if th else [], "stats": stats}
 
 
+SHIELD_RESEARCH = (80, 88, 92, 96, 100)
+ZONE_NAMES = {}
+with open(os.path.join(HERE, "zone_names.txt"), encoding="utf-8") as _f:
+    for _line in _f:
+        if not _line.startswith("#") and "|" in _line:
+            ZONE_NAMES[int(_line.split("|")[0], 16)] = _line.split("|")[1].strip()
+
+
 def resolve_equipment(T):
     """Backpacks, shields and vehicles: one component record per entity, nothing shared."""
     out = []
@@ -321,6 +329,12 @@ def resolve_equipment(T):
             stats, key, rec = [], "%016X" % ent, shield.record(ent)
             stat(stats, "shield_health", "ShieldComponentData", key, "ShieldComponent", "charge", rec)
             stat(stats, "shield_radius", "ShieldComponentData", key, "ShieldComponent", "radius", rec)
+            # The four recharge values sit in a run of floats where the two name sources disagree by one
+            # slot (STAT-MAP 4.10). Until a test in game tells which is which they are offered by offset.
+            for o in SHIELD_RESEARCH:
+                stats.append({"id": "shield_value_%d" % o, "table": "ShieldComponentData", "key": key,
+                              "record": "ShieldComponent", "field": "+%d" % o, "offset": o, "storage": "FP32",
+                              "original": round(struct.unpack_from("<f", rec, o)[0], 6)})
             add("shield", ent, path, stats)
     for ent in sorted(vehicle.index):
         path = hashnames.name(ent)
@@ -328,19 +342,38 @@ def resolve_equipment(T):
         if path and "/fac_helldivers/vehicles/" in path and rec is not None:
             stats, key = [], "%016X" % ent
             stat(stats, "health", "HealthComponentData", key, "HealthComponent", "health", rec)
+            # armor of the main body: both name sources and the values (FRV 3, exosuits and tanks 4) agree
+            stat(stats, "armor", "HealthComponentData", key, "HealthComponent", "default_damageable_zone_info.armor", rec)
+            # the parts: each damageable zone has its own health and armor (a part can break on its own)
+            zones_at, zones_size = off("HealthComponent", "damageable_zones")[0], _layouts["HealthComponent"]
+            zone = next(m for m in zones_size["members"] if m["offset"] == zones_at)
+            step = zone["size"] // zone["inline_array_len"]
+            name_at = off("DamageableZoneInfo", "zone_name")[0]
+            for z in range(zone["inline_array_len"]):
+                name_hash = struct.unpack_from("<I", rec, zones_at + z * step + name_at)[0]
+                if not name_hash:
+                    continue
+                part = ZONE_NAMES.get(name_hash, "%08x" % name_hash)
+                for sid, field in (("health", "health"), ("armor", "armor")):
+                    o, st = off("DamageableZoneInfo", field)
+                    v = struct.unpack_from(_FMT[st], rec, zones_at + z * step + o)[0]
+                    stats.append({"id": "part_%s_%s" % (part, sid), "table": "HealthComponentData", "key": key,
+                                  "record": "HealthComponent", "field": "damageable_zones[%d].%s" % (z, field),
+                                  "offset": zones_at + z * step + o, "storage": st, "original": v})
             add("vehicle", ent, path, stats)
     return out
 
 
 def live_stratagems():
     """Stratagem rows as read in game (tools/live_stratagems.txt): the table is not in the offline data.
-    Offsets: uses +80 and cooldown +104 of StratagemInfo, both settled by the recon run (STAT-MAP 4.9)."""
+    Offsets: uses +80, call-in time +84 and cooldown +104 of StratagemInfo, settled by comparing the rows
+    read in game with a community snapshot (STAT-MAP 4.9)."""
     out, seen = [], {}
     with open(os.path.join(HERE, "live_stratagems.txt"), encoding="utf-8") as f:
         for line in f:
             if line.startswith("#") or not line.strip():
                 continue
-            row_id, name, uses, cooldown = line.rstrip("\n").split("|")
+            row_id, name, uses, cooldown, call_in = line.rstrip("\n").split("|")
             slug = "_".join("".join(c.lower() if c.isalnum() else " " for c in name).split())
             seen[slug] = seen.get(slug, 0) + 1
             if seen[slug] > 1:
@@ -350,7 +383,9 @@ def live_stratagems():
                         "sources": ["live:" + name], "stats": [
                             dict(row, id="cooldown", field="cooldown_duration_success", offset=104, storage="FP32",
                                  original=float(cooldown)),
-                            dict(row, id="uses", field="uses", offset=80, storage="UINT32", original=int(uses))]})
+                            dict(row, id="uses", field="uses", offset=80, storage="UINT32", original=int(uses)),
+                            dict(row, id="call_in_time", field="spawn_time", offset=84, storage="FP32",
+                                 original=float(call_in))]})
     return out
 
 
