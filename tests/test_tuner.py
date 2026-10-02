@@ -1075,9 +1075,13 @@ def check_magazine_values_of_the_weapons_own(mutate=None):
         assert "APPLIED" in line and "the magazine attachment's values are switched off)" in line, line
         assert "also affects" not in line, line
         # two rifles with the same magazine can now have different values
-        status = rig.reload("[weapon: assault_rifle]\ncapacity = 60\n[weapon: assault_rifle_ap]\ncapacity = 50\n")
+        status = rig.reload("[weapon: assault_rifle]\ncapacity = 60\nmags_start = 10\n"
+                            "[weapon: assault_rifle_ap]\ncapacity = 50\nmags_start = 7\n")
         assert "REJECTED" not in status, status[:1500]
-        assert values(rig, rifle) == [60, 6, 8, 8] and values(rig, other) == [50, 6, 8, 8]
+        assert values(rig, rifle) == [60, 10, 8, 8] and values(rig, other) == [50, 7, 8, 8]
+        # seen in game: more magazines at the start than the maximum are capped by the game. Said, not "fixed".
+        assert status.count("WARNING: mags_start") == 1, status[:2000]
+        assert "WARNING: mags_start 10 is above mags_max 8: the game starts with 8. Set mags_max as well" in status
         assert values(rig, third) == [45, 6, 8, 8]
         assert rig.mem.peek(rifle_switch, "<I") == 0 and rig.mem.peek(pistol_switch, "<I") == 4
         assert values(rig, pistol) == [30, 6, 6, 12]
@@ -1153,6 +1157,142 @@ def check_census_counts_every_reference_in_memory(mutate=None):
         rig.close()
 
 
+BLAST_CONFIG = ("[weapon: grenade_launcher]\nblast_damage = 5000\nblast_inner_radius = 9\n"
+                "[throwable: frag_grenade]\nblast_outer_radius = 30\n"
+                "[throwable: arc_grenade]\nblast_damage = 7\n")
+LIVE_WORDS = (40, 44, 48, 52)                # the array head inside an explosion row: addresses, only known in memory
+
+
+def item_entity(name):
+    return int(catalog_stat(name, "blast_inner_radius")[0]["entity"], 16)
+
+
+def explosion_row(rig, row):
+    return rig.row_field("ExplosionSettings", row, 0)
+
+
+def check_explosions_of_their_own(mutate=None):
+    import blasts
+    pool = [row for row, _score, _why in blasts.pool()]
+    rig = Rig(BLAST_CONFIG, mutate, auto=True)
+    try:
+        index = add_game_index(rig)
+        launcher = rig.keyed_field("ProjectileWeaponComponentData", item_entity("grenade_launcher"), 0)
+        frag = rig.keyed_field("ExplosiveComponentData", item_entity("frag_grenade"), 36)
+        antitank = rig.keyed_field("ExplosiveComponentData", item_entity("antitank_grenade"), 36)
+        # in memory the array heads are addresses that no offline data knows: make them differ from the file
+        for n, row in enumerate((361, 257, pool[0], pool[1])):
+            rig.mem.poke(explosion_row(rig, row) + 40, "<Q", 0x1E0AAAA0000 + n * 0x100)
+        before = snapshot(rig)
+        stock = {row: row_bytes(rig, explosion_row(rig, row), 152) for row in (361, 257, 157, pool[0], pool[1])}
+        stock_damage = {row: row_bytes(rig, rig.row_field("DamageSettings", row, 0), 76) for row in (375, 335, 364)}
+        assert rig.mem.peek(frag, "<I") == 257 and rig.mem.peek(antitank, "<I") == 257
+        status = rig.settle()
+        assert first_line(status) == ("OK - 4 values applied, 1 weapons on their own bullet, "
+                                      "3 explosions of their own"), status[:2500]
+
+        def own_damage(damage_id, source, value):
+            assert KNOWN_INDEXES["DamageSettings"][1] < damage_id < 2 ** 31, damage_id
+            at = rig.mem.peek(index["DamageSettings"] + 8 * damage_id, "<Q")
+            want = bytearray(stock_damage[source])
+            struct.pack_into("<I", want, 0, damage_id)
+            if value is not None:
+                struct.pack_into("<i", want, 4, value)
+            assert row_bytes(rig, at, 76) == bytes(want), (source, damage_id)
+
+        def borrowed(row, source, patches):
+            """the borrowed row: the source row as it is in memory, with its own id, damage row and the new values"""
+            got = row_bytes(rig, explosion_row(rig, row), 152)
+            want = bytearray(stock[source])
+            struct.pack_into("<I", want, 0, row)
+            struct.pack_into("<I", want, 4, struct.unpack_from("<I", got, 4)[0])
+            for offset, value in patches.items():
+                struct.pack_into("<f", want, offset, value)
+            assert got == bytes(want), (row, source)
+            return struct.unpack_from("<I", got, 4)[0]
+
+        # the launcher: a projectile row of its own, whose explosion is the first borrowed row
+        new_projectile = rig.mem.peek(launcher, "<I")
+        assert new_projectile > INDEX_SLOTS
+        own_projectile = rig.mem.peek(index["ProjectileSettings"] + 8 * new_projectile, "<Q")
+        assert rig.mem.peek(own_projectile + 144, "<I") == pool[0] and rig.mem.peek(own_projectile + 156, "<I") == pool[0]
+        own_damage(borrowed(pool[0], 361, {16: 9.0}), 375, 5000)
+        # the grenade: its component points at the second borrowed row; the other grenade with that explosion does not
+        assert rig.mem.peek(frag, "<I") == pool[1] and rig.mem.peek(antitank, "<I") == 257
+        own_damage(borrowed(pool[1], 257, {20: 30.0}), 335, None)
+        # the arc grenade's explosion row is its own: only its damage row id changes
+        arc = bytearray(stock[157])
+        arc_damage = rig.mem.peek(explosion_row(rig, 157) + 4, "<I")
+        struct.pack_into("<I", arc, 4, arc_damage)
+        assert row_bytes(rig, explosion_row(rig, 157), 152) == bytes(arc)
+        own_damage(arc_damage, 364, 7)
+        assert len({arc_damage, rig.mem.peek(explosion_row(rig, pool[0]) + 4, "<I"),
+                    rig.mem.peek(explosion_row(rig, pool[1]) + 4, "<I")}) == 3
+        # what the other users of these explosions see is untouched
+        for row in (361, 257):
+            assert row_bytes(rig, explosion_row(rig, row), 152) == stock[row], row
+        for row in (375, 335, 364):
+            assert row_bytes(rig, rig.row_field("DamageSettings", row, 0), 76) == stock_damage[row], row
+        # a switch is thrown only when its borrowed row is complete
+        order = [address for address, _data in rig.mem.writes]
+        last_copy = max(i for i, a in enumerate(order) if explosion_row(rig, pool[1]) <= a < explosion_row(rig, pool[1]) + 152)
+        assert order.index(frag) > last_copy
+        assert "OWN EXPLOSION ACTIVE: explosion row 361 -> borrowed row %d, damage row 375 -> NEW ID" % pool[0] in status
+        assert "OWN EXPLOSION ACTIVE: explosion row 157 is its own, damage row 364 -> NEW ID %d" % arc_damage in status
+        assert "blast_damage: 400 -> 5000 (own row)  APPLIED" in status, status[:2500]
+        assert "frag_grenade:257: ExplosionSettings row %d (as a copy of row 257)" % pool[1] in status
+        # take it all back: the game's memory is exactly as before
+        writes_before = len(rig.mem.writes)
+        status = rig.reload("")
+        assert first_line(status) == "OK - no changes configured", first_line(status)
+        restore = [address for address, _data in rig.mem.writes[writes_before:]]
+        assert restore.index(frag) < min(i for i, a in enumerate(restore)
+                                         if explosion_row(rig, pool[1]) <= a < explosion_row(rig, pool[1]) + 152)
+        after = snapshot(rig)
+        assert all(after[base] == data for base, data in before.items())
+    finally:
+        rig.close()
+
+
+def check_explosion_of_its_own_waits_for_a_proven_index(mutate=None):
+    rig = Rig("[throwable: arc_grenade]\nblast_damage = 7\n", mutate, auto=True)
+    try:
+        status = rig.settle()                               # no index in this world: a new damage id must not be used
+        assert rig.mem.peek(explosion_row(rig, 157) + 4, "<I") == 364
+        assert "OWN EXPLOSION WAITING" in status and "is not in memory yet" in status, status[:2000]
+        assert rig.mem.peek(rig.row_field("DamageSettings", 364, 4), "<i") != 7
+    finally:
+        rig.close()
+
+
+def check_canary_marks_every_row_that_may_be_borrowed(mutate=None):
+    import blasts
+    pool = [row for row, _score, _why in blasts.pool()]
+    marker = 28
+    rig = Rig("[settings]\ncanary = true\n[weapon: grenade_launcher]\nblast_inner_radius = 9\n", mutate, auto=True)
+    try:
+        add_game_index(rig)
+        rig.mem.poke(explosion_row(rig, marker) + 40, "<Q", 0x1E0BBBB0000)
+        before = snapshot(rig)
+        model = row_bytes(rig, explosion_row(rig, marker), 152)
+        status = rig.settle(1500)
+        assert "canary rows marked" in first_line(status) or first_line(status).startswith("PARTIAL"), first_line(status)
+        for row in pool:
+            want = bytearray(model)
+            struct.pack_into("<I", want, 0, row)
+            assert row_bytes(rig, explosion_row(rig, row), 152) == bytes(want), row
+        assert "canary: ACTIVE - every row of the list is a copy of explosion row 28" in status, status[:2500]
+        assert "[borrowed rows] explosion rows that may be borrowed: " + " ".join(str(r) for r in pool) in status
+        # while the canary runs nothing is borrowed: the launcher's blast value goes to the shared row, and says so
+        assert "the rows to borrow are in use by the canary test" in status
+        assert struct.unpack("<f", row_bytes(rig, explosion_row(rig, 361) + 16, 4))[0] == 9.0
+        status = rig.reload("")
+        after = snapshot(rig)
+        assert all(after[base] == data for base, data in before.items())
+    finally:
+        rig.close()
+
+
 CHECKS = [v for k, v in sorted(globals().items()) if k.startswith("check_")]
 
 
@@ -1224,6 +1364,21 @@ class Startup(unittest.TestCase):
         self.assertIn("C|ExplosionType|DestructionSettings|D6A11545|O|168||0,a96,4;48,a96,4;96,a96,4", lines)
         self.assertEqual(len([x for x in lines if x.startswith("C|")]), 13)
 
+    def test_explosion_data(self):
+        blob, stats = gen_tuner_data.generate()
+        lines = blob.splitlines()
+        self.assertEqual(stats["spare"], 24)
+        self.assertEqual(len([x for x in lines if x.endswith("|C|257|335|0|1|ExplosiveComponentData:36")]), 2)
+        self.assertTrue([x for x in lines if x.startswith("S|ExplosionSettings|258,371,")])
+        self.assertIn("P|ExplosionSettings|40,44,48,52", lines)
+        self.assertIn("Y|ExplosionSettings|28", lines)
+        own = [x for x in lines if x.startswith("B|") and x.split("|")[5] == "1"]
+        borrow = [x for x in lines if x.startswith("B|") and x.split("|")[5] == "0"]
+        self.assertEqual((len(own), len(borrow)), (42, 15))
+        # every row that may be borrowed, and every row copied into one, ships with its stock bytes
+        for row in [x for x in lines if x.startswith("S|")][0].split("|")[2].split(","):
+            self.assertTrue([x for x in lines if x.startswith("W|ExplosionSettings|%s|" % row)], row)
+
     def test_update_chain_is_preserved(self):
         rig = Rig(BASE_CONFIG)
         try:
@@ -1284,6 +1439,42 @@ MUTATIONS = [
      "                                local where = at + hits[h] * 4",
      "                                local where = at + hits[h] * 4 + (hits[h] > 0 and 4 or 0)",
      check_census_counts_every_reference_in_memory),
+    ("explosion of its own: the borrowed row keeps the shared damage row",
+     "                if offset == 4 and damage then value = damage end",
+     "",
+     check_explosions_of_their_own),
+    ("explosion of its own: array heads taken from the offline data",
+     "field.exact, field.live = nil, get_field('ExplosionSettings', tostring(source), offset, 'u32', value)",
+     "field.exact, field.live = nil, nil",
+     check_explosions_of_their_own),
+    ("explosion of its own: switched before the borrowed row is complete",
+     "order = 2, needs_index = (a.new_damage ~= nil or b.kind == 'P') or nil }",
+     "order = 1, needs_index = (a.new_damage ~= nil or b.kind == 'P') or nil }",
+     check_explosions_of_their_own),
+    ("explosion of its own: new ids used without a proven index",
+     "order = 2, needs_index = (a.new_damage ~= nil or b.kind == 'P') or nil }",
+     "order = 2 }",
+     check_explosion_of_its_own_waits_for_a_proven_index),
+    ("explosion of its own: blast values still written to the shared rows",
+     "            if not target.own then\n                local field, group = own_blast_field(item, entry.field)",
+     "            if false then\n                local field, group = own_blast_field(item, entry.field)",
+     check_explosions_of_their_own),
+    ("explosion of its own: one borrowed row given to two items",
+     "    spare.next[table_name] = n\n",
+     "",
+     check_explosions_of_their_own),
+    ("explosion of its own: rows borrowed while the canary uses them",
+     "                        elseif config.canary then\n",
+     "                        elseif false then\n",
+     check_canary_marks_every_row_that_may_be_borrowed),
+    ("canary does not mark the rows",
+     "            copy_explosion(MARKER.ExplosionSettings, id, nil, 'canary')",
+     "",
+     check_canary_marks_every_row_that_may_be_borrowed),
+    ("more magazines at the start than the maximum is not reported",
+     "            if limit and start and start > limit then",
+     "            if false then",
+     check_magazine_values_of_the_weapons_own),
     ("attachment values written 4 bytes off",
      "        local address = block.records_at + field.offset\n",
      "        local address = block.records_at + field.offset + 4\n",
@@ -1341,7 +1532,7 @@ MUTATIONS = [
      "        return n / 100",
      check_applies_exactly_what_was_asked),
     ("recheck never notices a changed value",
-     "if not same_value(entry.field.storage, current, entry.value) then result = 'changed' end",
+     "if not same_value(entry.field.storage, current, expected) then result = 'changed' end",
      "",
      check_value_changed_back_is_reapplied),
     ("a vanished table is not noticed",
@@ -1418,8 +1609,8 @@ MUTATIONS = [
      "        t.first_id, t.count, t.users = (address - t.index) / 8, 0, {}",
      check_new_row_ids_in_memory_of_our_own),
     ("new id: two weapons get the same row",
-     "    local user = t.users[item.name]\n    if user then return user.id end",
-     "    local user = t.users[next(t.users) or item.name]\n    if user then return user.id end",
+     "    local user = t.users[key]\n    if user then return user.id end",
+     "    local user = t.users[next(t.users) or key]\n    if user then return user.id end",
      check_new_row_ids_for_several_weapons),
     ("new id: only one of the two indexes is checked",
      "                    if not ok then\n                        index_ok, own.index_note = ok, why\n                        break",

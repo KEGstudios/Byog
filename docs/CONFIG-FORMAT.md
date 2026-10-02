@@ -64,7 +64,7 @@ is **rejected** (never clamped) and reported in STATUS.txt with the range.
 
   The game reads these values when the weapon is created: a change made during a mission shows on the
   next weapon (seen in game: after dying and coming back), not on the one already in hand.
-* **Magazine values of a weapon's own (v0.8.0, not yet tested in game).** With `own_rows = auto` (the
+* **Magazine values of a weapon's own (v0.8.0, works in game).** With `own_rows = auto` (the
   default) a magazine stat of one of the 18 weapons whose default magazine attachment sets it no longer
   goes into the attachment. The mod switches that attachment's magazine values off (one count in the
   delta storage is set to 0) and writes the values into the weapons' own records: the config's for the
@@ -73,6 +73,23 @@ is **rejected** (never clamped) and reported in STATUS.txt with the range.
   listed under "also affects". Known limit: a weapon on which the player has fitted that magazine as a
   non-default choice reads its own record, which the mod has not filled. `own_rows = off` keeps the
   v0.7.0 behaviour.
+* `mags_start` above `mags_max` is capped by the game (seen in game: 10 with a maximum of 8 started
+  with 8). STATUS.txt puts a WARNING on the line; the mod does not raise the maximum by itself.
+* **Explosions of an item's own (v0.9.0, not yet tested in game).** With `own_rows = auto` a `blast_*`
+  or `expiry_*` stat reaches the item it is written for only:
+  * 31 of the 57 explosions behind catalog items already belong to one item; their values are written
+    in place.
+  * 11 belong to one item but share their damage row: a blast damage stat gives the explosion a new
+    damage id (as projectiles get theirs).
+  * 15 are reached by something else as well (another grenade, a turret or vehicle firing the same
+    round...). Explosion ids cannot be new (the game checks them), so the item gets a **borrowed**
+    explosion row: one of 24 rows that no table in the game's memory refers to is overwritten with a
+    copy of the item's row and put back when the line is removed. STATUS.txt lists them under
+    `[borrowed rows]`. A row that only game code uses would be invisible to that check: if some other
+    explosion in the game suddenly looks like the edited weapon's, that row was not free.
+* **`[settings] canary = true`** (research): turns all 24 rows of the borrowing list into copies of
+  the smoke grenade's explosion. Anything in the game that uses one of them then shows smoke instead
+  of its own explosion. While it is on, no row is borrowed.
 * **`[settings] census = true`** (research, read-only): once per session, in a mission, counts in every
   table in memory the references to each explosion row and writes `CENSUS.txt`. Nothing is written to
   the game; config values are applied after the census has finished.

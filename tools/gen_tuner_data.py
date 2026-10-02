@@ -30,6 +30,14 @@ Line format ('|' separated):
       delta storage's components array, and that count. Writing 0 there switches the attachment's
       magazine values off for every weapon carrying it; the weapons' own records then count.
   H|item_index|stat|table|key|offset|storage|stock   the same stat in the weapon's own record
+  B|item_index|kind|explosion|damage|own|shared_damage|switches
+      an explosion of the item (tools/blasts.py). kind P: reached through the weapon's projectile row,
+      switches = offsets inside that row; C: through the item's component records, switches =
+      table:offset. own = 1: nothing else reaches the explosion row. shared_damage = 1: something else
+      uses its damage row.
+  S|table|id,id,...              rows that may be borrowed (no table in memory refers to them; census)
+  P|table|offset,offset,...      words of a row that hold addresses: copied from memory, never from W
+  Y|table|row_id                 the canary's model row: a harmless, very visible explosion
   Q|id type|table                census (read-only research): the table whose row ids are counted
   C|id type|type name|type hash|shape|stride|offline|path;path
       a type that can hold such an id. shape K / R: the table shapes above, paths start at a record;
@@ -49,6 +57,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 
+import blasts  # noqa: E402
 import deltas  # noqa: E402
 import hd2db  # noqa: E402
 import references  # noqa: E402
@@ -250,6 +259,38 @@ def generate(builds=None, indexes=None):
                                                     num(s["original"], storage)))
             tables[s["table"]] = True
         own_magazines += 1
+    # explosions: which items need a row of their own, and the rows that may be borrowed for it
+    index_of = dict((line.split("|")[3], int(line.split("|")[1])) for line in items)
+    with_rows = set(int(x.split("|")[1]) for x in extra if x.startswith("O|"))
+    Xp = hd2db.table("ExplosionSettings")
+    found, own_blasts = blasts.item_blasts(cat), 0
+    for name, item_blasts in sorted(found.items()):
+        index = index_of.get(name)
+        for b in item_blasts if index is not None else []:
+            if b["kind"] == "P":
+                if index not in with_rows:
+                    continue
+                switches = ",".join(str(o) for o in b["switches"])
+            else:
+                switches = ",".join("%s:%d" % s for s in b["switches"])
+                for wrapper, _offset in b["switches"]:
+                    tables[wrapper] = True
+            damage = b["damage"] if b["damage"] in Dm.by_id() else 0
+            extra.append("B|%d|%s|%d|%d|%d|%d|%s" % (index, b["kind"], b["explosion"], damage, int(b["own"]),
+                                                    int(b["shared_damage"] and bool(damage)), switches))
+            if not b["own"]:
+                stock_rows[("ExplosionSettings", b["explosion"])] = Xp.record(Xp.by_id()[b["explosion"]])
+            if damage:
+                stock_rows[("DamageSettings", damage)] = Dm.record(Dm.by_id()[damage])
+            own_blasts += 1
+    spare = [row for row, _score, _why in blasts.pool()]
+    marker = found["smoke_grenade"][0]["explosion"]
+    extra.append("S|ExplosionSettings|" + ",".join(str(row) for row in spare))
+    extra.append("P|ExplosionSettings|" + ",".join(str(o) for o in references.pointer_words("ExplosionInfo")))
+    extra.append("Y|ExplosionSettings|%d" % marker)
+    for row in spare + [marker]:
+        stock_rows[("ExplosionSettings", row)] = Xp.record(Xp.by_id()[row])
+    tables["ExplosionSettings"] = tables["DamageSettings"] = True
     # census: every type that can hold a row id of the tables in CENSUS
     for target, own_table in CENSUS:
         extra.append("Q|%s|%s" % (target, own_table))
@@ -278,7 +319,8 @@ def generate(builds=None, indexes=None):
     blob = "\n".join(lines) + "\n"
     assert "]==]" not in blob
     return blob, {"tables": len(tables), "items": len(items), "fields": len(fields), "stats": len(stats_seen),
-                  "own_bullets": own_bullets, "stock_rows": len(stock_rows), "own_magazines": own_magazines}
+                  "own_bullets": own_bullets, "stock_rows": len(stock_rows), "own_magazines": own_magazines,
+                  "blasts": own_blasts, "spare": len(spare)}
 
 
 def main():

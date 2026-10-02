@@ -540,6 +540,24 @@ finds every block of these types in memory and counts the references per explosi
 offline count, which checks the walker. Rows that are still unreferenced after the census are the
 candidates for per-weapon explosion rows; ids used by code alone remain invisible.
 
+**Census result (v0.8.0, in game, one tester; reports/v0.8.0-tester1).** 4.05 GB swept in 80 s. Ten of
+the twelve known types equal the offline count exactly (Backblast and WeaponCharge have one record more
+in the game). `DestructionSettings`: 332 blocks; its `DestructionEffect` is a union of 18 effect kinds
+and only the explosion kind has the id at +4, so 2356 of the 2981 values read are other kinds' data;
+the 42 in-range values name 17 rows. `VehicleEffectInfo`: not in memory. **171 explosion rows are
+referenced by no table in memory.** They are real explosions, so the list narrows the search but proves
+nothing about ids that only code uses.
+
+**Explosions of an item's own (tuner v0.9.0, offline-tested, not yet in game; `tools/blasts.py`).**
+Of 57 explosions behind catalog items, 31 belong to one item, 11 belong to one item but share their
+damage row (new damage id, switch at explosion +4), 15 are reached by something else (borrowed row).
+The borrowing list is the 24 best of the 171 by a ranking that prefers rows looking like the explosion
+of a weapon that no longer exists (small, with effect, sound and a damage row used by free explosions
+only) and byte-for-byte twins of rows in use, and avoids large or silent rows. A borrowed row is a
+word-by-word copy of the item's row; the array head at +40..+52 holds addresses and is copied from the
+source row in memory. Switches: the weapon's own projectile row (+144 / +156), or the item's component
+record. `canary = true` marks all 24 rows with the smoke grenade's explosion as the in-game test.
+
 ### 6.3 Copies, reloads, drift
 Per the skill's case studies: several copies of a table can exist in memory, new copies appear on
 mission load, table sizes / record counts / enum ids change with game updates. Hence: locate by

@@ -423,6 +423,7 @@ local ROWS = {}                                      -- 'table|row id' -> stock 
 local INDEXES = {}                                   -- 'build label|table' -> { rva, slots } inside game.dll
 local MAGAZINES = {}                                 -- attachment resource -> items carrying it by default
 local CENSUS, CENSUS_TABLE = {}, {}                  -- types that can hold a row id; id type -> its table
+local SPARE, LIVE_WORDS, MARKER = {}, {}, {}         -- rows to borrow; words copied from memory; canary model row
 local field_count = 0
 
 -- little-endian u32 at byte offset `offset` of a hex string
@@ -490,6 +491,28 @@ local function parse_data()
                                                           storage = f[7], stock = tonumber(f[8]) }
         elseif kind == 'Q' then
             CENSUS_TABLE[f[2]] = f[3]
+        elseif kind == 'B' then
+            local item = ITEMS[tonumber(f[2])]
+            local blast = { kind = f[3], explosion = tonumber(f[4]), damage = tonumber(f[5]), own = f[6] == '1',
+                            shared_damage = f[7] == '1', switches = {} }
+            for switch in f[8]:gmatch('[^,]+') do
+                local table_name, offset = switch:match('^(.-):(%d+)$')
+                if table_name then
+                    blast.switches[#blast.switches + 1] = { table = table_name, offset = tonumber(offset) }
+                else
+                    blast.switches[#blast.switches + 1] = { offset = tonumber(switch) }
+                end
+            end
+            item.blasts = item.blasts or {}
+            item.blasts[#item.blasts + 1] = blast
+        elseif kind == 'S' then
+            SPARE[f[2]] = {}
+            for id in f[3]:gmatch('%d+') do SPARE[f[2]][#SPARE[f[2]] + 1] = tonumber(id) end
+        elseif kind == 'P' then
+            LIVE_WORDS[f[2]] = {}
+            for offset in f[3]:gmatch('%d+') do LIVE_WORDS[f[2]][tonumber(offset)] = true end
+        elseif kind == 'Y' then
+            MARKER[f[2]] = tonumber(f[3])
         elseif kind == 'C' then
             local entry = { target = f[2], name = f[3], type = tonumber(f[4], 16), shape = f[5],
                             stride = tonumber(f[6]), id_at = 0, offline = tonumber(f[7]), paths = {} }
@@ -899,11 +922,12 @@ end
 
 -- The new row id of `item` in `table_name`: a copy of row `source`. A projectile row also gets
 -- `damage` as its damage row id. -> id, or nil + reason
-local function own_row(item, table_name, source, damage)
+local function own_row(item, table_name, source, damage, purpose)
     local ok, why = own_prepare()
     if not ok then return nil, why end
     local t = own.tables[table_name]
-    local user = t.users[item.name]
+    local key = item.name .. (purpose or '')
+    local user = t.users[key]
     if user then return user.id end
     if t.count >= OWN_CAPACITY then return nil, 'no room for another row of our own' end
     local stock = ROWS[table_name .. '|' .. source]
@@ -924,9 +948,9 @@ local function own_row(item, table_name, source, damage)
         return nil, 'the slot of our own row could not be written'
     end
     t.block.index[id], t.count, t.block.count = k, k + 1, k + 1
-    t.users[item.name] = { id = id, row = row_at, slot = slot_at, source = source, name = item.name, table = table_name }
-    own.order[#own.order + 1] = t.users[item.name]
-    log(string.format('own rows: %s -> new %s id %.0f (row at %s, copy of row %d)', item.name, table_name, id,
+    t.users[key] = { id = id, row = row_at, slot = slot_at, source = source, name = key, table = table_name }
+    own.order[#own.order + 1] = t.users[key]
+    log(string.format('own rows: %s -> new %s id %.0f (row at %s, copy of row %d)', key, table_name, id,
                       hex(row_at), source))
     return id
 end
@@ -967,6 +991,28 @@ local function own_index_ok(table_name)
     end
     if parsed == 0 then return nil, reason end
     return false, reason
+end
+
+-- ---------------------------------------------------------------- borrowed rows
+-- Explosion ids are compared with the number of rows (probe v0.3.2), so an explosion row of an item's
+-- own cannot have a new id: an existing row is borrowed from a short list of rows that no table in
+-- memory refers to (census v0.8.0). Such a row is overwritten with a copy of the item's row and put
+-- back when it is no longer needed. An id that only code uses is invisible to the census, so the list
+-- is a guess; the canary (see build_desired) is the in-game test of it.
+local spare = { users = {}, order = {}, next = {} }
+
+-- The borrowed row of `key` in `table_name`. -> row id, or nil + reason
+local function spare_row(key, table_name, source)
+    local user = spare.users[table_name .. '|' .. key]
+    if user then return user.id end
+    local pool = SPARE[table_name] or {}
+    local n = (spare.next[table_name] or 0) + 1
+    if n > #pool then return nil, 'no row is left to borrow in ' .. table_name end
+    spare.next[table_name] = n
+    user = { id = pool[n], name = key, table = table_name, source = source }
+    spare.users[table_name .. '|' .. key], spare.order[#spare.order + 1] = user, user
+    log(string.format('borrowed rows: %s -> %s row %d (as a copy of row %d)', key, table_name, user.id, source))
+    return user.id
 end
 
 -- ---------------------------------------------------------------- config
@@ -1061,6 +1107,26 @@ local function own_row_field(item, field)
     return own_field, true
 end
 
+-- With an explosion of its own, a stat of the shared explosion row or of its damage row is set on the
+-- item's own rows instead. -> the field to write and its group, or nil
+local function own_blast_field(item, field)
+    for _, a in ipairs(item.active_blasts or {}) do
+        local own_field = nil
+        if a.new_explosion and field.table == 'ExplosionSettings' and field.record == tostring(a.blast.explosion) then
+            own_field = get_field('ExplosionSettings', tostring(a.new_explosion), field.offset, 'u32',
+                                  hex_word(ROWS['ExplosionSettings|' .. a.new_explosion], field.offset))
+        elseif a.own_damage and field.table == 'DamageSettings' and field.record == tostring(a.blast.damage) then
+            own_field = get_field(own_name('DamageSettings'), string.format('%.0f', a.new_damage), field.offset, 'u32',
+                                  hex_word(ROWS['DamageSettings|' .. a.blast.damage], field.offset))
+        end
+        if own_field then
+            own_field.exact = true
+            return own_field, a.group
+        end
+    end
+    return nil
+end
+
 local function resolve_request(request, own_bullet)
     local item = ITEM_BY_NAME[request.category .. ':' .. request.item:lower()]
     if not item then
@@ -1105,6 +1171,14 @@ local function resolve_request(request, own_bullet)
                     target.was_text, target.own = show(entry.field.stock, entry.field.storage), true
                 end
             end
+            if not target.own then
+                local field, group = own_blast_field(item, entry.field)
+                if field then
+                    -- the own rows are written as raw words; keep the readable numbers for the report
+                    target.field, target.value, target.group = field, bits, group
+                    target.was_text, target.own = show(entry.field.stock, entry.field.storage), true
+                end
+            end
             request.targets[#request.targets + 1] = target
         elseif not alias then
             request.status = 'rejected'
@@ -1119,6 +1193,20 @@ local function resolve_request(request, own_bullet)
     request.status = 'accepted'
 end
 
+-- Is `stat` of `item` a value of blast `b`: in its explosion row, in the explosion's damage row?
+local function blast_touch(item, b, stat)
+    local stats, in_row, in_damage = { stat }, false, false
+    if ALIASES[stat] then stats = ALIASES[stat].targets end
+    for _, name in ipairs(stats) do
+        local field = item.stats[name] and item.stats[name].field
+        if field and field.table == 'ExplosionSettings' and field.record == tostring(b.explosion) then in_row = true end
+        if field and b.damage ~= 0 and field.table == 'DamageSettings' and field.record == tostring(b.damage) then
+            in_damage = true
+        end
+    end
+    return in_row, in_damage
+end
+
 -- Does `stat` of `item` live in the projectile / damage row the weapon shares with others?
 local function touches_shared_rows(item, stat)
     local t, stats = item.takeover, { stat }
@@ -1130,6 +1218,13 @@ local function touches_shared_rows(item, stat)
             return true
         end
     end
+    for _, b in ipairs(item.blasts or {}) do
+        if b.kind == 'P' and not b.own then
+            -- an explosion row of its own is reached through a projectile row of its own
+            local in_row, in_damage = blast_touch(item, b, stat)
+            if in_row or in_damage then return true end
+        end
+    end
     return false
 end
 
@@ -1138,7 +1233,7 @@ local function build_desired(text)
     config.requests, config.problems = {}, {}
     config.enabled, config.reload_key, config.reload_vk = true, 'F10', 0x79
     config.auto_reload, config.rescan, config.probe, config.own_rows = 0, DEFAULT_RESCAN_SECONDS, false, true
-    config.census = false
+    config.census, config.canary = false, false
     local section, line_number = nil, 0
     local by_stat = {}   -- 'category:item:stat' -> request (a later line replaces an earlier one)
     for raw in ((text or '') .. '\n'):gmatch('([^\n]*)\n') do
@@ -1174,6 +1269,8 @@ local function build_desired(text)
                         config.probe = parse_bool(value)
                     elseif key == 'census' and parse_bool(value) ~= nil then
                         config.census = parse_bool(value)
+                    elseif key == 'canary' and parse_bool(value) ~= nil then
+                        config.canary = parse_bool(value)
                     elseif key == 'own_rows' and (value:lower() == 'auto' or parse_bool(value) ~= nil) then
                         config.own_rows = value:lower() == 'auto' or parse_bool(value) == true
                     else
@@ -1283,6 +1380,68 @@ local function build_desired(text)
         end
         for _, auto in ipairs(automatic) do config.requests[#config.requests + 1] = auto end
     end
+    -- Explosions of their own (automatic). A blast stat of an item whose explosion row is reached by
+    -- something else gets a borrowed explosion row; a blast damage stat whose damage row is shared gets
+    -- a new damage id. A weapon needs its own projectile row for the first (the pass above gives it).
+    local blasts = {}
+    for _, item in pairs(ITEMS) do item.active_blasts = nil end
+    if config.own_rows then
+        local notes, refused = {}, {}
+        for _, request in ipairs(config.requests) do
+            local item = not request.status and request.stat ~= 'own_bullet'
+                and ITEM_BY_NAME[request.category .. ':' .. request.item:lower()]
+            for _, b in ipairs(item and not declined[item] and item.blasts or {}) do
+                local in_row, in_damage = blast_touch(item, b, request.stat)
+                local t = own_bullet[item] and own_bullet[item].takeover
+                local same_damage = t and b.damage == t.src_damage     -- the round and its blast use one damage row
+                local a = nil
+                for _, active in ipairs(item.active_blasts or {}) do
+                    if active.blast == b then a = active end
+                end
+                if (in_row or in_damage) and not a and not refused[b] then
+                    local why = nil
+                    if not b.own then
+                        if b.kind == 'P' and not (t and t.fresh) then
+                            why = 'the weapon has no projectile row of its own'
+                        elseif config.canary then
+                            why = 'the rows to borrow are in use by the canary test'
+                        else
+                            local id
+                            id, why = spare_row(item.name .. ':' .. b.explosion, 'ExplosionSettings', b.explosion)
+                            if id then a = { new_explosion = id } end
+                        end
+                    elseif in_damage and (b.shared_damage or same_damage) then
+                        a = {}
+                    end
+                    local note = { line = request.line, category = request.category, item = request.item, stat = 'own_blast',
+                                   expression = 'new', text = 'explosion of its own (automatic)', automatic = true }
+                    if a then
+                        a.blast, a.item, a.takeover, a.request = b, item, t, note
+                        a.group = 'blast:' .. item.name .. ':' .. b.explosion
+                        item.active_blasts = item.active_blasts or {}
+                        item.active_blasts[#item.active_blasts + 1] = a
+                        blasts[#blasts + 1] = a
+                        note.status, note.targets, note.blast = 'accepted', {}, a
+                        notes[#notes + 1] = note
+                    elseif why then
+                        refused[b] = true
+                        note.status, note.reason = 'rejected', why .. '; its blast values go to the shared rows'
+                        notes[#notes + 1] = note
+                    end
+                end
+                -- the damage row: of its own when the explosion row is borrowed, or when a damage value is set
+                if a and b.damage ~= 0 and not a.new_damage and (a.new_explosion or in_damage) then
+                    if same_damage then
+                        a.new_damage = t.new_damage
+                    else
+                        local id, why = own_row(item, 'DamageSettings', b.damage, nil, ':blast' .. b.explosion)
+                        if id then a.new_damage, a.own_damage = id, true else a.problem = why end
+                    end
+                end
+            end
+        end
+        for _, note in ipairs(notes) do config.requests[#config.requests + 1] = note end
+    end
     for _, request in ipairs(config.requests) do
         if not request.status then resolve_request(request, own_bullet) end
     end
@@ -1323,7 +1482,30 @@ local function build_desired(text)
                     desired[target.field.key] = entry
                 end
                 entry.sources[#entry.sources + 1] = request
-                if target.own then entry.group, entry.order = request.item:lower(), 1 end
+                if target.own then entry.group, entry.order = target.group or request.item:lower(), 1 end
+            end
+        end
+    end
+    -- A value the game will cap: more magazines at the start than the weapon may carry (seen in game,
+    -- v0.8.0: mags_start = 10 with mags_max left at 8 started with 8). Said on the line, never "fixed":
+    -- one line changes one value.
+    local wanted = {}
+    for _, request in ipairs(config.requests) do
+        if request.status == 'accepted' then
+            for _, target in ipairs(request.targets) do
+                wanted[request.category .. ':' .. request.item:lower() .. ':' .. target.stat] = { request = request, target = target }
+            end
+        end
+    end
+    for key, w in pairs(wanted) do
+        if w.target.stat == 'mags_start' then
+            local item = ITEM_BY_NAME[w.request.category .. ':' .. w.request.item:lower()]
+            local max = wanted[(key:gsub('mags_start$', 'mags_max'))]
+            local limit = max and tonumber(max.target.text) or (item.stats.mags_max and item.stats.mags_max.field.stock)
+            local start = tonumber(w.target.text)
+            if limit and start and start > limit then
+                w.request.warning = string.format('mags_start %d is above mags_max %d: the game starts with %d. '
+                    .. 'Set mags_max as well', start, limit, limit)
             end
         end
     end
@@ -1357,6 +1539,57 @@ local function build_desired(text)
         local switch = get_field('ComponentEntityDeltaStorage', 'components', magazine.run_at, 'u32', magazine.run_count)
         switch.exact = true
         desired[switch.key] = { field = switch, value = 0, sources = {}, base = true, group = group, order = 2 }
+    end
+    -- explosions of their own: order 1 = the borrowed row (a copy of the item's row, pointing at the
+    -- damage row of its own), order 2 = the switches that make the item use it
+    local function copy_explosion(source, target, damage, group)
+        local from, to = ROWS['ExplosionSettings|' .. source], ROWS['ExplosionSettings|' .. target]
+        local live = LIVE_WORDS.ExplosionSettings or {}
+        for offset = 4, SPECS.ExplosionSettings.stride - 4, 4 do
+            local field = get_field('ExplosionSettings', tostring(target), offset, 'u32', hex_word(to, offset))
+            local value = hex_word(from, offset)
+            if live[offset] then
+                -- part of an array head: an address, only known in memory. Copied from the source row.
+                field.exact, field.live = nil, get_field('ExplosionSettings', tostring(source), offset, 'u32', value)
+            else
+                field.exact, field.live = true, nil
+                if offset == 4 and damage then value = damage end
+            end
+            local entry = desired[field.key]
+            if not entry then
+                entry = { field = field, value = value, sources = {}, base = true }
+                desired[field.key] = entry
+            end
+            entry.group, entry.order = group, 1
+        end
+    end
+    for _, a in ipairs(blasts) do
+        local b = a.blast
+        local function switch(field, value)
+            field.exact = true
+            desired[field.key] = { field = field, value = value, sources = { a.request }, base = true, group = a.group,
+                                   order = 2, needs_index = (a.new_damage ~= nil or b.kind == 'P') or nil }
+        end
+        if a.new_explosion then
+            copy_explosion(b.explosion, a.new_explosion, a.new_damage, a.group)
+            for _, s in ipairs(b.switches) do
+                if b.kind == 'P' then
+                    switch(get_field(own_name('ProjectileSettings'), string.format('%.0f', a.takeover.new_projectile),
+                                     s.offset, 'u32', b.explosion), a.new_explosion)
+                else
+                    switch(get_field(s.table, a.item.entity, s.offset, 'u32', b.explosion), a.new_explosion)
+                end
+            end
+        elseif a.new_damage then
+            switch(get_field('ExplosionSettings', tostring(b.explosion), 4, 'u32', b.damage), a.new_damage)
+        end
+    end
+    -- canary (research): every row of the borrowing list becomes a copy of a harmless, very visible
+    -- explosion. Anything in the game that uses one of these rows then shows that explosion instead.
+    if config.canary and MARKER.ExplosionSettings then
+        for _, id in ipairs(SPARE.ExplosionSettings or {}) do
+            copy_explosion(MARKER.ExplosionSettings, id, nil, 'canary')
+        end
     end
     -- own bullets: copy the weapon's round into the spare rows, then point the weapon at them.
     -- order 1 = the rows, order 2 = the switches (only thrown when every row field is in place).
@@ -1427,6 +1660,10 @@ local function log_results()
         elseif request.own_item then
             local s, in_place, total, note = own_bullet_state(request.own_item.name)
             log(head .. ' -> own bullet ' .. s .. ' (' .. in_place .. ' of ' .. total .. ' fields)'
+                .. (note and (' ' .. note) or ''))
+        elseif request.blast then
+            local s, in_place, total, note = own_bullet_state(request.blast.group)
+            log(head .. ' -> own explosion ' .. s .. ' (' .. in_place .. ' of ' .. total .. ' fields)'
                 .. (note and (' ' .. note) or ''))
         else
             for _, target in ipairs(request.targets) do
@@ -1523,8 +1760,17 @@ local function sync_field(entry, value)
                         entry.copies[block.address] = copy
                     end
                     local target = value
-                    if target == nil then target = copy.original end
-                    if same_value(field.storage, current, target) then
+                    if target == nil then
+                        target = copy.original
+                    elseif field.live then
+                        -- the value is whatever the row it is copied from holds in this copy of the table
+                        local source = field_address(block, field.live)
+                        target = source and A.u32(source)
+                    end
+                    if target == nil then
+                        entry.note = 'the row to copy from cannot be read'
+                    elseif same_value(field.storage, current, target) then
+                        copy.value = target
                         done = done + 1
                     elseif field.exact and not copy.written and not same_value(field.storage, current, field.stock) then
                         entry.note = 'unexpected content ' .. show(current, field.storage) .. ' (expected '
@@ -1537,7 +1783,7 @@ local function sync_field(entry, value)
                         if ok then
                             done = done + 1
                             if copy.written then state.rewrites = state.rewrites + 1 end
-                            copy.written = value ~= nil
+                            copy.written, copy.value = value ~= nil, target
                             if value == nil then state.restores = state.restores + 1 end
                         else
                             entry.note = why
@@ -1654,7 +1900,9 @@ local function recheck()
             -- only values we actually wrote can be "changed back"; a refused write is not retried
             if entry.value ~= nil and copy.written then
                 local current = read_field(copy.address, entry.field.storage)
-                if not same_value(entry.field.storage, current, entry.value) then result = 'changed' end
+                local expected = entry.value
+                if entry.field.live then expected = copy.value end
+                if not same_value(entry.field.storage, current, expected) then result = 'changed' end
             end
         end
         pause()
@@ -1680,11 +1928,13 @@ local function count_states()
             else counts.failed = counts.failed + 1 end
         end
     end
-    counts.own, counts.magazines = 0, 0
+    counts.own, counts.magazines, counts.blasts, counts.canary = 0, 0, 0, 0
     for group in pairs(groups) do
         local s = own_bullet_state(group)
         if s == 'active' then
             if group:sub(1, 9) == 'magazine:' then counts.magazines = counts.magazines + 1
+            elseif group:sub(1, 6) == 'blast:' then counts.blasts = counts.blasts + 1
+            elseif group == 'canary' then counts.canary = 1
             else counts.own = counts.own + 1 end
         elseif s == 'waiting' then counts.waiting = counts.waiting + 1
         else counts.failed = counts.failed + 1 end
@@ -1705,12 +1955,15 @@ local function build_status()
         verdict = 'REFUSED - this game build is not one this version was verified on; nothing was written'
     elseif not config.enabled then
         verdict = 'DISABLED - enabled = false in config.txt; all values are the game\'s own'
-    elseif counts.applied + counts.own + counts.waiting + counts.failed + counts.rejected == 0 then
+    elseif counts.applied + counts.own + counts.blasts + counts.canary + counts.waiting + counts.failed
+        + counts.rejected == 0 then
         verdict = 'OK - no changes configured'
     elseif counts.waiting + counts.failed + counts.rejected == 0 then
         verdict = 'OK - ' .. counts.applied .. ' values applied'
             .. (counts.own > 0 and (', ' .. counts.own .. ' weapons on their own bullet') or '')
             .. (counts.magazines > 0 and (', ' .. counts.magazines .. ' magazines switched to the weapons\' own values') or '')
+            .. (counts.blasts > 0 and (', ' .. counts.blasts .. ' explosions of their own') or '')
+            .. (counts.canary > 0 and ', canary rows marked' or '')
     else
         verdict = string.format('PARTIAL - %d values applied, %d waiting for their table, %d failed, %d config lines rejected',
                                 counts.applied, counts.waiting, counts.failed, counts.rejected)
@@ -1766,6 +2019,17 @@ local function build_status()
             end
         end
     end
+    if #spare.order > 0 or config.canary then
+        add('')
+        add('[borrowed rows] explosion rows that may be borrowed: ' .. table.concat(SPARE.ExplosionSettings or {}, ' '))
+        for _, user in ipairs(spare.order) do
+            add(string.format('  %s: %s row %d (as a copy of row %d)', user.name, user.table, user.id, user.source))
+        end
+        if config.canary then
+            add('canary: ' .. own_bullet_state('canary'):upper() .. ' - every row of the list is a copy of explosion row '
+                .. tostring(MARKER.ExplosionSettings) .. ' (smoke); anything that uses one shows smoke instead')
+        end
+    end
     add('')
     add('[tables] needed by the config: name copies | address size origin')
     local needed, names = needed_tables(), {}
@@ -1797,8 +2061,17 @@ local function build_status()
             add(string.format('%s -> OWN BULLET %s: projectile row %d -> %s%.0f, damage row %d -> %s%.0f (%d of %d fields in place)%s',
                 head, s:upper(), t.src_projectile, new, t.new_projectile, t.src_damage, new, t.new_damage,
                 in_place, total, note and ('  ' .. note) or ''))
+        elseif request.blast then
+            local a = request.blast
+            local s, in_place, total, note = own_bullet_state(a.group)
+            if s == 'waiting' then note = note or own.index_note end
+            add(string.format('%s -> OWN EXPLOSION %s: %s%s (%d of %d fields in place)%s', head, s:upper(),
+                a.new_explosion and string.format('explosion row %d -> borrowed row %d', a.blast.explosion, a.new_explosion)
+                    or string.format('explosion row %d is its own', a.blast.explosion),
+                a.new_damage and string.format(', damage row %d -> NEW ID %.0f', a.blast.damage, a.new_damage) or '',
+                in_place, total, (note or a.problem) and ('  ' .. tostring(note or a.problem)) or ''))
         else
-            add(head)
+            add(head .. (request.warning and ('   WARNING: ' .. request.warning) or ''))
             for _, target in ipairs(request.targets) do
                 local entry, field = applied[target.field.key], target.field
                 local copies, originals, foreign = 0, {}, false
@@ -1868,6 +2141,14 @@ end
 -- Written a few items at a time, so that no frame pays for the whole file.
 local function write_catalog()
     local dir = ensure_out_dir()
+    local title = MOD.title .. ' v' .. MOD.version .. ' catalog'
+    local existing = dir and io.open(dir .. '\\' .. MOD.catalog, 'rb')
+    if existing then
+        -- the catalog only changes with the version: an up-to-date one is left alone
+        local first = existing:read('*l')
+        existing:close()
+        if first and first:gsub('%s+$', '') == title then return end
+    end
     local handle = dir and io.open(dir .. '\\' .. MOD.catalog, 'wb')
     if not handle then return end
     handle:write(table.concat({ MOD.title .. ' v' .. MOD.version .. ' catalog',
