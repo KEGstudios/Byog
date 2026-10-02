@@ -51,7 +51,7 @@ is **rejected** (never clamped) and reported in STATUS.txt with the range.
 * `[settings] own_rows = off` turns the automatic rows off for the whole config, and
   `own_bullet = false` in a weapon's section does it for that weapon: its projectile and damage stats
   are then written to the shared rows, as in the first versions.
-* **Values of the default attachment (v0.7.0, not yet tested in game).** For 21 weapons the magazine
+* **Values of the default attachment (v0.7.0, works in game).** For 21 weapons the magazine
   values (`capacity`, `mags_start`, `mags_supply`, `mags_max`) or heat values are not read from the
   weapon: the attachment the weapon carries by default (its magazine, its heat sink) lays its own values
   over them. The mod writes those attachment values; catalog.txt marks them `value of the default
@@ -61,6 +61,9 @@ is **rejected** (never clamped) and reported in STATUS.txt with the range.
     them under "also affects", and different values for the same attachment reject each other;
   * a different attachment put on the weapon in the armory brings its own values, which this version
     does not touch.
+
+  The game reads these values when the weapon is created: a change made during a mission shows on the
+  next weapon (seen in game: after dying and coming back), not on the one already in hand.
 * **Fire rate.** A weapon with a fire-rate selector has three rates. `rpm` is the default one (the
   middle setting); `rpm_low` and `rpm_high` are the other two and are set on their own lines. Seen in
   game (v0.6.0): `rpm = 200%` on the MG-43 changed the middle setting only.

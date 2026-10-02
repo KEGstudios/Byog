@@ -441,8 +441,12 @@ component-index -> component-type mapping inside the delta storage is **inferred
 offsets the deltas touch (5 = magazine, 236 = weapon data, 266 = heat, 271 = customization,
 321 = projectile weapon); recon must confirm it. Non-default attachments carry their own copies.
 
-Tuner v0.7.0 (offline-tested, not yet in game) edits these stats in the delta storage's data array
-instead of the weapon's record. Offline facts behind it (`build/an_attach.py`): all 79 values are 4-byte
+Tuner v0.7.0 edits these stats in the delta storage's data array instead of the weapon's record.
+**In game (one tester): works** - Liberator magazine 45 -> 100, 10 spare magazines at the start, refill up
+to 12, Peacemaker 15 -> 23, and the Liberator Penetrator (same default magazine) changed with it; a
+change made during a mission took effect after the player died and came back (the values are read when
+the weapon is created); restore ok, errors 0. The MG-43's capacity, which is in the weapon's own record,
+also works (175 -> 300). Offline facts behind it (`build/an_attach.py`): all 79 values are 4-byte
 deltas at exactly the stat's offset; no two delta resources share data bytes; of the 19 default magazine
 attachments one is the default of three weapons (`assault_rifle`, `assault_rifle_ap`,
 `assault_rifle_whisper`), the others of one weapon each. 94 of 561 delta resources write a stat field;
@@ -480,7 +484,8 @@ indexed by row id: 350 pointers for ProjectileSettings, 422 for ExplosionSetting
 start, slot + 1 = row id for every one. The table's own row order is irrelevant. Consequences:
 ids are fixed at build time (an id without a slot cannot be looked up, so tables cannot simply be
 extended with new ids), and the number of things that can have a projectile of their own is bounded by
-the number of unused ids: 80 projectile, 164 damage, 225 explosion rows offline.
+the number of unused ids: 80 projectile, 164 damage rows offline (for explosion rows see the end of this
+section: the unreferenced ones are not safe to take).
 
 **Second probe (v0.3.2): the lookups, decoded from the code that uses the arrays.** game.dll keeps the
 arrays in its writable data section (rva: damage 0x37C60C8, projectile 0x37C7678, explosion 0x37CC928 for
@@ -502,7 +507,20 @@ GL-21, Recoilless), different damage on weapons that share a round, errors 0. **
 no `own_bullet` line; `own_bullet = false` shares again; restore ok; errors 0; worst frame 3.5 ms).
 Open questions only the game can
 answer: other per-projectile-id arrays, narrower copies of the id (network packing), the 56 sites not
-read. Explosion rows cannot get new ids (bounds check); 225 spare rows exist there.
+read. Explosion rows cannot get new ids (bounds check).
+
+**Explosion rows: no safe spare rows (2026-10-02, `tools/references.py`, `build/an_explosion2.py`).**
+A scan of every table we can read for members typed `ExplosionType` finds 184 of 422 explosion rows that
+nothing refers to (the earlier "225" counted fewer referrers). They are not dead rows: they carry real
+radii (up to 40 m), particle effects and sounds, so they are used by things outside the data we have
+(stratagem payloads, enemies, hazards, code). Taking one over would change whatever really uses it; that
+route is closed. What the scan shows instead: of the 56 explosion rows behind catalog items, 39 have
+exactly one referrer (that item's projectile row or component), and 35 of their 54 damage rows are
+referenced by that explosion alone. Shared between catalog items: one row (frag and anti-tank grenade).
+Shared with something outside the catalog: 154, 155, 188, 304, 342, 366, and any explosion whose
+projectile row is fired by more than one thing. A damage row that several explosions share can be
+separated with a new damage id (damage ids are not bounds-checked) wherever the explosion row itself
+belongs to one item.
 
 ### 6.3 Copies, reloads, drift
 Per the skill's case studies: several copies of a table can exist in memory, new copies appear on
