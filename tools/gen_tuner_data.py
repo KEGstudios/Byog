@@ -13,8 +13,10 @@ Line format ('|' separated):
   I|index|category|name|entity16
   F|item_index|stat|table|key|offset|storage|stock|flags
       one memory field of one stat of one item. key: entity16 (K) or row id (R).
-      flags: A = the live value comes from a default attachment's delta, not from
-      this field (STAT-MAP §6.2): the engine refuses to edit it.
+      flags: A = the weapon's default attachment sets this value (STAT-MAP §6.2): the field is
+      then the attachment's own value inside the delta storage (table ComponentEntityDeltaStorage,
+      key "data", offset inside its data array), not the weapon's record, which the game overwrites.
+      Every weapon with the same default attachment names the same field, so they show up as sharing it.
   R|stat|min|max|integer
   A|alias|mode|stat,stat,...     mode: all | nonzero (only fields whose stock value is not 0)
   O|item_index|base_projectile|src_projectile|new_projectile|src_damage|new_damage
@@ -141,6 +143,7 @@ def generate(builds=None, indexes=None):
         for table, (rva, slots) in sorted(known.items()):
             lines.append("N|%s|%s|%X|%d" % (label, table, rva, slots))
     tables, items, fields, stats_seen, unranged = {}, [], [], set(), set()
+    data_start = deltas._load()["xo"]
     for it in cat["items"]:
         category = CATEGORY.get(it["category"])
         if not category:
@@ -154,9 +157,16 @@ def generate(builds=None, indexes=None):
                 unranged.add(s["id"])
                 continue
             storage = STORAGE[s["storage"]]
-            flags = "A" if "default_attachment" in s else ""
-            tables[s["table"]] = True
             stats_seen.add(s["id"])
+            attached = s.get("default_attachment")
+            if attached:
+                tables["ComponentEntityDeltaStorage"] = True
+                fields.append("F|%d|%s|ComponentEntityDeltaStorage|data|%d|%s|%s|A" % (
+                    index, s["id"], attached["delta_data_offset"] - data_start, storage,
+                    num(attached["value"], storage)))
+                continue
+            flags = ""
+            tables[s["table"]] = True
             fields.append("F|%d|%s|%s|%s|%d|%s|%s|%s" % (
                 index, s["id"], s["table"], s["key"], s["offset"], storage, num(s["original"], storage), flags))
     if unranged:
@@ -165,7 +175,6 @@ def generate(builds=None, indexes=None):
     extra, stock_rows, own_bullets = [], {}, 0
     P, Dm = hd2db.table("ProjectileSettings"), hd2db.table("DamageSettings")
     fire = hd2db.table("ProjectileWeaponComponentData")
-    data_start = deltas._load()["xo"]
     for index, line in enumerate(items):
         _i, _idx, _cat, name, entity_hex = line.split("|")
         # every weapon that fires projectiles can get rows of its own (new ids); the ones listed in

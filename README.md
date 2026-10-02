@@ -7,8 +7,8 @@ memory, for private lobbies with friends. No in-game UI yet; the engine will rea
 |---|---|
 | 0 Offline research | done — `docs/STAT-MAP.md` |
 | 1 Read-only recon addon | done — first in-game round OK: 28 of 28 tables, 4074 of 4074 values (`docs/STAT-MAP.md` §0) |
-| 2 Patch engine + config format | **v0.3.1: damage, fire rate, recoil and per-weapon armor penetration write-verified in game; per-weapon damage through a row takeover ("own bullet") works in game for the Liberator; a brand-new projectile id in memory of the mod's own (`own_bullet = new`, v0.4.1) and a new damage id (v0.5.0, six weapons at once) work in game; v0.6.0 does it automatically for any projectile weapon whose projectile / damage stats are set (works in game). Stage goal met; waiting for approval to start Stage 3** (`docs/CONFIG-FORMAT.md`) |
-| 3 All categories | not started |
+| 2 Patch engine + config format | **v0.3.1: damage, fire rate, recoil and per-weapon armor penetration write-verified in game; per-weapon damage through a row takeover ("own bullet") works in game for the Liberator; a brand-new projectile id in memory of the mod's own (`own_bullet = new`, v0.4.1) and a new damage id (v0.5.0, six weapons at once) work in game; v0.6.0 does it automatically for any projectile weapon whose projectile / damage stats are set (works in game). Stage goal met** (`docs/CONFIG-FORMAT.md`) |
+| 3 All categories | **in progress. Step 1, values owned by attachments (magazines, heat sinks): v0.7.0 under test** (`TEST-v0.7.0.md`). Then: explosion rows per weapon, stratagems / backpacks / shields / vehicles, id-type stats, display names and UI |
 | 4 Multiplayer presets | not started |
 
 ## Layout

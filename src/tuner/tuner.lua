@@ -1039,11 +1039,6 @@ local function resolve_request(request, own_bullet)
     for _, stat in ipairs(stats) do
         local entry, range = item.stats[stat], RANGES[stat]
         if entry and range and not (nonzero and entry.field.stock == 0) then
-            if entry.attachment then
-                request.status = 'rejected'
-                request.reason = stat .. " is set by this weapon's default attachment; not editable in this version"
-                return
-            end
             local value, why = evaluate(request.expression, entry.field.stock)
             if not value then request.status, request.reason = 'rejected', why return end
             if range.integer or entry.field.storage ~= 'f32' then value = math.floor(value + 0.5) end
@@ -1059,7 +1054,7 @@ local function resolve_request(request, own_bullet)
                 return
             end
             local target = { stat = stat, field = entry.field, value = value,
-                             text = show(value, entry.field.storage) }
+                             text = show(value, entry.field.storage), attachment = entry.attachment }
             if own_bullet[item] then
                 local field, redirected = own_row_field(item, entry.field)
                 if redirected then
@@ -1737,12 +1732,13 @@ local function build_status()
                 for _, user in ipairs(field.users) do
                     if user ~= request.item:lower() .. '.' .. target.stat and #others < 12 then others[#others + 1] = user end
                 end
-                add(string.format('  %s: %s -> %s  %s  copies=%d%s%s%s', target.stat,
+                add(string.format('  %s: %s -> %s  %s  copies=%d%s%s%s%s', target.stat,
                     target.was_text or (#was > 0 and table.concat(was, '/') or show(field.stock, field.storage)),
                     target.text .. (target.own and ' (own row)' or ''),
                     (entry and entry.state or 'waiting'):upper(), copies,
                     entry and entry.note and ('  (' .. entry.note .. ')') or '',
                     foreign and '  (the value was not the game\'s stock value before we changed it)' or '',
+                    target.attachment and '  (value of the default attachment)' or '',
                     #others > 0 and ('  also affects: ' .. table.concat(others, ', ')
                                      .. (#field.users - 1 > #others and ', ...' or '')) or ''))
             end
@@ -1797,7 +1793,9 @@ local function write_catalog()
             for _, stat in ipairs(item.stat_order) do
                 local entry, range = item.stats[stat], RANGES[stat]
                 local notes = {}
-                if entry.attachment then notes[#notes + 1] = 'set by the default attachment: not editable yet' end
+                if entry.attachment then
+                    notes[#notes + 1] = 'value of the default attachment: another attachment on the weapon replaces it'
+                end
                 if #entry.field.users > 1 then notes[#notes + 1] = 'shared with ' .. (#entry.field.users - 1) .. ' other' end
                 L[#L + 1] = string.format('  %s = %s   (%s .. %s%s)%s', stat, show(entry.field.stock, entry.field.storage),
                     show(range.min, 'f32'), show(range.max, 'f32'), range.integer and ', whole numbers' or '',

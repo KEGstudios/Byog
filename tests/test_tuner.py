@@ -9,6 +9,7 @@ them with a deliberately broken source and requires them to fail. A scenario tha
 passes on a broken engine does not test what it claims.
 """
 import hashlib
+import json
 import os
 import struct
 import sys
@@ -167,7 +168,6 @@ def check_rejections_write_nothing(mutate=None):
         "[weapon: assault_rifle]",
         "damage = 200000",            # out of range
         "nonsense = 5",               # unknown stat
-        "magazine = 45",              # set by the default attachment
         "ergonomics = fast",          # not a number
         "[weapon: no_such_gun]",
         "damage = 10",
@@ -177,11 +177,10 @@ def check_rejections_write_nothing(mutate=None):
     rig = Rig(config, mutate)
     try:
         status = rig.settle()
-        assert first_line(status).startswith("PARTIAL - 0 values applied, 0 waiting for their table, 0 failed, 6 config lines rejected"), first_line(status)
+        assert first_line(status).startswith("PARTIAL - 0 values applied, 0 waiting for their table, 0 failed, 5 config lines rejected"), first_line(status)
         assert rig.mem.writes == [], rig.mem.writes
         assert "outside the allowed range 0 .. 100000" in status
         assert 'has no stat "nonsense"' in status
-        assert "default attachment" in status
         assert "not a number" in status
         assert "unknown weapon" in status
     finally:
@@ -469,7 +468,8 @@ def check_catalog_and_template(mutate=None):
         catalog = rig.game.read_out("catalog.txt")
         assert "[weapon: assault_rifle]" in catalog
         assert "  damage = 90   (0 .. 100000, whole numbers)   # shared with 3 other" in catalog, catalog[:600]
-        assert "set by the default attachment" in catalog
+        assert "  capacity = 45   (1 .. 9999, whole numbers)   # value of the default attachment: another " \
+               "attachment on the weapon replaces it; shared with 2 other" in catalog
         template = rig.game.read_out("config.txt")
         assert "[settings]" in template and "# [weapon: assault_rifle]" in template
         assert rig.mem.writes == []
@@ -969,6 +969,59 @@ def check_a_changed_weapon_gets_rows_of_its_own_by_itself(mutate=None):
         rig.close()
 
 
+_CATALOG = {}
+
+
+def catalog_stat(weapon, stat):
+    """-> (catalog item, stat entry) from the offline catalog, which the addon never sees."""
+    if not _CATALOG:
+        with open(os.path.join(ROOT, "data", "catalog.json"), encoding="utf-8") as f:
+            for it in json.load(f)["items"]:
+                _CATALOG[it["path"].rsplit("/", 1)[-1]] = it
+    it = _CATALOG[weapon]
+    return it, next(s for s in it["stats"] if s.get("id") == stat)
+
+
+def attachment_value(rig, weapon, stat):
+    """-> (address of the value in the default attachment's delta, address in the weapon's own record)"""
+    it, s = catalog_stat(weapon, stat)
+    delta = rig.blocks["ComponentEntityDeltaStorage"][0] + 24 + s["default_attachment"]["delta_data_offset"]
+    return delta, rig.keyed_field(s["table"], int(it["entity"], 16), s["offset"])
+
+
+def check_magazine_values_live_in_the_default_attachment(mutate=None):
+    config = "[weapon: assault_rifle]\ncapacity = 60\nmags_max = +2\n[weapon: standard_pistol]\nmagazine = 150%\n"
+    rig = Rig(config, mutate)
+    try:
+        capacity, base_capacity = attachment_value(rig, "assault_rifle", "capacity")
+        spare, base_spare = attachment_value(rig, "assault_rifle", "mags_max")
+        pistol, base_pistol = attachment_value(rig, "standard_pistol", "capacity")
+        before = [rig.mem.peek(a, "<I") for a in (capacity, spare, pistol, base_capacity, base_spare, base_pistol)]
+        assert before == [45, 8, 15, 30, 12, 30], before
+        status = rig.settle()
+        assert first_line(status) == "OK - 3 values applied", status[:1500]
+        # the attachment's values changed (percent and +N count from the value the game really uses) ...
+        assert [rig.mem.peek(a, "<I") for a in (capacity, spare, pistol)] == [60, 10, 23]
+        # ... and nothing else: not the weapons' own records, which the game overwrites anyway
+        assert sorted(a for a, _d in rig.mem.writes) == sorted([capacity, spare, pistol]), \
+            [hex(a) for a, _d in rig.mem.writes]
+        assert [rig.mem.peek(a, "<I") for a in (base_capacity, base_spare, base_pistol)] == [30, 12, 30]
+        line = next(x for x in status.split("\r\n") if x.startswith("  capacity: 45 -> 60"))
+        assert "APPLIED" in line and "(value of the default attachment)" in line, line
+        # the Liberator's magazine is also the default of two other rifles; the pistol's is its own
+        assert "also affects: assault_rifle_ap.capacity, assault_rifle_whisper.capacity" in line, line
+        line = next(x for x in status.split("\r\n") if x.startswith("  capacity: 15 -> 23"))
+        assert "also affects" not in line, line
+        # two weapons with the same magazine cannot ask for different values
+        status = rig.reload("[weapon: assault_rifle]\ncapacity = 60\n[weapon: assault_rifle_ap]\ncapacity = 50\n")
+        assert status.count("ask for different values of the same shared value") == 2, status[:1500]
+        assert [rig.mem.peek(a, "<I") for a in (capacity, spare, pistol)] == [45, 8, 15]
+        status = rig.reload("")
+        assert [rig.mem.peek(a, "<I") for a in (capacity, spare, pistol)] == [45, 8, 15]
+    finally:
+        rig.close()
+
+
 CHECKS = [v for k, v in sorted(globals().items()) if k.startswith("check_")]
 
 
@@ -1017,6 +1070,16 @@ class Startup(unittest.TestCase):
                 self.assertIn("\nN|%s|%s|%X|%d\n" % (label, table, rva, slots), text)
             self.assertIn("\nV|%s|" % label, text)
 
+    def test_attachment_values_point_into_the_delta_storage(self):
+        blob, _stats = gen_tuner_data.generate()
+        flagged = [x.split("|") for x in blob.splitlines() if x.startswith("F|") and x.endswith("|A")]
+        self.assertEqual(len(flagged), 79)
+        self.assertTrue(all(f[3] == "ComponentEntityDeltaStorage" and f[4] == "data" for f in flagged))
+        data_start = __import__("deltas")._load()["xo"]
+        _it, s = catalog_stat("assault_rifle", "capacity")
+        self.assertIn("|capacity|ComponentEntityDeltaStorage|data|%d|u32|45|A"
+                      % (s["default_attachment"]["delta_data_offset"] - data_start), blob)
+
     def test_update_chain_is_preserved(self):
         rig = Rig(BASE_CONFIG)
         try:
@@ -1041,10 +1104,14 @@ MUTATIONS = [
      "if value ~= value or value < range.min or value > range.max then",
      "if value ~= value then",
      check_rejections_write_nothing),
-    ("attachment-owned stats editable",
-     "            if entry.attachment then\n                request.status = 'rejected'",
-     "            if false then\n                request.status = 'rejected'",
-     check_rejections_write_nothing),
+    ("attachment values written 4 bytes off",
+     "        local address = block.records_at + field.offset\n",
+     "        local address = block.records_at + field.offset + 4\n",
+     check_magazine_values_live_in_the_default_attachment),
+    ("attachment value not marked in STATUS",
+     "target.attachment and '  (value of the default attachment)' or ''",
+     "''",
+     check_magazine_values_live_in_the_default_attachment),
     ("conflict rule removed",
      "if not same_value(target.field.storage, claim.value, target.value) then claim.conflict = true end",
      "",
@@ -1229,11 +1296,15 @@ class Mutations(unittest.TestCase):
     def test_every_mutation_is_caught(self):
         survivors = []
         for name, old, new, check in MUTATIONS:
-            try:
-                check((old, new))
-            except Exception:
-                continue                      # caught (assertion, or the addon failed to load)
-            survivors.append(name)
+            # A few mutations only change the ORDER of writes, which then follows Lua's table order
+            # (random per run) and can come out right by chance: such a mutant must survive three runs.
+            for _attempt in range(3):
+                try:
+                    check((old, new))
+                except Exception:
+                    break                     # caught (assertion, or the addon failed to load)
+            else:
+                survivors.append(name)
         self.assertEqual(survivors, [])
 
     def test_mutation_targets_exist(self):

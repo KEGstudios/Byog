@@ -441,6 +441,15 @@ component-index -> component-type mapping inside the delta storage is **inferred
 offsets the deltas touch (5 = magazine, 236 = weapon data, 266 = heat, 271 = customization,
 321 = projectile weapon); recon must confirm it. Non-default attachments carry their own copies.
 
+Tuner v0.7.0 (offline-tested, not yet in game) edits these stats in the delta storage's data array
+instead of the weapon's record. Offline facts behind it (`build/an_attach.py`): all 79 values are 4-byte
+deltas at exactly the stat's offset; no two delta resources share data bytes; of the 19 default magazine
+attachments one is the default of three weapons (`assault_rifle`, `assault_rifle_ap`,
+`assault_rifle_whisper`), the others of one weapon each. 94 of 561 delta resources write a stat field;
+75 of them are not the default attachment of any catalog weapon (the selectable alternatives: short,
+extended and drum magazines, other heat sinks). Which alternatives a given weapon may carry is not in
+the data we have, so a per-weapon magazine value independent of the attachment is not possible yet.
+
 ### 6.2b Per-weapon damage: addends do not work, row takeover is under test
 
 In-game results (tuner v0.2.1 / v0.2.2, one tester): the pair both name sources call `damage_addends`
