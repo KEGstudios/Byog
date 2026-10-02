@@ -489,7 +489,9 @@ inside, and gives the weapon the id that lands on that pointer. As a client in a
 lobby it also worked (host unaffected, the client's damage values counted). v0.5.0 does the same for the
 damage row (index rva 0x37C60C0, 650 slots) and offers it for all 83 projectile weapons of the catalog.
 **In game (v0.5.0, one tester): works** with six weapons at once (Liberator, Stalwart, Peacemaker, MG-43,
-GL-21, Recoilless), different damage on weapons that share a round, errors 0. v0.6.0 makes it automatic. Open questions only the game can
+GL-21, Recoilless), different damage on weapons that share a round, errors 0. **v0.6.0 (in game, one tester): automatic separation works** (Liberator 5000 / Stalwart 1 with
+no `own_bullet` line; `own_bullet = false` shares again; restore ok; errors 0; worst frame 3.5 ms).
+Open questions only the game can
 answer: other per-projectile-id arrays, narrower copies of the id (network packing), the 56 sites not
 read. Explosion rows cannot get new ids (bounds check); 225 spare rows exist there.
 

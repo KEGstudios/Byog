@@ -43,14 +43,17 @@ is **rejected** (never clamped) and reported in STATUS.txt with the range.
 * **One weapon at a time (v0.6.0).** In the game's data many weapons share one projectile row and one
   damage row. When a line sets a projectile or damage stat of a weapon that fires projectiles, the mod
   gives that weapon rows of its own first (brand-new row ids in memory the mod allocates), so the change
-  reaches this weapon only. STATUS.txt shows it as `rows of its own (automatic)`. Tested in game with
-  six weapons at once (v0.5.0).
+  reaches this weapon only. STATUS.txt shows it as `rows of its own (automatic)`. Tested in game
+  (v0.6.0): two weapons that share a round got different damage without any `own_bullet` line.
 * **Shared values that remain.** Explosion rows, and everything of items that do not fire projectiles,
   are still shared: setting one changes every user; STATUS.txt lists them under "also affects". If two
   lines ask for different values of the same shared value, **both are rejected**.
 * `[settings] own_rows = off` turns the automatic rows off for the whole config, and
   `own_bullet = false` in a weapon's section does it for that weapon: its projectile and damage stats
   are then written to the shared rows, as in the first versions.
+* **Fire rate.** A weapon with a fire-rate selector has three rates. `rpm` is the default one (the
+  middle setting); `rpm_low` and `rpm_high` are the other two and are set on their own lines. Seen in
+  game (v0.6.0): `rpm = 200%` on the MG-43 changed the middle setting only.
 * `ap = N` sets every armor-penetration angle that is not 0 in the game's data; `ap_direct`,
   `ap_slight`, `ap_large`, `ap_extreme` set a single angle.
 * Per-weapon values that are never shared: `ap_bonus`, `durable_ap_bonus` (armor penetration added for
