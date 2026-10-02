@@ -92,7 +92,8 @@ class RealApi(unittest.TestCase):
 
         # test_5 plants an id-indexed array of row pointers at rva 0x3100 of game.dll (the slot of id 1)
         blob, _stats = gen_tuner_data.generate(builds=[("this python", exe_hash, dll_hash)],
-                                               indexes={"ProjectileSettings": (0x30F8, 351)})
+                                               indexes={"ProjectileSettings": (0x30F8, 351),
+                                                        "DamageSettings": (0x4000, 650)})
         source, _version = pack_addon.render("tuner", data=blob)
         cls.lua = LuaRuntime(encoding=None, unpack_returned_tuples=True)
         cls.lua.execute(b"""
@@ -240,24 +241,41 @@ class RealApi(unittest.TestCase):
         import re
         base = self.dll._handle
         ctypes.memmove(base + 0x30F8, bytes(8), 8)                      # the slot of id 0 is empty in the game
+        # the damage index, like the projectile one of test_5: slot of id 0 at rva 0x4000
+        t = self.damage_table
+        ids = t.by_id()
+        array = bytearray(8 * (max(ids) + 1))
+        for row_id, row in ids.items():
+            struct.pack_into("<Q", array, 8 * row_id, self.damage_block + 24 + 16 + row * t.stride)
+        old = ctypes.c_uint32(0)
+        self.assertTrue(self.k32.VirtualProtect(ctypes.c_void_p(base + 0x4000), 0x2000, PAGE_READWRITE, ctypes.byref(old)))
+        ctypes.memmove(base + 0x4000, bytes(array), len(array))
         with open(self.config_path, "w") as f:
             f.write("[settings]\nauto_reload_seconds = 1\n[weapon: assault_rifle]\nown_bullet = new\nvelocity = 1200\n")
         status = type(self).run_until(lambda s: "velocity: 900 -> 1200 (own row)  APPLIED" in s, seconds=120)
         self.assertIn("[own rows] ready", status, status[:2500])
-        m = re.search(r"block (0x[0-9A-F]+), game index (0x[0-9A-F]+), first new id (\d+)", status)
-        self.assertTrue(m, status[:2500])
-        block, index, new_id = int(m.group(1), 16), int(m.group(2), 16), int(m.group(3))
+        m = re.search(r"block (0x[0-9A-F]+) size 131072", status)
+        n = re.search(r"ProjectileSettings: game index (0x[0-9A-F]+), first new id (\d+)", status)
+        d = re.search(r"DamageSettings: game index (0x[0-9A-F]+), first new id (\d+)", status)
+        self.assertTrue(m and n and d, status[:2500])
+        block, index, new_id = int(m.group(1), 16), int(n.group(1), 16), int(n.group(2))
+        damage_index, new_damage = int(d.group(1), 16), int(d.group(2))
         self.assertEqual(index, base + 0x30F8)
+        self.assertEqual(damage_index, base + 0x4000)
         self.assertGreater(block, index)
         self.assertLess(new_id, 2 ** 31)
         # the block is real, private, writable memory that Windows gave us at the address we asked for
         self.assertEqual(self.page_protection(block), PAGE_READWRITE)
         # what the game would do with the new id: [index + id * 8] -> the row
         row = self.peek(index + 8 * new_id, "<Q")
-        self.assertTrue(block <= row < block + 0x10000, hex(row))
+        self.assertTrue(block <= row < block + 0x20000, hex(row))
         self.assertEqual(self.peek(row, "<I"), new_id)
         self.assertEqual(self.peek(row + 32, "<f"), 1200.0)
-        self.assertEqual(self.peek(row + 60, "<I"), 55)
+        self.assertEqual(self.peek(row + 60, "<I"), new_damage)
+        damage_row = self.peek(damage_index + 8 * new_damage, "<Q")
+        self.assertTrue(block <= damage_row < block + 0x20000, hex(damage_row))
+        self.assertEqual(self.peek(damage_row, "<I"), new_damage)
+        self.assertEqual(self.peek(damage_row + 4, "<i"), 90)
         # the weapon was switched to it; the shared row of the game is untouched
         deadline = time.time() + 60
         while time.time() < deadline and self.peek(self.fire_block + 24 + self.fire_table.record_offset(LIBERATOR), "<I") != new_id:

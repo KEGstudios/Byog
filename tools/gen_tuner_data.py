@@ -53,7 +53,7 @@ BUILDS = [
 # Where game.dll keeps its id-indexed arrays of row pointers, measured in game (probe v0.3.2):
 # build label -> table -> (rva of the slot of id 0, number of slots = highest id + 1).
 INDEXES = {
-    "release/01.007.101/19155": {"ProjectileSettings": (0x37C7670, 351)},
+    "release/01.007.101/19155": {"ProjectileSettings": (0x37C7670, 351), "DamageSettings": (0x37C60C0, 650)},
 }
 
 CATEGORY = {"primary": "weapon", "secondary": "weapon", "support": "weapon", "melee": "weapon",
@@ -162,29 +162,42 @@ def generate(builds=None, indexes=None):
     if unranged:
         raise ValueError("stats without a range: %s" % sorted(unranged))
     # takeovers
-    extra, stock_rows = [], {}
+    extra, stock_rows, own_bullets = [], {}, 0
     P, Dm = hd2db.table("ProjectileSettings"), hd2db.table("DamageSettings")
     fire = hd2db.table("ProjectileWeaponComponentData")
     data_start = deltas._load()["xo"]
     for index, line in enumerate(items):
         _i, _idx, _cat, name, entity_hex = line.split("|")
+        # every weapon that fires projectiles can get rows of its own (new ids); the ones listed in
+        # TAKEOVERS can also take over spare rows (new_projectile / new_damage, 0 = none assigned)
         spec = TAKEOVERS.get(name)
-        if not spec:
-            continue
         ent = int(entity_hex, 16)
-        base_projectile = struct.unpack_from("<I", fire.record(ent), 0)[0]
+        record = fire.record(ent)
+        if record is None:
+            assert not spec, name
+            continue
+        base_projectile = struct.unpack_from("<I", record, 0)[0]
         override = deltas.default_overrides(ent).get(("ProjectileWeaponComponent", 0))
         src_projectile = struct.unpack("<I", override[0])[0] if override else base_projectile
+        if src_projectile not in P.by_id():
+            assert not spec, name
+            continue
         src_row = P.record(P.by_id()[src_projectile])
         src_damage = struct.unpack_from("<I", src_row, 60)[0]
-        new_projectile, new_damage = spec["projectile"], spec["damage"]
-        assert new_projectile in P.by_id() and new_damage in Dm.by_id() and src_damage in Dm.by_id()
+        if src_damage not in Dm.by_id():
+            assert not spec, name
+            continue
+        new_projectile, new_damage = (spec["projectile"], spec["damage"]) if spec else (0, 0)
+        assert not spec or (new_projectile in P.by_id() and new_damage in Dm.by_id())
         extra.append("O|%d|%d|%d|%d|%d|%d" % (index, base_projectile, src_projectile, new_projectile,
                                               src_damage, new_damage))
+        own_bullets += 1
         for pid in (src_projectile, new_projectile):
-            stock_rows[("ProjectileSettings", pid)] = P.record(P.by_id()[pid])
+            if pid:
+                stock_rows[("ProjectileSettings", pid)] = P.record(P.by_id()[pid])
         for did in (src_damage, new_damage):
-            stock_rows[("DamageSettings", did)] = Dm.record(Dm.by_id()[did])
+            if did:
+                stock_rows[("DamageSettings", did)] = Dm.record(Dm.by_id()[did])
         if override:
             extra.append("X|%d|%d|%d" % (index, override[1] - data_start, src_projectile))
             tables["ComponentEntityDeltaStorage"] = True
@@ -206,7 +219,8 @@ def generate(builds=None, indexes=None):
         lines.append("A|%s|%s|%s" % (alias, mode, ",".join(targets)))
     blob = "\n".join(lines) + "\n"
     assert "]==]" not in blob
-    return blob, {"tables": len(tables), "items": len(items), "fields": len(fields), "stats": len(stats_seen)}
+    return blob, {"tables": len(tables), "items": len(items), "fields": len(fields), "stats": len(stats_seen),
+                  "own_bullets": own_bullets, "stock_rows": len(stock_rows)}
 
 
 def main():

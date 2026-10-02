@@ -485,7 +485,10 @@ the default row as fallback. The table loader clears slots 0..N and refills them
 Liberator on projectile id 14569810, damage 5000 on it alone, second mission, restore; errors 0). How it works:
 because the projectile id is unchecked and 32 bits wide, an id far above 350 reads its slot from memory
 above game.dll. The mod allocates a block there, puts a copy of the weapon's row and a pointer to it
-inside, and gives the weapon the id that lands on that pointer. Open questions only the game can
+inside, and gives the weapon the id that lands on that pointer. As a client in an unmodded host's
+lobby it also worked (host unaffected, the client's damage values counted). v0.5.0 does the same for the
+damage row (index rva 0x37C60C0, 650 slots) and offers it for all 83 projectile weapons of the catalog;
+not yet tested in game. Open questions only the game can
 answer: other per-projectile-id arrays, narrower copies of the id (network packing), the 56 sites not
 read. Explosion rows cannot get new ids (bounds check); 225 spare rows exist there.
 

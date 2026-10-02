@@ -770,23 +770,26 @@ local function encode(value, storage)
 end
 
 -- ---------------------------------------------------------------- rows of our own (experimental)
--- In-game probe (v0.3.2): the game finds a projectile row as [index + id * 8], where `index` is a
--- fixed array inside game.dll, and it does not compare the id with the number of rows. An id far
--- above the real ones therefore reads its "slot" from memory above game.dll. We allocate memory of
--- our own there and put a row and a pointer to that row inside: the id that lands on the pointer is
--- a new projectile type. Nothing of the game's is changed by this. A weapon is switched to such an
--- id only after the index has been checked against the table: every real id must lead to its row.
-local OWN_TABLE = 'own:ProjectileSettings'
+-- In-game probe (v0.3.2): the game finds a projectile or damage row as [index + id * 8], where
+-- `index` is a fixed array inside game.dll, and it does not compare the id with the number of rows.
+-- An id far above the real ones therefore reads its "slot" from memory above game.dll. We allocate
+-- memory of our own there and put rows and pointers to those rows inside: the id that lands on such a
+-- pointer is a new row id. Nothing of the game's is changed by this. A weapon is switched to such
+-- ids only after each index has been checked against its table: every real id must lead to its row.
+-- (In game, v0.4.1: a new projectile id works, solo and as a client in someone else's lobby.)
 local OWN_TYPE = 0x4E574F4B      -- tag of our block; not a table type of the game
-local OWN_SIZE, OWN_SLOTS_AT, OWN_ROWS_AT, OWN_CAPACITY = 0x10000, 0x100, 0x1000, 32
+local OWN_CAPACITY = 256         -- rows of our own per table
+local OWN_SIZE, OWN_SLOTS_AT, OWN_ROWS_AT = 0x20000, 0x100, 0x2000
 local OWN_DAMAGE_AT = 60         -- the damage row id inside a projectile row
-local own = { state = 'unused', users = {}, order = {}, count = 0 }
+local OWN_TABLES = { 'ProjectileSettings', 'DamageSettings' }
+local own = { state = 'unused', tables = {}, order = {} }
 
-local function known_index()
-    return build.label and INDEXES[build.label .. '|ProjectileSettings'] or nil
+local function own_name(table_name) return 'own:' .. table_name end
+local function known_index(table_name)
+    return build.label and INDEXES[build.label .. '|' .. table_name] or nil
 end
 
--- Allocates our block in reach of the game's index. -> true, or nil + reason
+-- Allocates our block in reach of the game's indexes. -> true, or nil + reason
 local function own_prepare()
     if own.block then return true end
     if own.state == 'failed' then return nil, own.note end
@@ -796,21 +799,36 @@ local function own_prepare()
         log('own rows: ' .. why)
         return nil, why
     end
-    local known, spec = known_index(), SPECS.ProjectileSettings
-    if not known or not spec then return fail('this build has no known projectile index') end
     local dll = A.module('game.dll')
     if not dll then return fail('game.dll is not loaded') end
-    local index = dll + known.rva
-    if index % 8 ~= 0 then return fail('the projectile index is not aligned') end
-    local cursor, steps, attempts, address = index, 0, 0, nil
+    -- where each table's slots and rows will sit inside the block
+    local plan, rows_at, highest = {}, OWN_ROWS_AT, 0
+    for n, name in ipairs(OWN_TABLES) do
+        local known, spec = known_index(name), SPECS[name]
+        if not known or not spec then return fail('this build has no known index for ' .. name) end
+        local index = dll + known.rva
+        if index % 8 ~= 0 or spec.stride % 4 ~= 0 then return fail('the ' .. name .. ' index is not aligned') end
+        plan[n] = { name = name, index = index, stride = spec.stride, slots_at = OWN_SLOTS_AT + (n - 1) * OWN_CAPACITY * 8,
+                    rows_at = rows_at }
+        rows_at = rows_at + OWN_CAPACITY * spec.stride
+        if index > highest then highest = index end
+    end
+    if OWN_SLOTS_AT + #OWN_TABLES * OWN_CAPACITY * 8 > OWN_ROWS_AT or rows_at > OWN_SIZE then
+        return fail('the block layout does not fit')
+    end
+    local cursor, steps, attempts, address = highest, 0, 0, nil
     while cursor < ADDRESS_END and steps < 20000 and attempts < 16 do
         local base, size, allocated = A.allocation(cursor)
         if not base then break end
         local following = base + size
         if not allocated then
             local at = cursor + (-cursor) % 65536
-            -- the id of our last slot must stay a positive 32-bit number
-            if (at + OWN_SLOTS_AT - index) / 8 + OWN_CAPACITY >= 2147483648 then break end
+            -- the id of our last slot must stay a positive 32-bit number, for every table
+            local in_reach = true
+            for _, t in ipairs(plan) do
+                if (at + t.slots_at - t.index) / 8 + OWN_CAPACITY >= 2147483648 then in_reach = false end
+            end
+            if not in_reach then break end
             if at + OWN_SIZE <= following then
                 attempts = attempts + 1
                 if A.alloc(at, OWN_SIZE) == at then address = at break end
@@ -821,72 +839,79 @@ local function own_prepare()
         steps = steps + 1
         pause()
     end
-    if not address then return fail('no free memory in reach of the projectile index') end
+    if not address then return fail('no free memory in reach of the game\'s indexes') end
     local header = { LDLD, 1, OWN_TYPE, OWN_SIZE - 24 }
     for n, word in ipairs(header) do
         if not A.write_u32(address + (n - 1) * 4, word) or A.u32(address + (n - 1) * 4) ~= word then
             return fail('our own memory at ' .. hex(address) .. ' cannot be written')
         end
     end
-    local own_spec = { name = OWN_TABLE, type = OWN_TYPE, shape = 'R', stride = spec.stride, id_at = 0, blocks = {} }
-    own.block = { address = address, type = OWN_TYPE, size = OWN_SIZE - 24, spec = own_spec, origin = 'own',
-                  records_at = address + OWN_ROWS_AT, index = {}, count = 0, limit = address + OWN_SIZE }
-    own_spec.blocks[1] = own.block
-    SPECS[OWN_TABLE] = own_spec
-    own.index, own.first_id, own.state = index, (address + OWN_SLOTS_AT - index) / 8, 'ready'
-    log('own rows: block at ' .. hex(address) .. ', index at ' .. hex(index) .. ', first new id '
-        .. string.format('%.0f', own.first_id))
+    own.block = address
+    for _, t in ipairs(plan) do
+        local own_spec = { name = own_name(t.name), type = OWN_TYPE, shape = 'R', stride = t.stride, id_at = 0, blocks = {} }
+        t.block = { address = address, type = OWN_TYPE, size = OWN_SIZE - 24, spec = own_spec, origin = 'own',
+                    records_at = address + t.rows_at, index = {}, count = 0, limit = address + OWN_SIZE }
+        own_spec.blocks[1] = t.block
+        SPECS[own_spec.name] = own_spec
+        t.first_id, t.count, t.users = (address + t.slots_at - t.index) / 8, 0, {}
+        own.tables[t.name] = t
+        log(string.format('own rows: %s index at %s, first new id %.0f', t.name, hex(t.index), t.first_id))
+    end
+    own.state = 'ready'
+    log('own rows: block at ' .. hex(address))
     return true
 end
 
--- The new projectile id of `item`: a copy of projectile row `source` that uses damage row `damage`.
--- -> id, or nil + reason
-local function own_row(item, source, damage)
+-- The new row id of `item` in `table_name`: a copy of row `source`. A projectile row also gets
+-- `damage` as its damage row id. -> id, or nil + reason
+local function own_row(item, table_name, source, damage)
     local ok, why = own_prepare()
     if not ok then return nil, why end
-    local user = own.users[item.name]
+    local t = own.tables[table_name]
+    local user = t.users[item.name]
     if user then return user.id end
-    if own.count >= OWN_CAPACITY then return nil, 'no room for another row of our own' end
-    local stock, stride = ROWS['ProjectileSettings|' .. source], own.block.spec.stride
-    if not stock or #stock ~= stride * 2 then return nil, 'the stock row is not known' end
-    local k = own.count
-    local id, row_at, slot_at = own.first_id + k, own.block.records_at + k * stride, own.block.address + OWN_SLOTS_AT + k * 8
-    for offset = 0, stride - 4, 4 do
+    if t.count >= OWN_CAPACITY then return nil, 'no room for another row of our own' end
+    local stock = ROWS[table_name .. '|' .. source]
+    if not stock or #stock ~= t.stride * 2 then return nil, 'the stock row ' .. table_name .. ' ' .. source .. ' is not known' end
+    local k = t.count
+    local id, row_at, slot_at = t.first_id + k, t.block.records_at + k * t.stride, own.block + t.slots_at + k * 8
+    for offset = 0, t.stride - 4, 4 do
         local word = hex_word(stock, offset)
-        if offset == 0 then word = id elseif offset == OWN_DAMAGE_AT then word = damage end
+        if offset == 0 then word = id elseif damage and offset == OWN_DAMAGE_AT then word = damage end
         if not A.write_u32(row_at + offset, word) or A.u32(row_at + offset) ~= word then
             return nil, 'our own row could not be written'
         end
     end
     local high = math.floor(row_at / 4294967296)
     if not A.write_u32(slot_at, row_at - high * 4294967296) or not A.write_u32(slot_at + 4, high)
-        or A.u64(slot_at) ~= row_at or own.index + id * 8 ~= slot_at then
+        or A.u64(slot_at) ~= row_at or t.index + id * 8 ~= slot_at then
         return nil, 'the slot of our own row could not be written'
     end
-    own.block.index[id], own.count, own.block.count = k, k + 1, k + 1
-    own.users[item.name] = { id = id, row = row_at, slot = slot_at, source = source, name = item.name }
-    own.order[#own.order + 1] = own.users[item.name]
-    log(string.format('own rows: %s -> new projectile id %.0f (row at %s, copy of row %d)', item.name, id, hex(row_at), source))
+    t.block.index[id], t.count, t.block.count = k, k + 1, k + 1
+    t.users[item.name] = { id = id, row = row_at, slot = slot_at, source = source, name = item.name, table = table_name }
+    own.order[#own.order + 1] = t.users[item.name]
+    log(string.format('own rows: %s -> new %s id %.0f (row at %s, copy of row %d)', item.name, table_name, id,
+                      hex(row_at), source))
     return id
 end
 
--- Does the game's index lead every real projectile id to its row in a table we found?
+-- Does the game's index lead every real id of `table_name` to its row in a table we found?
 -- -> true; false + reason (it does not: never switch a weapon); nil + reason (cannot tell yet)
-local function own_index_ok()
-    local known, spec = known_index(), SPECS.ProjectileSettings
-    if not own.block or not known then return false, 'no block of our own' end
+local function own_index_ok(table_name)
+    local known, spec, t = known_index(table_name), SPECS[table_name], own.tables[table_name]
+    if not t or not known then return false, 'no block of our own' end
     local bytes = known.slots * 8
-    if not A.readable_private(own.index) or not A.readable_private(own.index + bytes - 1) then
-        return nil, 'the projectile index is not in memory yet'
+    if not A.readable_private(t.index) or not A.readable_private(t.index + bytes - 1) then
+        return nil, 'the ' .. table_name .. ' index is not in memory yet'
     end
-    local parsed, reason = 0, 'the projectile table is not loaded yet'
+    local parsed, reason = 0, 'the ' .. table_name .. ' table is not loaded yet'
     for _, block in ipairs(spec.blocks) do
         if parse_block(block) then
             parsed = parsed + 1
             if block.count + 1 ~= known.slots then
-                reason = 'the table has ' .. block.count .. ' rows, the index was measured with ' .. (known.slots - 1)
-            elseif not A.read(own.index, bytes) then
-                reason = 'the projectile index cannot be read'
+                reason = table_name .. ' has ' .. block.count .. ' rows, the index was measured with ' .. (known.slots - 1)
+            elseif not A.read(t.index, bytes) then
+                reason = 'the ' .. table_name .. ' index cannot be read'
             else
                 local good = A.words[0] == 0 and A.words[1] == 0
                 for id, row in pairs(block.index) do
@@ -899,7 +924,7 @@ local function own_index_ok()
                     end
                 end
                 if good then return true end
-                reason = 'the projectile index does not lead to the rows of the table'
+                reason = 'the ' .. table_name .. ' index does not lead to the rows of the table'
             end
         end
         pause()
@@ -979,24 +1004,24 @@ end
 -- -> the field to write, and whether it was redirected
 local function own_row_field(item, field)
     local t = item.active_takeover or item.takeover
-    local new_row = nil
+    local source, new_row = nil, nil
     if field.table == 'ProjectileSettings' and field.record == tostring(t.src_projectile) then
-        if t.fresh then
-            -- a row of our own starts as a copy of the weapon's round
-            local own_field = get_field(OWN_TABLE, string.format('%.0f', t.new_projectile), field.offset, 'u32',
-                                        hex_word(ROWS['ProjectileSettings|' .. t.src_projectile], field.offset))
-            own_field.exact = true
-            return own_field, true
-        end
-        new_row = t.new_projectile
+        source, new_row = t.src_projectile, t.new_projectile
     elseif field.table == 'DamageSettings' and field.record == tostring(t.src_damage) then
-        new_row = t.new_damage
+        source, new_row = t.src_damage, t.new_damage
     end
     if not new_row then return field, false end
-    local own = get_field(field.table, tostring(new_row), field.offset, 'u32',
-                          hex_word(ROWS[field.table .. '|' .. new_row], field.offset))
-    own.exact = true
-    return own, true
+    local own_field
+    if t.fresh then
+        -- a row of our own starts as a copy of the weapon's row
+        own_field = get_field(own_name(field.table), string.format('%.0f', new_row), field.offset, 'u32',
+                              hex_word(ROWS[field.table .. '|' .. source], field.offset))
+    else
+        own_field = get_field(field.table, tostring(new_row), field.offset, 'u32',
+                              hex_word(ROWS[field.table .. '|' .. new_row], field.offset))
+    end
+    own_field.exact = true
+    return own_field, true
 end
 
 local function resolve_request(request, own_bullet)
@@ -1148,14 +1173,19 @@ local function build_desired(text)
             else
                 local t = item.takeover
                 if fresh then
-                    -- a brand-new projectile id in memory of our own; the damage row is still a spare one
-                    local id, why = own_row(item, t.src_projectile, t.new_damage)
+                    -- brand-new damage and projectile ids in memory of our own
+                    local damage_id, why = own_row(item, 'DamageSettings', t.src_damage)
+                    local id = nil
+                    if damage_id then id, why = own_row(item, 'ProjectileSettings', t.src_projectile, damage_id) end
                     if id then
                         t = { base_projectile = t.base_projectile, src_projectile = t.src_projectile, new_projectile = id,
-                              src_damage = t.src_damage, new_damage = t.new_damage, fresh = true }
+                              src_damage = t.src_damage, new_damage = damage_id, fresh = true }
                     else
-                        request.status, request.reason = 'rejected', 'a new projectile id is not possible: ' .. tostring(why)
+                        request.status, request.reason = 'rejected', 'new row ids are not possible: ' .. tostring(why)
                     end
+                elseif t.new_projectile == 0 then
+                    request.status = 'rejected'
+                    request.reason = 'own_bullet = true needs a spare row, and none is assigned to this weapon; use own_bullet = new'
                 end
                 if not request.status then
                     request.status, request.targets, request.own_item, request.takeover = 'accepted', {}, item, t
@@ -1233,13 +1263,13 @@ local function build_desired(text)
         end
         if t.fresh then
             -- the row of our own already is a copy; its damage row id is the one field we insist on
-            want(get_field(OWN_TABLE, string.format('%.0f', t.new_projectile), OWN_DAMAGE_AT, 'u32', t.new_damage),
-                 t.new_damage, 1)
+            want(get_field(own_name('ProjectileSettings'), string.format('%.0f', t.new_projectile), OWN_DAMAGE_AT, 'u32',
+                           t.new_damage), t.new_damage, 1)
         else
             copy_row('ProjectileSettings', t.src_projectile, t.new_projectile, SPECS.ProjectileSettings.stride,
                      OWN_DAMAGE_AT, t.new_damage)
+            copy_row('DamageSettings', t.src_damage, t.new_damage, SPECS.DamageSettings.stride, -1, 0)
         end
-        copy_row('DamageSettings', t.src_damage, t.new_damage, SPECS.DamageSettings.stride, -1, 0)
         want(get_field('ProjectileWeaponComponentData', item.entity, 0, 'u32', t.base_projectile),
              t.new_projectile, 2)
         if item.ammo_delta then
@@ -1450,8 +1480,14 @@ local function sync()
         if want.order == 2 then
             if want.needs_index and not index_checked then
                 index_checked = true
-                index_ok, own.index_note = own_index_ok()
-                if index_ok then own.index_note = nil end
+                index_ok, own.index_note = true, nil
+                for _, name in ipairs(OWN_TABLES) do
+                    local ok, why = own_index_ok(name)
+                    if not ok then
+                        index_ok, own.index_note = ok, why
+                        break
+                    end
+                end
             end
             if ready[want.group] == false then
                 want.blocked = true
@@ -1590,10 +1626,14 @@ local function build_status()
         add('')
         add('[own rows] ' .. own.state .. (own.note and (': ' .. own.note) or ''))
         if own.block then
-            add(string.format('block %s, game index %s, first new id %.0f, rows in use %d of %d', hex(own.block.address),
-                              hex(own.index), own.first_id, own.count, OWN_CAPACITY))
+            add('block ' .. hex(own.block) .. ' size ' .. OWN_SIZE)
+            for _, name in ipairs(OWN_TABLES) do
+                local t = own.tables[name]
+                add(string.format('%s: game index %s, first new id %.0f, rows in use %d of %d', name, hex(t.index),
+                                  t.first_id, t.count, OWN_CAPACITY))
+            end
             for _, user in ipairs(own.order) do
-                add(string.format('  %s: projectile id %.0f, row at %s (copy of row %d), slot at %s', user.name, user.id,
+                add(string.format('  %s: %s id %.0f, row at %s (copy of row %d), slot at %s', user.name, user.table, user.id,
                                   hex(user.row), user.source, hex(user.slot)))
             end
         end
@@ -1625,8 +1665,9 @@ local function build_status()
             local t = request.takeover
             local s, in_place, total, note = own_bullet_state(request.own_item.name)
             if t.fresh and s == 'waiting' then note = note or own.index_note end
-            add(string.format('%s -> OWN BULLET %s: projectile row %d -> %s%.0f, damage row %d -> %d (%d of %d fields in place)%s',
-                head, s:upper(), t.src_projectile, t.fresh and 'NEW ID ' or '', t.new_projectile, t.src_damage, t.new_damage,
+            local new = t.fresh and 'NEW ID ' or ''
+            add(string.format('%s -> OWN BULLET %s: projectile row %d -> %s%.0f, damage row %d -> %s%.0f (%d of %d fields in place)%s',
+                head, s:upper(), t.src_projectile, new, t.new_projectile, t.src_damage, new, t.new_damage,
                 in_place, total, note and ('  ' .. note) or ''))
         else
             add(head)
@@ -1714,9 +1755,9 @@ local function write_catalog()
                     #notes > 0 and ('   # ' .. table.concat(notes, '; ')) or '')
             end
             if item.takeover then
-                L[#L + 1] = '  own_bullet = false   (true / false / new)   # true: this weapon gets a projectile and '
-                    .. 'damage row of its own, so its damage no longer changes other weapons; new: the same with a '
-                    .. 'brand-new projectile id (experimental)'
+                L[#L + 1] = '  own_bullet = false   (' .. (item.takeover.new_projectile ~= 0 and 'true / ' or '')
+                    .. 'false / new)   # new: this weapon gets a projectile and damage row of its own in memory of '
+                    .. 'the mod, so its projectile and damage stats no longer change other weapons (experimental)'
             end
             L[#L + 1] = ''
             handle:write(table.concat(L, '\r\n') .. '\r\n')
