@@ -64,6 +64,18 @@ is **rejected** (never clamped) and reported in STATUS.txt with the range.
 
   The game reads these values when the weapon is created: a change made during a mission shows on the
   next weapon (seen in game: after dying and coming back), not on the one already in hand.
+* **Magazine values of a weapon's own (v0.8.0, not yet tested in game).** With `own_rows = auto` (the
+  default) a magazine stat of one of the 18 weapons whose default magazine attachment sets it no longer
+  goes into the attachment. The mod switches that attachment's magazine values off (one count in the
+  delta storage is set to 0) and writes the values into the weapons' own records: the config's for the
+  weapon being changed, the attachment's stock values for every other weapon that carries this
+  magazine by default. Two weapons with the same magazine can then have different values, and nothing is
+  listed under "also affects". Known limit: a weapon on which the player has fitted that magazine as a
+  non-default choice reads its own record, which the mod has not filled. `own_rows = off` keeps the
+  v0.7.0 behaviour.
+* **`[settings] census = true`** (research, read-only): once per session, in a mission, counts in every
+  table in memory the references to each explosion row and writes `CENSUS.txt`. Nothing is written to
+  the game; config values are applied after the census has finished.
 * **Fire rate.** A weapon with a fire-rate selector has three rates. `rpm` is the default one (the
   middle setting); `rpm_low` and `rpm_high` are the other two and are set on their own lines. Seen in
   game (v0.6.0): `rpm = 200%` on the MG-43 changed the middle setting only.

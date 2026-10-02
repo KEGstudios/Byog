@@ -51,6 +51,7 @@ local state = {
 }
 rawset(_G, MOD.global, state)
 local probe = { state = 'off' }   -- the read-only research sweep (see run_probe)
+local census = { state = 'off' }  -- the read-only count of row references (see run_census)
 
 -- ---------------------------------------------------------------- log
 local log_lines, log_seen, log_dirty = {}, {}, false
@@ -420,6 +421,8 @@ local FIELDS = {}                                    -- field key -> field (shar
 local RANGES, ALIASES = {}, {}
 local ROWS = {}                                      -- 'table|row id' -> stock bytes as hex (takeovers)
 local INDEXES = {}                                   -- 'build label|table' -> { rva, slots } inside game.dll
+local MAGAZINES = {}                                 -- attachment resource -> items carrying it by default
+local CENSUS, CENSUS_TABLE = {}, {}                  -- types that can hold a row id; id type -> its table
 local field_count = 0
 
 -- little-endian u32 at byte offset `offset` of a hex string
@@ -477,6 +480,28 @@ local function parse_data()
             ITEMS[tonumber(f[2])].ammo_delta = { offset = tonumber(f[3]), expected = tonumber(f[4]) }
         elseif kind == 'N' then
             INDEXES[f[2] .. '|' .. f[3]] = { rva = tonumber(f[4], 16), slots = tonumber(f[5]) }
+        elseif kind == 'G' then
+            local item = ITEMS[tonumber(f[2])]
+            item.magazine = { run_at = tonumber(f[3]), run_count = tonumber(f[4]), resource = f[5], base = {} }
+            MAGAZINES[f[5]] = MAGAZINES[f[5]] or {}
+            MAGAZINES[f[5]][#MAGAZINES[f[5]] + 1] = item
+        elseif kind == 'H' then
+            ITEMS[tonumber(f[2])].magazine.base[f[3]] = { table = f[4], record = f[5], offset = tonumber(f[6]),
+                                                          storage = f[7], stock = tonumber(f[8]) }
+        elseif kind == 'Q' then
+            CENSUS_TABLE[f[2]] = f[3]
+        elseif kind == 'C' then
+            local entry = { target = f[2], name = f[3], type = tonumber(f[4], 16), shape = f[5],
+                            stride = tonumber(f[6]), id_at = 0, offline = tonumber(f[7]), paths = {} }
+            for path in f[8]:gmatch('[^;]+') do
+                local steps = {}
+                for step in path:gmatch('[^,]+') do
+                    if step:sub(1, 1) == 'a' then steps[#steps + 1] = { array = tonumber(step:sub(2)) }
+                    else steps[#steps + 1] = { add = tonumber(step) } end
+                end
+                entry.paths[#entry.paths + 1] = steps
+            end
+            CENSUS[#CENSUS + 1] = entry
         end
         count = count + 1
         if count % 50 == 0 then pause() end
@@ -711,6 +736,12 @@ local function parse_delta_storage(block)
     if not pointer or not count or count == 0 or count > MAX_BLOCK then return nil, 'data array head unreadable' end
     if pointer < block.size then pointer = payload + pointer end
     block.records_at, block.index, block.count, block.limit = pointer, {}, count, pointer + count
+    -- the third array (pointer at +32, count at +40): 12-byte runs, one per component an attachment changes
+    local runs, run_count = A.u64(payload + 32), A.u64(payload + 40)
+    if runs and run_count and run_count > 0 and run_count * 12 <= MAX_BLOCK then
+        if runs < block.size then runs = payload + runs end
+        block.components_at, block.components_end = runs, runs + run_count * 12
+    end
     return true
 end
 
@@ -731,6 +762,10 @@ end
 -- Address of `field` in `block`, or nil when the record is not in this table.
 local function field_address(block, field)
     if block.spec.shape == 'D' then
+        if field.record == 'components' then
+            if not block.components_at or block.components_at + field.offset + 4 > block.components_end then return nil end
+            return block.components_at + field.offset
+        end
         local address = block.records_at + field.offset
         if address + 4 > block.limit then return nil end
         return address
@@ -1055,6 +1090,13 @@ local function resolve_request(request, own_bullet)
             end
             local target = { stat = stat, field = entry.field, value = value,
                              text = show(value, entry.field.storage), attachment = entry.attachment }
+            local base = entry.attachment and config.own_rows and item.magazine and item.magazine.base[stat]
+            if base then
+                -- the value goes into the weapon's own record; the attachment's is switched off (build_desired)
+                target.field = get_field(base.table, base.record, base.offset, base.storage, base.stock)
+                if #target.field.users == 0 then target.field.users[1] = item.name .. '.' .. stat end
+                target.was_text, target.magazine, target.attachment = show(entry.field.stock, entry.field.storage), item, nil
+            end
             if own_bullet[item] then
                 local field, redirected = own_row_field(item, entry.field)
                 if redirected then
@@ -1096,6 +1138,7 @@ local function build_desired(text)
     config.requests, config.problems = {}, {}
     config.enabled, config.reload_key, config.reload_vk = true, 'F10', 0x79
     config.auto_reload, config.rescan, config.probe, config.own_rows = 0, DEFAULT_RESCAN_SECONDS, false, true
+    config.census = false
     local section, line_number = nil, 0
     local by_stat = {}   -- 'category:item:stat' -> request (a later line replaces an earlier one)
     for raw in ((text or '') .. '\n'):gmatch('([^\n]*)\n') do
@@ -1129,6 +1172,8 @@ local function build_desired(text)
                         config.rescan = tonumber(value)
                     elseif key == 'probe' and parse_bool(value) ~= nil then
                         config.probe = parse_bool(value)
+                    elseif key == 'census' and parse_bool(value) ~= nil then
+                        config.census = parse_bool(value)
                     elseif key == 'own_rows' and (value:lower() == 'auto' or parse_bool(value) ~= nil) then
                         config.own_rows = value:lower() == 'auto' or parse_bool(value) == true
                     else
@@ -1281,6 +1326,37 @@ local function build_desired(text)
                 if target.own then entry.group, entry.order = request.item:lower(), 1 end
             end
         end
+    end
+    -- Magazine values of a weapon's own. Where a default magazine attachment sets the magazine values,
+    -- the attachment is shared by every weapon that carries it. Its run of magazine deltas is switched
+    -- off (count 0 in the delta storage), and every weapon that carries this magazine by default gets
+    -- the values in its own record: the config's for the weapon being changed, the attachment's stock
+    -- values for the others. order 1 = the records, order 2 = the switch, as with own bullets.
+    local magazines = {}
+    for _, request in ipairs(config.requests) do
+        if request.status == 'accepted' then
+            for _, target in ipairs(request.targets) do
+                if target.magazine then magazines[target.magazine.magazine.resource] = target.magazine.magazine end
+            end
+        end
+    end
+    for resource, magazine in pairs(magazines) do
+        local group = 'magazine:' .. resource
+        for _, item in ipairs(MAGAZINES[resource]) do
+            for stat, base in pairs(item.magazine.base) do
+                local field = get_field(base.table, base.record, base.offset, base.storage, base.stock)
+                if #field.users == 0 then field.users[1] = item.name .. '.' .. stat end
+                local entry = desired[field.key]
+                if not entry then
+                    entry = { field = field, value = item.stats[stat].field.stock, sources = {}, base = true }
+                    desired[field.key] = entry
+                end
+                entry.group, entry.order = group, 1
+            end
+        end
+        local switch = get_field('ComponentEntityDeltaStorage', 'components', magazine.run_at, 'u32', magazine.run_count)
+        switch.exact = true
+        desired[switch.key] = { field = switch, value = 0, sources = {}, base = true, group = group, order = 2 }
     end
     -- own bullets: copy the weapon's round into the spare rows, then point the weapon at them.
     -- order 1 = the rows, order 2 = the switches (only thrown when every row field is in place).
@@ -1604,10 +1680,12 @@ local function count_states()
             else counts.failed = counts.failed + 1 end
         end
     end
-    counts.own = 0
+    counts.own, counts.magazines = 0, 0
     for group in pairs(groups) do
         local s = own_bullet_state(group)
-        if s == 'active' then counts.own = counts.own + 1
+        if s == 'active' then
+            if group:sub(1, 9) == 'magazine:' then counts.magazines = counts.magazines + 1
+            else counts.own = counts.own + 1 end
         elseif s == 'waiting' then counts.waiting = counts.waiting + 1
         else counts.failed = counts.failed + 1 end
     end
@@ -1632,6 +1710,7 @@ local function build_status()
     elseif counts.waiting + counts.failed + counts.rejected == 0 then
         verdict = 'OK - ' .. counts.applied .. ' values applied'
             .. (counts.own > 0 and (', ' .. counts.own .. ' weapons on their own bullet') or '')
+            .. (counts.magazines > 0 and (', ' .. counts.magazines .. ' magazines switched to the weapons\' own values') or '')
     else
         verdict = string.format('PARTIAL - %d values applied, %d waiting for their table, %d failed, %d config lines rejected',
                                 counts.applied, counts.waiting, counts.failed, counts.rejected)
@@ -1664,6 +1743,11 @@ local function build_status()
         add('probe: ' .. probe.state .. (probe.note and (' (' .. probe.note .. ')') or '')
             .. (probe.bytes and string.format(', %.0f bytes swept', probe.bytes) or '')
             .. (probe.state == 'done' and ' -> PROBE.txt' or ''))
+    end
+    if config.census or census.state ~= 'off' then
+        add('census: ' .. census.state .. (census.note and (' (' .. census.note .. ')') or '')
+            .. (census.bytes and string.format(', %.0f bytes swept', census.bytes) or '')
+            .. (census.state == 'done' and ' -> CENSUS.txt' or ''))
     end
     for _, problem in ipairs(config.problems) do add('config problem: ' .. problem) end
     if own.state ~= 'unused' then
@@ -1732,13 +1816,16 @@ local function build_status()
                 for _, user in ipairs(field.users) do
                     if user ~= request.item:lower() .. '.' .. target.stat and #others < 12 then others[#others + 1] = user end
                 end
-                add(string.format('  %s: %s -> %s  %s  copies=%d%s%s%s%s', target.stat,
+                add(string.format('  %s: %s -> %s  %s  copies=%d%s%s%s%s%s', target.stat,
                     target.was_text or (#was > 0 and table.concat(was, '/') or show(field.stock, field.storage)),
                     target.text .. (target.own and ' (own row)' or ''),
                     (entry and entry.state or 'waiting'):upper(), copies,
                     entry and entry.note and ('  (' .. entry.note .. ')') or '',
                     foreign and '  (the value was not the game\'s stock value before we changed it)' or '',
                     target.attachment and '  (value of the default attachment)' or '',
+                    target.magazine and ('  (in the weapon\'s own record; the magazine attachment\'s values are '
+                        .. (own_bullet_state('magazine:' .. target.magazine.magazine.resource) == 'active'
+                            and 'switched off)' or 'NOT switched off yet)')) or '',
                     #others > 0 and ('  also affects: ' .. table.concat(others, ', ')
                                      .. (#field.users - 1 > #others and ', ...' or '')) or ''))
             end
@@ -2239,6 +2326,216 @@ local function run_probe()
     return true
 end
 
+-- ---------------------------------------------------------------- census (read-only research)
+-- Question: which rows of a settings table does nothing refer to? Offline we only have part of the
+-- game's data. The type library, which is complete, names every type that can hold such a row id
+-- (the C lines of the data); this census finds every block of those types in memory, reads each id
+-- and counts the references per row. It reads memory only, once per session, when
+-- [settings] census = true. Output: CENSUS.txt.
+local CENSUS_MAX_ARRAY = 100000
+
+-- Every block of a census type, wherever it is in memory. -> { census entry -> blocks }, bytes read
+local function census_blocks()
+    local by_type, seen, found, bytes = {}, {}, {}, 0
+    for _, c in ipairs(CENSUS) do by_type[c.type], found[c] = c, {} end
+    local hits = {}
+    local cursor = ADDRESS_START
+    while cursor < ADDRESS_END do
+        local base, size, allocated = A.allocation(cursor)
+        if not base then break end
+        if allocated then
+            local offset = 0
+            while offset < size do
+                local span = math.min(FILE_CHUNK, size - offset)
+                local count = math.ceil(span / 4096)
+                local usable = A.pages(base + offset, count)
+                local k = 1
+                while usable and k <= count do
+                    if usable[k] then
+                        -- the run of usable pages k .. last is read in one go
+                        local last = k
+                        while last < count and usable[last + 1] do last = last + 1 end
+                        local at, length = base + offset + (k - 1) * 4096, (last - k + 1) * 4096
+                        if A.read(at, length) then
+                            bytes = bytes + length
+                            local words, n = A.words, 0
+                            for i = 0, length / 4 - 1 do
+                                if words[i] == LDLD then
+                                    n = n + 1
+                                    hits[n] = i
+                                end
+                            end
+                            for h = 1, n do
+                                local where = at + hits[h] * 4
+                                -- a copy inside our own read buffer is not a table; the rest of a header
+                                -- may lie beyond this read, so it is read on its own
+                                if (where < A.buffer_address or where >= A.buffer_address + A.buffer_size)
+                                    and not seen[where] and A.u32(where + 4) == 1 then
+                                    local c, block_size = by_type[A.u32(where + 8) or 0], A.u32(where + 12)
+                                    if c and block_size and block_size > 0 and block_size <= MAX_BLOCK then
+                                        seen[where] = true
+                                        found[c][#found[c] + 1] = { address = where, type = c.type, size = block_size, spec = c }
+                                    end
+                                end
+                                if h % 32 == 0 then pause() end      -- hundreds of small blocks can sit side by side
+                            end
+                        end
+                        k = last + 1
+                    else
+                        k = k + 1
+                    end
+                end
+                offset = offset + FILE_CHUNK
+                pause()
+            end
+        end
+        local following = base + size
+        if following <= cursor then following = cursor + 4096 end
+        cursor = following
+        pause()
+    end
+    return found, bytes
+end
+
+-- Follows one path from `at` and counts the id it ends at.
+local function census_follow(at, steps, k, block, tally)
+    while k <= #steps do
+        local step = steps[k]
+        if step.array then
+            local pointer, count = A.u64(at), A.u64(at + 8)
+            if not pointer or not count then
+                tally.unreadable = tally.unreadable + 1
+                return
+            end
+            if count == 0 then return end
+            if pointer < block.size then pointer = block.address + 24 + pointer end      -- file form
+            if count > CENSUS_MAX_ARRAY or pointer < block.address
+                or pointer + count * step.array > block.address + 24 + block.size then
+                tally.outside = tally.outside + 1      -- an array that is not inside its block: not followed
+                return
+            end
+            for n = 0, count - 1 do
+                census_follow(pointer + n * step.array, steps, k + 1, block, tally)
+                if n % 64 == 63 then pause() end
+            end
+            return
+        end
+        at = at + step.add
+        k = k + 1
+    end
+    local id = A.u32(at)
+    tally.values = tally.values + 1
+    if id == nil then
+        tally.unreadable = tally.unreadable + 1
+    elseif id ~= 0 then
+        tally.references = tally.references + 1
+        if id > tally.highest then
+            tally.beyond = tally.beyond + 1
+        else
+            tally.rows[id] = (tally.rows[id] or 0) + 1
+            tally.own[id] = true
+        end
+    end
+end
+
+local function census_block(block, c, tally)
+    local records_at, count, stride = block.address + 24, 1, 0
+    if c.shape ~= 'O' then
+        local ok
+        if c.shape == 'K' then ok = parse_keyed(block) else ok = parse_rows(block) end
+        if not ok then
+            tally.unparsed = tally.unparsed + 1
+            return
+        end
+        records_at, count, stride = block.records_at, block.count, c.stride
+    end
+    tally.records = tally.records + count
+    for r = 0, count - 1 do
+        for _, steps in ipairs(c.paths) do census_follow(records_at + r * stride, steps, 1, block, tally) end
+        if r % 16 == 15 then pause() end
+    end
+end
+
+local function number_lines(L, numbers, per_line)
+    for from = 1, #numbers, per_line do
+        L[#L + 1] = '  ' .. table.concat(numbers, ' ', from, math.min(from + per_line - 1, #numbers))
+    end
+end
+
+-- -> true when finished (or impossible), false when the tables are not loaded yet
+local function run_census()
+    local started, targets, names = A.now(), {}, {}
+    for target, table_name in pairs(CENSUS_TABLE) do
+        local spec, ids, rows = SPECS[table_name], nil, 0
+        for _, block in ipairs(spec and spec.blocks or {}) do
+            if parse_block(block) then
+                ids, rows = ids or {}, block.count
+                for id in pairs(block.index) do ids[id] = true end
+            end
+        end
+        if not ids then
+            census.note = 'waiting for ' .. table_name .. ', which is not loaded yet'
+            return false
+        end
+        local highest = 0
+        for id in pairs(ids) do if id > highest then highest = id end end
+        targets[target] = { table = table_name, ids = ids, rows = rows, highest = highest, refs = {} }
+        names[#names + 1] = target
+    end
+    table.sort(names)
+    census.note, census.state = nil, 'running'
+    state.step = 'census: sweeping memory for tables'
+    local found, bytes = census_blocks()
+    census.bytes = bytes
+    local L = { MOD.title .. ' v' .. MOD.version .. ' census (read-only)' }
+    for _, target in ipairs(names) do
+        local t = targets[target]
+        L[#L + 1] = ''
+        L[#L + 1] = string.format('[%s] %s: %d rows, highest id %d', target, t.table, t.rows, t.highest)
+        for _, c in ipairs(CENSUS) do
+            if c.target == target then
+                state.step = 'census: reading ' .. c.name
+                local tally = { records = 0, values = 0, references = 0, outside = 0, unreadable = 0, beyond = 0,
+                                unparsed = 0, highest = t.highest, rows = t.refs, own = {} }
+                for _, block in ipairs(found[c]) do census_block(block, c, tally) end
+                local verdict
+                if #found[c] == 0 then verdict = 'NOT FOUND in memory'
+                elseif not c.offline then verdict = 'not in the offline data'
+                elseif tally.references == c.offline * #found[c] then verdict = 'as offline'
+                else verdict = 'DIFFERENT from offline' end
+                L[#L + 1] = string.format('%s (%s): blocks=%d records=%d values=%d references=%d offline=%s  %s'
+                    .. '  [arrays outside their block=%d unreadable=%d ids beyond the table=%d unparsed blocks=%d]',
+                    c.name, c.shape, #found[c], tally.records, tally.values, tally.references,
+                    c.offline and tostring(c.offline) or '-', verdict, tally.outside, tally.unreadable, tally.beyond,
+                    tally.unparsed)
+                local own = {}
+                for id in pairs(tally.own) do own[#own + 1] = id end
+                table.sort(own)
+                if #own > 0 then number_lines(L, own, 30) end
+                pause()
+            end
+        end
+        local free, counts = {}, {}
+        for id = 1, t.highest do
+            if t.ids[id] then
+                if not t.refs[id] then free[#free + 1] = id end
+                counts[#counts + 1] = id .. '=' .. (t.refs[id] or 0)
+            end
+        end
+        L[#L + 1] = ''
+        L[#L + 1] = 'rows no table refers to: ' .. #free
+        number_lines(L, free, 30)
+        L[#L + 1] = 'references per row (id=count):'
+        number_lines(L, counts, 16)
+    end
+    L[#L + 1] = ''
+    L[#L + 1] = string.format('swept %.0f bytes, %.1f s', bytes, A.now() - started)
+    write_file('CENSUS.txt', table.concat(L, '\r\n') .. '\r\n')
+    census.state = 'done'
+    log('census finished: ' .. string.format('%.0f', bytes) .. ' bytes swept')
+    return true
+end
+
 -- ---------------------------------------------------------------- the worker
 local wake = { at = 0, reload = false, config_check_at = 0 }
 
@@ -2281,6 +2578,21 @@ local function worker_main()
                 log('probe failed: ' .. tostring(done))
             elseif not done then
                 probe.state = 'off'          -- the tables are not loaded yet: try again later
+                write_status(true)
+                sleep(15)
+            end
+            write_status(true)
+        elseif config.census and census.state == 'off' then
+            -- research request: count, in every table that can hold one, the references to each row
+            state.phase, state.step = 'probing', 'census: searching for tables'
+            write_status()
+            find_tables()
+            local ok_census, done = pcall(run_census)
+            if not ok_census then
+                census.state, census.note = 'failed', tostring(done)
+                log('census failed: ' .. tostring(done))
+            elseif not done then
+                census.state = 'off'         -- the tables are not loaded yet: try again later
                 write_status(true)
                 sleep(15)
             end

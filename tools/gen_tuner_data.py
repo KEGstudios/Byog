@@ -25,6 +25,17 @@ Line format ('|' separated):
   W|table|row_id|hex            stock bytes of a row involved in a takeover
   X|item_index|offset|expected  the default ammo attachment's projectile value: offset inside the
                                 delta storage's data array, and the value expected there
+  G|item_index|run_at|count|resource
+      the weapon's default magazine attachment: where the count of its magazine deltas sits inside the
+      delta storage's components array, and that count. Writing 0 there switches the attachment's
+      magazine values off for every weapon carrying it; the weapons' own records then count.
+  H|item_index|stat|table|key|offset|storage|stock   the same stat in the weapon's own record
+  Q|id type|table                census (read-only research): the table whose row ids are counted
+  C|id type|type name|type hash|shape|stride|offline|path;path
+      a type that can hold such an id. shape K / R: the table shapes above, paths start at a record;
+      O: any other block, paths start at its payload. A path is steps separated by ',': a number adds
+      bytes, aN is a dynamic array head (u64 pointer, u64 count, N-byte elements). offline: references
+      counted offline, empty when the type is not in the data we have.
 
     python tools/gen_tuner_data.py        # -> build/tuner_data.txt
 """
@@ -40,6 +51,7 @@ sys.path.insert(0, HERE)
 
 import deltas  # noqa: E402
 import hd2db  # noqa: E402
+import references  # noqa: E402
 from dump_typelib import dlsum  # noqa: E402
 
 OUT = os.path.join(ROOT, "build", "tuner_data.txt")
@@ -103,6 +115,9 @@ TAKEOVERS = {
     "assault_rifle": {"projectile": 267, "damage": 55},
 }
 
+MAGAZINE_STATS = ("capacity", "mags_start", "mags_supply", "mags_max")
+CENSUS = [("ExplosionType", "ExplosionSettings")]
+
 ALIASES = [
     ("ap", "nonzero", ["ap_direct", "ap_slight", "ap_large", "ap_extreme"]),
     ("blast_ap", "nonzero", ["blast_ap_direct", "blast_ap_slight", "blast_ap_large", "blast_ap_extreme"]),
@@ -144,6 +159,7 @@ def generate(builds=None, indexes=None):
             lines.append("N|%s|%s|%X|%d" % (label, table, rva, slots))
     tables, items, fields, stats_seen, unranged = {}, [], [], set(), set()
     data_start = deltas._load()["xo"]
+    magazines = {}          # item index -> (catalog item, {stat: (stat entry, attachment entry)})
     for it in cat["items"]:
         category = CATEGORY.get(it["category"])
         if not category:
@@ -164,6 +180,8 @@ def generate(builds=None, indexes=None):
                 fields.append("F|%d|%s|ComponentEntityDeltaStorage|data|%d|%s|%s|A" % (
                     index, s["id"], attached["delta_data_offset"] - data_start, storage,
                     num(attached["value"], storage)))
+                if s["id"] in MAGAZINE_STATS:
+                    magazines.setdefault(index, (it, {}))[1][s["id"]] = (s, attached)
                 continue
             flags = ""
             tables[s["table"]] = True
@@ -212,6 +230,37 @@ def generate(builds=None, indexes=None):
             tables["ComponentEntityDeltaStorage"] = True
         tables["ProjectileSettings"] = tables["DamageSettings"] = True
         tables["ProjectileWeaponComponentData"] = True
+    # magazines: a default magazine attachment whose magazine deltas form one run of their own can be
+    # switched off, so that each weapon's own record counts
+    own_magazines = 0
+    for index, (it, stats) in sorted(magazines.items()):
+        if set(stats) != set(MAGAZINE_STATS) or len(set(a["item"] for _s, a in stats.values())) != 1:
+            continue
+        attachment = next(iter(stats.values()))[1]["item"]
+        resource = next(int(a["delta_resource"], 16) for a in it["default_attachments"] if a["item"] == attachment)
+        wanted = sorted((s["offset"], 4) for s, _a in stats.values())
+        runs = [(run, entries) for run, _ci, entries in deltas.component_runs(resource) if sorted(entries) == wanted]
+        if len(runs) != 1:
+            continue                  # the run also carries other deltas: it cannot be switched off as a whole
+        extra.append("G|%d|%d|%d|%016X" % (index, runs[0][0] * 12 + 8, len(wanted), resource))
+        for stat in MAGAZINE_STATS:
+            s = stats[stat][0]
+            storage = STORAGE[s["storage"]]
+            extra.append("H|%d|%s|%s|%s|%d|%s|%s" % (index, stat, s["table"], s["key"], s["offset"], storage,
+                                                    num(s["original"], storage)))
+            tables[s["table"]] = True
+        own_magazines += 1
+    # census: every type that can hold a row id of the tables in CENSUS
+    for target, own_table in CENSUS:
+        extra.append("Q|%s|%s" % (target, own_table))
+        offline = {}
+        for users in references.users(target, own_table).values():
+            for wrapper, _key, _offset in users:
+                offline[wrapper] = offline.get(wrapper, 0) + 1
+        for name, shape, stride, paths, present in references.census_types(target, own_table):
+            extra.append("C|%s|%s|%08X|%s|%d|%s|%s" % (
+                target, name, dlsum(name), shape, stride, offline.get(name, 0) if present else "",
+                ";".join(",".join(p) for p in paths)))
     for (table, row_id), raw in sorted(stock_rows.items()):
         extra.append("W|%s|%d|%s" % (table, row_id, raw.hex().upper()))
     for name in sorted(tables):
@@ -229,7 +278,7 @@ def generate(builds=None, indexes=None):
     blob = "\n".join(lines) + "\n"
     assert "]==]" not in blob
     return blob, {"tables": len(tables), "items": len(items), "fields": len(fields), "stats": len(stats_seen),
-                  "own_bullets": own_bullets, "stock_rows": len(stock_rows)}
+                  "own_bullets": own_bullets, "stock_rows": len(stock_rows), "own_magazines": own_magazines}
 
 
 def main():

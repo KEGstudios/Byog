@@ -454,6 +454,16 @@ attachments one is the default of three weapons (`assault_rifle`, `assault_rifle
 extended and drum magazines, other heat sinks). Which alternatives a given weapon may carry is not in
 the data we have, so a per-weapon magazine value independent of the attachment is not possible yet.
 
+**Per-weapon magazine values (tuner v0.8.0, offline-tested, not yet in game).** In all 18 cases but one
+(the plasma pistol, whose run has a fifth delta) the magazine deltas of a default magazine attachment
+form one run of their own in the storage's `components` array (12-byte records: component index, first
+delta, count; no run is shared between resources). Setting that count to 0 switches the attachment's
+magazine values off without touching anything else it does; every weapon then reads its own
+`WeaponMagazineComponent` record. The engine writes those records first (config values for the weapon
+being changed, the attachment's stock values for the other default carriers) and the count last; restore
+is the reverse. Not known: whether the game copes with a run of count 0, and which weapons can carry a
+magazine as a non-default choice (their records are not filled).
+
 ### 6.2b Per-weapon damage: addends do not work, row takeover is under test
 
 In-game results (tuner v0.2.1 / v0.2.2, one tester): the pair both name sources call `damage_addends`
@@ -521,6 +531,14 @@ Shared with something outside the catalog: 154, 155, 188, 304, 342, 366, and any
 projectile row is fired by more than one thing. A damage row that several explosions share can be
 separated with a new damage id (damage ids are not bounds-checked) wherever the explosion row itself
 belongs to one item.
+
+**Which types can hold an explosion id at all (typelib, complete).** Fourteen root types; twelve are in
+the data we have, two are not: `DestructionSettings` (three levels, each a dynamic array of 96-byte
+events with the id at +4) and `VehicleEffectInfo` (+28). Tuner v0.8.0 carries a read-only census that
+finds every block of these types in memory and counts the references per explosion row
+(`[settings] census = true` -> `CENSUS.txt`); for the twelve known types the result must equal the
+offline count, which checks the walker. Rows that are still unreferenced after the census are the
+candidates for per-weapon explosion rows; ids used by code alone remain invisible.
 
 ### 6.3 Copies, reloads, drift
 Per the skill's case studies: several copies of a table can exist in memory, new copies appear on

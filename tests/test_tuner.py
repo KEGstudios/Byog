@@ -1022,6 +1022,137 @@ def check_magazine_values_live_in_the_default_attachment(mutate=None):
         rig.close()
 
 
+MAGAZINE_STATS = ("capacity", "mags_start", "mags_supply", "mags_max")
+
+
+def magazine_addresses(rig, weapon):
+    """-> ({stat: address in the weapon's own record}, {stat: address in the attachment's delta data},
+    address of the count of the attachment's magazine deltas)"""
+    import deltas
+    it, capacity = catalog_stat(weapon, "capacity")
+    own, attached = {}, {}
+    for stat in MAGAZINE_STATS:
+        attached[stat], own[stat] = attachment_value(rig, weapon, stat)
+    attachment = capacity["default_attachment"]["item"]
+    resource = next(int(a["delta_resource"], 16) for a in it["default_attachments"] if a["item"] == attachment)
+    run = next(r for r, ci, _e in deltas.component_runs(resource) if ci == 5)
+    count = rig.blocks["ComponentEntityDeltaStorage"][0] + 24 + deltas._load()["co"] + run * 12 + 8
+    return own, attached, count
+
+
+def values(rig, addresses):
+    return [rig.mem.peek(addresses[stat], "<I") for stat in MAGAZINE_STATS]
+
+
+def check_magazine_values_of_the_weapons_own(mutate=None):
+    config = "[weapon: assault_rifle]\ncapacity = 100\nmags_max = 12\n[weapon: standard_pistol]\ncapacity = 150%\n"
+    rig = Rig(config, mutate, auto=True)
+    try:
+        rifle, rifle_mag, rifle_switch = magazine_addresses(rig, "assault_rifle")
+        other, other_mag, other_switch = magazine_addresses(rig, "assault_rifle_ap")
+        third, _mag, _switch = magazine_addresses(rig, "assault_rifle_whisper")
+        pistol, pistol_mag, pistol_switch = magazine_addresses(rig, "standard_pistol")
+        assert other_switch == rifle_switch and pistol_switch != rifle_switch          # one magazine, three rifles
+        before = snapshot(rig)
+        assert values(rig, rifle) == [30, 6, 6, 12] and values(rig, rifle_mag) == [45, 6, 8, 8]
+        assert rig.mem.peek(rifle_switch, "<I") == 4 and rig.mem.peek(pistol_switch, "<I") == 4
+        status = rig.settle()
+        assert first_line(status) == ("OK - 3 values applied, 2 magazines switched to the weapons' own values"), \
+            status[:1500]
+        # the Liberator's own record: the config's values, and the attachment's for what was not set
+        assert values(rig, rifle) == [100, 6, 8, 12], values(rig, rifle)
+        # the two other rifles with this magazine keep what the attachment gave them, now in their own records
+        assert values(rig, other) == [45, 6, 8, 8] and values(rig, third) == [45, 6, 8, 8]
+        assert values(rig, pistol) == [23, 5, 8, 8], values(rig, pistol)
+        # the attachments' values are untouched, and their magazine deltas are switched off
+        assert values(rig, rifle_mag) == [45, 6, 8, 8] and values(rig, pistol_mag) == [15, 5, 8, 8]
+        assert rig.mem.peek(rifle_switch, "<I") == 0 and rig.mem.peek(pistol_switch, "<I") == 0
+        # a switch is thrown only when every record of its magazine is in place
+        order = [address for address, _data in rig.mem.writes]
+        records = set(list(rifle.values()) + list(other.values()) + list(third.values()))
+        assert order.index(rifle_switch) > max(i for i, a in enumerate(order) if a in records)
+        line = next(x for x in status.split("\r\n") if x.startswith("  capacity: 45 -> 100"))
+        assert "APPLIED" in line and "the magazine attachment's values are switched off)" in line, line
+        assert "also affects" not in line, line
+        # two rifles with the same magazine can now have different values
+        status = rig.reload("[weapon: assault_rifle]\ncapacity = 60\n[weapon: assault_rifle_ap]\ncapacity = 50\n")
+        assert "REJECTED" not in status, status[:1500]
+        assert values(rig, rifle) == [60, 6, 8, 8] and values(rig, other) == [50, 6, 8, 8]
+        assert values(rig, third) == [45, 6, 8, 8]
+        assert rig.mem.peek(rifle_switch, "<I") == 0 and rig.mem.peek(pistol_switch, "<I") == 4
+        assert values(rig, pistol) == [30, 6, 6, 12]
+        # take it all back: the switch first, then the records
+        writes_before = len(rig.mem.writes)
+        status = rig.reload("")
+        assert first_line(status) == "OK - no changes configured", first_line(status)
+        assert rig.mem.writes[writes_before][0] == rifle_switch
+        assert snapshot(rig) == before
+    finally:
+        rig.close()
+
+
+def plant_census_blocks(rig):
+    """Blocks of the two types that are not in the offline data, away from an allocation start."""
+    from dump_typelib import dlsum
+    base, region = 0x1EA00000000, bytearray(0x3000)
+
+    def block(at, name, payload):
+        header = b"LDLD" + struct.pack("<III", 1, dlsum(name), len(payload)) + b"\x01" + b"\0" * 7
+        region[at:at + 24 + len(payload)] = header + bytes(payload)
+
+    # DestructionSettings: three levels, each a dynamic array of 96-byte events; the explosion id is at +4
+    at = 0x1004
+    payload = bytearray(168 + 3 * 96)
+    events = base + at + 24 + 168
+    struct.pack_into("<QQ", payload, 0, events, 2)
+    struct.pack_into("<QQ", payload, 48, 0, 0)
+    struct.pack_into("<QQ", payload, 96, events + 2 * 96, 1)
+    for i, explosion in enumerate((13, 300, 13)):
+        struct.pack_into("<I", payload, 168 + i * 96 + 4, explosion)
+    block(at, "DestructionSettings", payload)
+    payload = bytearray(296)
+    struct.pack_into("<I", payload, 28, 77)
+    block(0x2008, "VehicleEffectInfo", payload)
+    rig.mem.add(base, bytes(region))
+    return {13: 2, 300: 1, 77: 1}
+
+
+def check_census_counts_every_reference_in_memory(mutate=None):
+    import references
+    rig = Rig("[settings]\ncensus = true\n", mutate)
+    try:
+        expected = dict(plant_census_blocks(rig))
+        in_world = ("ProjectileSettings", "ExplosiveComponentData", "BeamSettings")
+        for row, users in references.users("ExplosionType", "ExplosionSettings").items():
+            n = sum(1 for wrapper, _key, _offset in users if wrapper in in_world)
+            if n:
+                expected[row] = expected.get(row, 0) + n
+        rig.game.frames(8000, until=lambda: "census: done" in rig.game.status())
+        assert "census: done" in rig.game.status() and "-> CENSUS.txt" in rig.game.status(), rig.game.status()[:900]
+        report = rig.game.read_out("CENSUS.txt")
+        assert "[ExplosionType] ExplosionSettings: 422 rows, highest id 422" in report, report[:600]
+        assert "ProjectileSettings (R): blocks=1 records=350 values=700 references=209 offline=209  as offline" in report, report[:1800]
+        assert "ExplosiveComponentData (K): blocks=1 " in report and "references=71 offline=71  as offline" in report
+        assert ("DestructionSettings (O): blocks=1 records=1 values=3 references=3 offline=-  not in the offline data"
+                in report), report[:1800]
+        assert "\r\n  13 300\r\n" in report
+        assert "VehicleEffectInfo (O): blocks=1 records=1 values=1 references=1 offline=-" in report
+        assert "BackblastComponentData (K): blocks=0 records=0 values=0 references=0 offline=21  NOT FOUND in memory" in report
+        assert "ids beyond the table=0 unparsed blocks=0]" in report and "DIFFERENT" not in report
+        counted = {}
+        for pair in report.split("references per row (id=count):")[1].split("swept")[0].split():
+            row, n = pair.split("=")
+            counted[int(row)] = int(n)
+        assert len(counted) == 422
+        assert {row: n for row, n in counted.items() if n} == expected
+        free = report.split("rows no table refers to: ")[1].split("references per row")[0].split()
+        assert int(free[0]) == 422 - len(expected) and [int(x) for x in free[1:]] == sorted(set(range(1, 423)) - set(expected))
+        assert rig.mem.writes == [] and rig.mem.protects == []
+        assert max(rig.game.frame_cost) <= BUDGET_US + STEP_SLACK_US, max(rig.game.frame_cost)
+    finally:
+        rig.close()
+
+
 CHECKS = [v for k, v in sorted(globals().items()) if k.startswith("check_")]
 
 
@@ -1080,6 +1211,19 @@ class Startup(unittest.TestCase):
         self.assertIn("|capacity|ComponentEntityDeltaStorage|data|%d|u32|45|A"
                       % (s["default_attachment"]["delta_data_offset"] - data_start), blob)
 
+    def test_magazine_and_census_data(self):
+        blob, stats = gen_tuner_data.generate()
+        lines = blob.splitlines()
+        self.assertEqual(stats["own_magazines"], 18)
+        self.assertEqual(len([x for x in lines if x.startswith("H|")]), 72)
+        # one magazine is the default of three rifles: the same run for all three
+        self.assertEqual(len([x for x in lines if x.startswith("G|") and x.endswith("|7BE1E04A7738E673")]), 3)
+        self.assertIn("Q|ExplosionType|ExplosionSettings", lines)
+        self.assertIn("C|ExplosionType|ProjectileSettings|BD4042C2|R|272|209|144;156", lines)
+        # a type we have no data of: found through the type library alone, with its dynamic arrays
+        self.assertIn("C|ExplosionType|DestructionSettings|D6A11545|O|168||0,a96,4;48,a96,4;96,a96,4", lines)
+        self.assertEqual(len([x for x in lines if x.startswith("C|")]), 13)
+
     def test_update_chain_is_preserved(self):
         rig = Rig(BASE_CONFIG)
         try:
@@ -1104,6 +1248,42 @@ MUTATIONS = [
      "if value ~= value or value < range.min or value > range.max then",
      "if value ~= value then",
      check_rejections_write_nothing),
+    ("magazine of its own: attachment used although own_rows is on",
+     "local base = entry.attachment and config.own_rows and item.magazine and item.magazine.base[stat]",
+     "local base = nil",
+     check_magazine_values_of_the_weapons_own),
+    ("magazine of its own: taken although own_rows is off",
+     "local base = entry.attachment and config.own_rows and item.magazine and item.magazine.base[stat]",
+     "local base = entry.attachment and item.magazine and item.magazine.base[stat]",
+     check_magazine_values_live_in_the_default_attachment),
+    ("magazine of its own: the other weapons with this magazine are forgotten",
+     "        for _, item in ipairs(MAGAZINES[resource]) do",
+     "        for _, item in ipairs({}) do",
+     check_magazine_values_of_the_weapons_own),
+    ("magazine of its own: the attachment is not switched off",
+     "        desired[switch.key] = { field = switch, value = 0, sources = {}, base = true, group = group, order = 2 }",
+     "",
+     check_magazine_values_of_the_weapons_own),
+    ("magazine of its own: switched off before the records are in place",
+     "        desired[switch.key] = { field = switch, value = 0, sources = {}, base = true, group = group, order = 2 }",
+     "        desired[switch.key] = { field = switch, value = 0, sources = {}, base = true, group = group, order = 1 }",
+     check_magazine_values_of_the_weapons_own),
+    ("magazine of its own: other weapons get their unused record values",
+     "entry = { field = field, value = item.stats[stat].field.stock, sources = {}, base = true }",
+     "entry = { field = field, value = base.stock, sources = {}, base = true }",
+     check_magazine_values_of_the_weapons_own),
+    ("census: array elements stepped by the wrong size",
+     "                census_follow(pointer + n * step.array, steps, k + 1, block, tally)",
+     "                census_follow(pointer + n * 4, steps, k + 1, block, tally)",
+     check_census_counts_every_reference_in_memory),
+    ("census: every record read at the first one",
+     "        records_at, count, stride = block.records_at, block.count, c.stride",
+     "        records_at, count, stride = block.records_at, block.count, 0",
+     check_census_counts_every_reference_in_memory),
+    ("census: blocks away from an allocation start are missed",
+     "                                local where = at + hits[h] * 4",
+     "                                local where = at + hits[h] * 4 + (hits[h] > 0 and 4 or 0)",
+     check_census_counts_every_reference_in_memory),
     ("attachment values written 4 bytes off",
      "        local address = block.records_at + field.offset\n",
      "        local address = block.records_at + field.offset + 4\n",

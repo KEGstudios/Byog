@@ -83,6 +83,66 @@ def users(target, own_table):
     return found
 
 
+def census_paths(target, type_name, offset=0, prefix=(), seen=()):
+    """Every way from a record of `type_name` to a 4-byte member typed `target`, dynamic arrays included.
+
+    -> [steps]; a step is a number (bytes to add) or "aN" (a dynamic array head here: u64 pointer,
+    u64 count, elements of N bytes). A path ends at the member itself."""
+    types = gostructs.typelib()["types"]
+    out = []
+    t = types.get(type_name)
+    if not t or type_name in seen:
+        return out
+    for m in t["members"]:
+        o = offset + m["offset"]
+        is_target = m["type"] == target
+        if not is_target and (m["type"] not in types or m["type"] == type_name):
+            continue
+        size = 4 if is_target else types[m["type"]]["size"]
+        if m["atom"] == "ARRAY":
+            head = prefix + (str(o), "a%d" % size)
+            if is_target:
+                out.append(head + ("0",))
+            else:
+                out += census_paths(target, m["type"], 0, head, seen + (type_name,))
+        elif m["atom"] in ("POD", "INLINE_ARRAY"):
+            for k in range(m.get("inline_array_len") or 1):
+                if is_target:
+                    out.append(prefix + (str(o + k * size),))
+                else:
+                    out += census_paths(target, m["type"], o + k * size, prefix, seen + (type_name,))
+    return out
+
+
+def census_types(target, own_table):
+    """Root types that can hold a `target` id: [(type name, shape K/R/O, record stride, paths, in the mirror)].
+
+    K and R are the table shapes hd2db reads (paths start at a record); O is any other block (paths
+    start at the payload). The table of the rows themselves is left out (its only path is the row id)."""
+    if ("census", target, own_table) in _cache:
+        return _cache[("census", target, own_table)]
+    types = gostructs.typelib()["types"]
+    used = set(m["type"] for t in types.values() for m in t["members"])
+    names = hd2db.type_names()
+    present = set()
+    for fn in os.listdir(hd2db.DL_DIR):
+        if fn.endswith(".dl_bin"):
+            present.update(names.get(typ) for _m, typ, _s in hd2db.instances(hd2db.blob(fn)))
+    out = []
+    for name in sorted(types):
+        if name in used or name == own_table:
+            continue
+        rtype, stride, shape = hd2db.record_type(name)
+        if shape:
+            paths, code = census_paths(target, rtype), "K" if shape == "keyed" else "R"
+        else:
+            paths, code, stride = census_paths(target, name), "O", types[name]["size"]
+        if paths:
+            out.append((name, code, stride, paths, name in present))
+    _cache[("census", target, own_table)] = out
+    return out
+
+
 def spare_rows(target, own_table):
     """Ids of `own_table` rows that nothing we can read refers to, ascending."""
     u = users(target, own_table)

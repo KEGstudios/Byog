@@ -85,6 +85,24 @@ def resource_deltas(resource):
     return out
 
 
+def component_runs(resource):
+    """-> [(run index in the components array, component index, [(offset, size)])] of a delta resource.
+
+    A run is one 12-byte record of the components array: u32 component index, u32 first delta,
+    u32 delta count. Its count (at run index * 12 + 8) is what switches the run's deltas on."""
+    s = _load()
+    ix = s["hm"].get(resource)
+    if ix is None:
+        return []
+    d, base = s["d"], s["base"]
+    out = []
+    n, first = struct.unpack_from("<II", d, base + s["so"] + ix * 8)
+    for c in range(first, first + n):
+        ci, fd, cnt = struct.unpack_from("<III", d, base + s["co"] + c * 12)
+        out.append((c, ci, [struct.unpack_from("<II", d, base + s["do"] + k * 12) for k in range(fd, fd + cnt)]))
+    return out
+
+
 def default_attachments(entity):
     """-> [(slot, item id, delta resource hash or 0)] for a weapon entity."""
     t = hd2db.table("WeaponCustomizationComponentData")
