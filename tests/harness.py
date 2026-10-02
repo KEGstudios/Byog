@@ -569,7 +569,8 @@ class Game:
     FRAME_US = 16667
 
     def __init__(self, source, memory, info, loader_api=1, has_update=True, working_set_fails=False,
-                 global_name="HD2StatTunerRecon", log_name="recon.log", config=None, region_info=True):
+                 global_name="HD2StatTunerRecon", log_name="recon.log", config=None, region_info=True,
+                 config_suffix=""):
         self.memory, self.info = memory, info
         self.global_name, self.log_name = global_name, log_name
         self.keys, self.in_front, self.region_info = set(), True, region_info
@@ -584,6 +585,7 @@ class Game:
         self.dll_path = os.path.join(self.tmp, "game.dll")
         with open(self.dll_path, "wb") as f:
             f.write(info.get("dll_bytes", b""))
+        self.config_suffix = config_suffix
         if config is not None:
             self.write_config(config)
         self.working_set_fails = working_set_fails
@@ -640,7 +642,7 @@ class Game:
         folder = os.path.join(self.tmp, "HD2StatTuner")
         os.makedirs(folder, exist_ok=True)
         with open(os.path.join(folder, "config.txt"), "wb") as f:
-            f.write(text.replace("\n", "\r\n").encode("utf-8"))
+            f.write((text + self.config_suffix).replace("\n", "\r\n").encode("utf-8"))
 
     def read_out(self, name):
         try:

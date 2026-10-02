@@ -40,9 +40,17 @@ is **rejected** (never clamped) and reported in STATUS.txt with the range.
 ## Rules
 
 * Removing a line (or a section) and reloading puts that value back to the game's own.
-* **Shared values.** Damage, projectile and explosion rows are shared between weapons (and with
-  stratagems and enemies). Setting one changes every user; STATUS.txt lists them under "also affects".
-  If two lines ask for different values of the same shared value, **both are rejected**.
+* **One weapon at a time (v0.6.0).** In the game's data many weapons share one projectile row and one
+  damage row. When a line sets a projectile or damage stat of a weapon that fires projectiles, the mod
+  gives that weapon rows of its own first (brand-new row ids in memory the mod allocates), so the change
+  reaches this weapon only. STATUS.txt shows it as `rows of its own (automatic)`. Tested in game with
+  six weapons at once (v0.5.0).
+* **Shared values that remain.** Explosion rows, and everything of items that do not fire projectiles,
+  are still shared: setting one changes every user; STATUS.txt lists them under "also affects". If two
+  lines ask for different values of the same shared value, **both are rejected**.
+* `[settings] own_rows = off` turns the automatic rows off for the whole config, and
+  `own_bullet = false` in a weapon's section does it for that weapon: its projectile and damage stats
+  are then written to the shared rows, as in the first versions.
 * `ap = N` sets every armor-penetration angle that is not 0 in the game's data; `ap_direct`,
   `ap_slight`, `ap_large`, `ap_extreme` set a single angle.
 * Per-weapon values that are never shared: `ap_bonus`, `durable_ap_bonus` (armor penetration added for
@@ -55,12 +63,10 @@ is **rejected** (never clamped) and reported in STATUS.txt with the range.
   only. The rows it takes over are rows nothing in the game data refers to; if the game uses them after
   all, whatever uses them fires this weapon's round while the mod is active. Removing the line puts the
   weapon and both rows back exactly as they were.
-* **`own_bullet = new`** (experimental; available for every weapon that fires projectiles, see
-  catalog.txt): the same, but both rows are brand-new ones in memory the mod allocates, reached through
-  row ids the game does not have. No spare row is used up. The game is never switched to the new ids
-  unless its row indexes were first checked against the tables. Tested in game for the projectile id
-  (v0.4.1: solo, and as a client in another player's lobby); a lobby hosted by the modded player with
-  players who do not have the mod has not been tested.
+* **`own_bullet = new`**: gives a weapon rows of its own even when no stat of it is set (what the
+  automatic rule does by itself). The game is never switched to the new ids unless its row indexes were
+  first checked against the tables. Tested in game solo and as a client in another player's lobby; a
+  lobby hosted by the modded player with players who do not have the mod has not been tested.
 * Stats whose live value comes from a default attachment (magazine size on some weapons, see
   STAT-MAP §6.2) are refused in this version with a clear reason; they are Stage 3 work.
 * The mod writes nothing unless the game's executable and game.dll match a build it was verified on.

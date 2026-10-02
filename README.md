@@ -7,7 +7,7 @@ memory, for private lobbies with friends. No in-game UI yet; the engine will rea
 |---|---|
 | 0 Offline research | done — `docs/STAT-MAP.md` |
 | 1 Read-only recon addon | done — first in-game round OK: 28 of 28 tables, 4074 of 4074 values (`docs/STAT-MAP.md` §0) |
-| 2 Patch engine + config format | **v0.3.1: damage, fire rate, recoil and per-weapon armor penetration write-verified in game; per-weapon damage through a row takeover ("own bullet") works in game for the Liberator; a brand-new projectile id in memory of the mod's own (`own_bullet = new`, v0.4.1) works in game; v0.5.0 (under test) adds new damage ids and offers this for all 83 projectile weapons** (`TEST-v0.5.0.md`, `docs/CONFIG-FORMAT.md`) |
+| 2 Patch engine + config format | **v0.3.1: damage, fire rate, recoil and per-weapon armor penetration write-verified in game; per-weapon damage through a row takeover ("own bullet") works in game for the Liberator; a brand-new projectile id in memory of the mod's own (`own_bullet = new`, v0.4.1) and a new damage id (v0.5.0, six weapons at once) work in game; v0.6.0 (under test) does it automatically for any projectile weapon whose projectile / damage stats are set** (`TEST-v0.6.0.md`, `docs/CONFIG-FORMAT.md`) |
 | 3 All categories | not started |
 | 4 Multiplayer presets | not started |
 

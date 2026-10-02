@@ -881,6 +881,7 @@ local function own_row(item, table_name, source, damage)
         if not A.write_u32(row_at + offset, word) or A.u32(row_at + offset) ~= word then
             return nil, 'our own row could not be written'
         end
+        if offset % 64 == 60 then pause() end
     end
     local high = math.floor(row_at / 4294967296)
     if not A.write_u32(slot_at, row_at - high * 4294967296) or not A.write_u32(slot_at + 4, high)
@@ -935,6 +936,7 @@ end
 
 -- ---------------------------------------------------------------- config
 local config = { text = nil, enabled = true, reload_vk = 0x79, reload_key = 'F10', auto_reload = 0, probe = false,
+                 own_rows = true,
                  rescan = DEFAULT_RESCAN_SECONDS, requests = {}, problems = {} }
 local overrides = {}     -- 'category:item:stat' -> expression, set through the API (a future UI)
 -- field key -> { field, value, copies = { [block address] = { address, original, block } },
@@ -1080,11 +1082,25 @@ local function resolve_request(request, own_bullet)
     request.status = 'accepted'
 end
 
+-- Does `stat` of `item` live in the projectile / damage row the weapon shares with others?
+local function touches_shared_rows(item, stat)
+    local t, stats = item.takeover, { stat }
+    if ALIASES[stat] then stats = ALIASES[stat].targets end
+    for _, name in ipairs(stats) do
+        local field = item.stats[name] and item.stats[name].field
+        if field and ((field.table == 'ProjectileSettings' and field.record == tostring(t.src_projectile))
+            or (field.table == 'DamageSettings' and field.record == tostring(t.src_damage))) then
+            return true
+        end
+    end
+    return false
+end
+
 -- Parses the config text and the API overrides into `desired`.
 local function build_desired(text)
     config.requests, config.problems = {}, {}
     config.enabled, config.reload_key, config.reload_vk = true, 'F10', 0x79
-    config.auto_reload, config.rescan, config.probe = 0, DEFAULT_RESCAN_SECONDS, false
+    config.auto_reload, config.rescan, config.probe, config.own_rows = 0, DEFAULT_RESCAN_SECONDS, false, true
     local section, line_number = nil, 0
     local by_stat = {}   -- 'category:item:stat' -> request (a later line replaces an earlier one)
     for raw in ((text or '') .. '\n'):gmatch('([^\n]*)\n') do
@@ -1118,6 +1134,8 @@ local function build_desired(text)
                         config.rescan = tonumber(value)
                     elseif key == 'probe' and parse_bool(value) ~= nil then
                         config.probe = parse_bool(value)
+                    elseif key == 'own_rows' and (value:lower() == 'auto' or parse_bool(value) ~= nil) then
+                        config.own_rows = value:lower() == 'auto' or parse_bool(value) == true
                     else
                         config.problems[#config.problems + 1] = 'line ' .. line_number .. ': unknown setting "' .. line .. '"'
                     end
@@ -1156,7 +1174,20 @@ local function build_desired(text)
         return
     end
     -- "own_bullet = true" first: it decides where the other lines of that weapon go
-    local own_bullet = {}
+    local own_bullet, declined = {}, {}
+    -- brand-new damage and projectile ids in memory of our own; a failure is written into `request`
+    local function fresh_rows(item, request)
+        local t = item.takeover
+        local damage_id, why = own_row(item, 'DamageSettings', t.src_damage)
+        local id = nil
+        if damage_id then id, why = own_row(item, 'ProjectileSettings', t.src_projectile, damage_id) end
+        if not id then
+            request.status, request.reason = 'rejected', 'new row ids are not possible: ' .. tostring(why)
+            return nil
+        end
+        return { base_projectile = t.base_projectile, src_projectile = t.src_projectile, new_projectile = id,
+                 src_damage = t.src_damage, new_damage = damage_id, fresh = true }
+    end
     for _, request in ipairs(config.requests) do
         if not request.status and request.stat == 'own_bullet' then
             local item = ITEM_BY_NAME[request.category .. ':' .. request.item:lower()]
@@ -1173,16 +1204,7 @@ local function build_desired(text)
             else
                 local t = item.takeover
                 if fresh then
-                    -- brand-new damage and projectile ids in memory of our own
-                    local damage_id, why = own_row(item, 'DamageSettings', t.src_damage)
-                    local id = nil
-                    if damage_id then id, why = own_row(item, 'ProjectileSettings', t.src_projectile, damage_id) end
-                    if id then
-                        t = { base_projectile = t.base_projectile, src_projectile = t.src_projectile, new_projectile = id,
-                              src_damage = t.src_damage, new_damage = damage_id, fresh = true }
-                    else
-                        request.status, request.reason = 'rejected', 'new row ids are not possible: ' .. tostring(why)
-                    end
+                    t = fresh_rows(item, request)
                 elseif t.new_projectile == 0 then
                     request.status = 'rejected'
                     request.reason = 'own_bullet = true needs a spare row, and none is assigned to this weapon; use own_bullet = new'
@@ -1193,7 +1215,33 @@ local function build_desired(text)
                     own_bullet[item] = request
                 end
             end
+            -- an own_bullet line that did not take effect (false, or refused) is the user's word:
+            -- such a weapon is not given rows automatically
+            if item and request.status ~= 'accepted' then declined[item] = true end
         end
+    end
+    -- Automatic: a weapon whose shared projectile / damage values are changed gets rows of its own,
+    -- so that the change reaches this weapon only.
+    if config.own_rows then
+        local automatic = {}
+        for _, request in ipairs(config.requests) do
+            local item = not request.status and ITEM_BY_NAME[request.category .. ':' .. request.item:lower()]
+            if item and item.takeover and not own_bullet[item] and not declined[item]
+                and touches_shared_rows(item, request.stat) then
+                local auto = { line = request.line, category = request.category, item = request.item, stat = 'own_bullet',
+                               expression = 'new', text = 'rows of its own (automatic)', automatic = true }
+                local t = fresh_rows(item, auto)
+                if t then
+                    auto.status, auto.targets, auto.own_item, auto.takeover = 'accepted', {}, item, t
+                    item.active_takeover = t
+                    own_bullet[item] = auto
+                else
+                    declined[item] = true      -- said once; this weapon's values then go to the shared rows
+                end
+                automatic[#automatic + 1] = auto
+            end
+        end
+        for _, auto in ipairs(automatic) do config.requests[#config.requests + 1] = auto end
     end
     for _, request in ipairs(config.requests) do
         if not request.status then resolve_request(request, own_bullet) end
@@ -1614,8 +1662,9 @@ local function build_status()
         for _, known in ipairs(BUILDS) do add('  ' .. known.label .. ' exe=' .. known.exe .. ' dll=' .. known.dll) end
     end
     add('')
-    add(string.format('[settings] enabled=%s reload_key=%s auto_reload_seconds=%s rescan_seconds=%s', tostring(config.enabled),
-                      config.reload_key, tostring(config.auto_reload), tostring(config.rescan)))
+    add(string.format('[settings] enabled=%s reload_key=%s auto_reload_seconds=%s rescan_seconds=%s own_rows=%s',
+                      tostring(config.enabled), config.reload_key, tostring(config.auto_reload), tostring(config.rescan),
+                      config.own_rows and 'auto' or 'off'))
     if config.probe or probe.state ~= 'off' then
         add('probe: ' .. probe.state .. (probe.note and (' (' .. probe.note .. ')') or '')
             .. (probe.bytes and string.format(', %.0f bytes swept', probe.bytes) or '')
@@ -1756,8 +1805,9 @@ local function write_catalog()
             end
             if item.takeover then
                 L[#L + 1] = '  own_bullet = false   (' .. (item.takeover.new_projectile ~= 0 and 'true / ' or '')
-                    .. 'false / new)   # new: this weapon gets a projectile and damage row of its own in memory of '
-                    .. 'the mod, so its projectile and damage stats no longer change other weapons (experimental)'
+                    .. 'false / new)   # happens by itself when a projectile or damage stat of this weapon is set: '
+                    .. 'the weapon gets rows of its own, so the change reaches this weapon only. false: keep the '
+                    .. 'shared rows (the change then also reaches every weapon listed under "also affects")'
             end
             L[#L + 1] = ''
             handle:write(table.concat(L, '\r\n') .. '\r\n')

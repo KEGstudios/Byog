@@ -87,7 +87,7 @@ class RealApi(unittest.TestCase):
         os.makedirs(folder)
         cls.config_path = os.path.join(folder, "config.txt")
         with open(cls.config_path, "w") as f:
-            f.write("[settings]\nauto_reload_seconds = 1\n[weapon: assault_rifle]\n"
+            f.write("[settings]\nauto_reload_seconds = 1\nown_rows = off\n[weapon: assault_rifle]\n"
                     "damage = 120\nrpm = 150%\nvelocity = 1000\n")
 
         # test_5 plants an id-indexed array of row pointers at rva 0x3100 of game.dll (the slot of id 1)

@@ -25,6 +25,7 @@ import hd2db  # noqa: E402
 from hashnames import murmur64a  # noqa: E402
 
 BUDGET_US, STEP_SLACK_US = 1000, 250
+SHARED_ROWS = "\n[settings]\nown_rows = off\n"
 F10 = 0x79
 
 
@@ -57,7 +58,9 @@ def real_source(info):
 class Rig:
     """A fake game with the tuner loaded, plus the addresses the tests care about."""
 
-    def __init__(self, config, mutate=None, world=None, wrong_build=False, **game):
+    def __init__(self, config, mutate=None, world=None, wrong_build=False, auto=False, **game):
+        """auto=False: the config gets `own_rows = off` appended, so that values go to the rows the weapons
+        share (what the engine tests are about). auto=True: the config is used as written."""
         self.mem, self.info = harness.build_world(second_copy=False, **(world or {}))
         source = real_source(self.info)
         if wrong_build:
@@ -67,7 +70,8 @@ class Rig:
             assert source.count(old) == 1, "mutation target not found exactly once: %r" % old[:60]
             source = source.replace(old, new)
         self.game = harness.Game(source, self.mem, self.info, global_name="HD2StatTuner",
-                                 log_name="tuner.log", config=config, **game)
+                                 log_name="tuner.log", config=config,
+                                 config_suffix="" if auto else SHARED_ROWS, **game)
         self.blocks = self.info["blocks"]
 
     def close(self):
@@ -927,6 +931,44 @@ def check_new_projectile_id_only_on_a_verified_build(mutate=None):
         rig.close()
 
 
+def check_a_changed_weapon_gets_rows_of_its_own_by_itself(mutate=None):
+    stalwart = entity("primary_weapons/lmg_stalwart/lmg_stalwart")
+    rig = Rig(BASE_CONFIG, mutate, auto=True)                  # damage = 120, ap_bonus = +2, rpm = 150%
+    try:
+        a = own_addresses(rig)
+        index = add_game_index(rig)
+        status = rig.settle()
+        assert first_line(status) == "OK - 3 values applied, 1 weapons on their own bullet", status[:1800]
+        assert "rows of its own (automatic) -> OWN BULLET ACTIVE" in status
+
+        def damage_of(ent):
+            new_id = rig.mem.peek(rig.keyed_field("ProjectileWeaponComponentData", ent, 0), "<I")
+            if new_id <= INDEX_SLOTS:
+                return None
+            row = rig.mem.peek(index["ProjectileSettings"] + 8 * new_id, "<Q")
+            return rig.mem.peek(rig.mem.peek(index["DamageSettings"] + 8 * rig.mem.peek(row + 60, "<I"), "<Q") + 4, "<i")
+        assert damage_of(LIBERATOR) == 120
+        assert rig.mem.peek(rig.damage, "<I") == 90                # the row the Stalwart still uses
+        assert damage_of(stalwart) is None
+        assert rig.mem.peek(rig.rpm, "<f") == 960.0                # a value of the weapon itself: as before
+        # two weapons that share a round may now have different values: no conflict any more
+        status = rig.reload("[weapon: assault_rifle]\ndamage = 150\n[weapon: lmg_stalwart]\ndamage = 60\n")
+        assert first_line(status) == "OK - 2 values applied, 2 weapons on their own bullet", status[:1800]
+        assert damage_of(LIBERATOR) == 150 and damage_of(stalwart) == 60
+        assert rig.mem.peek(rig.damage, "<I") == 90
+        # own_bullet = false: this weapon keeps the shared row, as in the first versions
+        status = rig.reload("[weapon: assault_rifle]\nown_bullet = false\ndamage = 150\n")
+        assert rig.mem.peek(rig.damage, "<I") == 150, status[:1800]
+        assert rig.mem.peek(a["pointer"], "<I") == SRC_PROJECTILE and rig.mem.peek(a["ammo"], "<I") == SRC_PROJECTILE
+        assert "also affects" in status
+        # a value that is not in the shared rows does not cost a row
+        rows_before = status.count("ProjectileSettings id")
+        status = rig.reload("[weapon: machinegun]\nrpm = 150%\n")
+        assert "automatic" not in status and status.count("ProjectileSettings id") == rows_before, status[:1800]
+    finally:
+        rig.close()
+
+
 CHECKS = [v for k, v in sorted(globals().items()) if k.startswith("check_")]
 
 
@@ -1140,6 +1182,18 @@ MUTATIONS = [
      "    if t.fresh then\n        -- a row of our own starts as a copy of the weapon's row",
      "    if false then\n        -- a row of our own starts as a copy of the weapon's row",
      check_new_row_ids_in_memory_of_our_own),
+    ("automatic own rows although own_rows = off",
+     "    if config.own_rows then\n        local automatic = {}",
+     "    if true then\n        local automatic = {}",
+     check_applies_exactly_what_was_asked),
+    ("automatic own rows for a weapon that said own_bullet = false",
+     "            if item and request.status ~= 'accepted' then declined[item] = true end",
+     "",
+     check_a_changed_weapon_gets_rows_of_its_own_by_itself),
+    ("automatic own rows for values that are not in the shared rows",
+     "                and touches_shared_rows(item, request.stat) then",
+     "                then",
+     check_a_changed_weapon_gets_rows_of_its_own_by_itself),
     ("reload key not debounced",
      "        if pressed_at - last_key_reload >= RELOAD_DEBOUNCE then",
      "        if true then",
