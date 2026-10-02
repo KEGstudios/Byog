@@ -36,6 +36,7 @@ from dump_typelib import dlsum  # noqa: E402
 MEM_COMMIT, MEM_RESERVE, MEM_FREE = 0x1000, 0x2000, 0x10000
 MEM_PRIVATE, MEM_MAPPED, MEM_IMAGE = 0x20000, 0x40000, 0x1000000
 PAGE_NOACCESS, PAGE_READONLY, PAGE_READWRITE, PAGE_GUARD = 0x01, 0x02, 0x04, 0x100
+PAGE_EXECUTE_READ = 0x20
 ADDRESS_END = 0x7FFFFFFF0000
 PAGE = 4096
 
@@ -102,7 +103,8 @@ class FakeMemory:
     def read(self, address, size):
         address, size = int(address), int(size)
         r = self.find(address)
-        ok = bool(r and r["state"] == MEM_COMMIT and r["protect"] in (PAGE_READONLY, PAGE_READWRITE)
+        ok = bool(r and r["state"] == MEM_COMMIT
+                  and r["protect"] in (PAGE_READONLY, PAGE_READWRITE, PAGE_EXECUTE_READ)
                   and address + size <= r["base"] + r["size"])
         self.read_log.append((address, size, ok))
         if not ok:
@@ -126,7 +128,9 @@ class FakeMemory:
         if not self.present(address):
             return 0
         r = self.find(int(address))
-        return 1 | ((r["protect"] & 0x7FF) << 4) | (0x8000 if r["type"] != MEM_PRIVATE else 0)
+        # "written" marks image pages the process has written to: copy-on-write made them private
+        shared = r["type"] != MEM_PRIVATE and not r.get("written")
+        return 1 | ((r["protect"] & 0x7FF) << 4) | (0x8000 if shared else 0)
 
     def allocation(self, address):
         """MEMORY_REGION_INFORMATION (48 bytes) of the allocation holding `address`, or None when free."""
@@ -649,7 +653,8 @@ class Game:
             return self.exe_path.encode()
         if int(base) == self.info.get("dll_base"):
             return self.dll_path.encode()
-        return None
+        extra = self.info.get("module_paths", {}).get(int(base))
+        return extra.encode() if extra else None
 
     def _file_open(self, path):
         try:

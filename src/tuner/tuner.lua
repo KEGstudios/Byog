@@ -222,6 +222,12 @@ local function build_api()
         usable[count + 1] = false
         return usable
     end
+    -- The region holding `address` as VirtualQuery reports it (MEMORY_BASIC_INFORMATION).
+    function a.region(address)
+        if tonumber(virtual_query(ffi.cast(cvoid, address), info, 48)) ~= 48 then return nil end
+        return { base = tonumber(info[0]), allocation = tonumber(info[1]), size = tonumber(info[3]),
+                 state = tonumber(info32[8]), protection = tonumber(info32[9]), type = tonumber(info32[10]) }
+    end
     function a.readable_private(address)
         local present, protection, shared = a.page(address)
         return present and not shared and (protection == PAGE_READWRITE or protection == PAGE_READONLY)
@@ -281,6 +287,12 @@ local function build_api()
         local path_buffer = ffi.new('char[1024]')
         local length = module_file_name(handle, path_buffer, 1024)
         return tonumber(ffi.cast('uintptr_t', handle)), length > 0 and ffi.string(path_buffer, length) or nil
+    end
+    -- File path of the module loaded at `base`, or nil when no module starts there.
+    function a.module_file(base)
+        local path_buffer = ffi.new('char[1024]')
+        local length = module_file_name(ffi.cast(void, base), path_buffer, 1024)
+        return length > 0 and ffi.string(path_buffer, length) or nil
     end
     function a.open(path)
         local handle = create_file(path, 0x80000000, 7, nil, 3, 0x08000000, nil)
@@ -1536,21 +1548,263 @@ local function find_pointers(words, slots, hi, lo_min, lo_max, out)
     return found
 end
 
+-- ---- probe, part 2: where an index array lives and which code uses it (read-only)
+-- Question: an array of row pointers indexed by row id has a fixed number of slots. Is it part of a
+-- module (compiled in), what lies right before and after it, and which instructions refer to it?
+-- The bytes around each reference show whether the game checks the id against a row count.
+local MEM_COMMIT, MEM_IMAGE = 0x1000, 0x1000000
+local CODE_CHUNK = 16384
+local EXECUTE = { [0x10] = true, [0x20] = true, [0x40] = true, [0x80] = true }   -- PAGE_EXECUTE*
+local NEIGHBOURS = 64            -- slots listed before and after an index array
+local MAX_REFERENCES = 20000
+local MAX_INDEXES = 6            -- index arrays analysed per table
+
+local function buffer_u16(o) return A.buffer[o] + A.buffer[o + 1] * 256 end
+local function buffer_u32(o) return buffer_u16(o) + buffer_u16(o + 2) * 65536 end
+
+-- Sections of the PE32+ image loaded at `base` (PE/COFF header layout). -> sections, image size
+local function image_sections(base)
+    if not A.read(base, 64) or A.buffer[0] ~= 0x4D or A.buffer[1] ~= 0x5A then return nil end
+    local header = buffer_u32(0x3C)
+    if header < 64 or header > 4096 then return nil end
+    if not A.read(base + header, 24 + 112) or buffer_u32(0) ~= 0x4550 then return nil end
+    local count, optional = buffer_u16(6), buffer_u16(20)
+    if buffer_u16(24) ~= 0x20B or count < 1 or count > 96 then return nil end
+    local image_size = buffer_u32(24 + 56)
+    if not A.read(base + header + 24 + optional, count * 40) then return nil end
+    local sections = {}
+    for n = 0, count - 1 do
+        local o = n * 40
+        local name = (ffi.string(A.buffer + o, 8):gsub('%z.*$', ''):gsub('[^%w%._$]', '?'))
+        sections[#sections + 1] = { name = name, size = buffer_u32(o + 8), rva = buffer_u32(o + 12),
+                                    flags = buffer_u32(o + 36) }
+    end
+    return sections, image_size
+end
+
+-- Every 4-byte value in `count` bytes of code that names an address inside [lo, hi) of the image:
+-- either directly (offset from the image base) or as a displacement from the end of those 4 bytes.
+local function in_windows(windows, target)
+    for _, w in ipairs(windows) do
+        if target >= w.lo and target < w.hi then return true end
+    end
+    return false
+end
+
+-- [lo, hi) spans all `windows`: one cheap comparison rejects almost every value.
+local function scan_chunk(bytes, count, rva, lo, hi, windows, out)
+    if count < 4 then return end
+    local v = bytes[0] + bytes[1] * 256 + bytes[2] * 65536
+    for i = 0, count - 4 do
+        v = v + bytes[i + 3] * 16777216
+        if v >= lo and v < hi then
+            if #out < MAX_REFERENCES and in_windows(windows, v) then
+                out[#out + 1] = { rva = rva + i, target = v, kind = 'image' }
+            end
+        else
+            local target = rva + i + 4 + v
+            if target >= 4294967296 then target = target - 4294967296 end
+            if target >= lo and target < hi and #out < MAX_REFERENCES and in_windows(windows, target) then
+                out[#out + 1] = { rva = rva + i, target = target, kind = 'rip' }
+            end
+        end
+        v = (v - bytes[i]) / 256
+    end
+end
+
+-- Reads every committed, executable region of the image once.
+local function scan_references(image, lo, hi, windows)
+    local cursor, limit = image.base, image.base + image.size
+    while cursor < limit do
+        local region = A.region(cursor)
+        if not region or not region.size or region.size <= 0 then break end
+        local stop = math.min(region.base + region.size, limit)
+        if region.state == MEM_COMMIT and region.type == MEM_IMAGE and EXECUTE[region.protection] then
+            local at = cursor
+            while at < stop do
+                local span = math.min(CODE_CHUNK, stop - at)
+                local extra = (at + span < stop) and 3 or 0       -- a value may straddle two chunks
+                if A.read(at, span + extra) then
+                    image.scanned = image.scanned + span
+                    scan_chunk(A.buffer, span + extra, at - image.base, lo, hi, windows, image.hits)
+                else
+                    image.unreadable = image.unreadable + span
+                end
+                at = at + span
+                pause()
+            end
+        end
+        if stop <= cursor then break end
+        cursor = stop
+        pause()
+    end
+end
+
+local function hex_bytes(from, count)
+    local parts = {}
+    for i = from, from + count - 1 do parts[#parts + 1] = string.format('%02X', A.buffer[i]) end
+    return table.concat(parts, ' ')
+end
+
+-- What an 8-byte slot holds, in words the report can show.
+local function describe_slot(index, targets, image)
+    local lo, hi = tonumber(A.words[2 * index]), tonumber(A.words[2 * index + 1])
+    if hi == 0 and lo == 0 then return '0' end
+    if hi >= 0x8000 then return string.format('0x%08X%08X', hi, lo) end
+    local value = hi * 4294967296 + lo
+    for _, t in ipairs(targets) do
+        if value >= t.rows_at and value < t.rows_end and (value - t.rows_at) % t.stride == 0 then
+            return t.name:sub(1, 1) .. tostring(t.ids[(value - t.rows_at) / t.stride])
+        end
+        if value >= t.from and value < t.to then return t.name:sub(1, 1) .. '+' .. (value - t.from) end
+    end
+    if image and value >= image.base and value < image.base + image.size then
+        return 'img+' .. hex(value - image.base)
+    end
+    return hex(value)
+end
+
+-- `count` slots starting at `address`, only from pages that are in memory, private and readable.
+local function describe_slots(address, count, targets, image)
+    local first, last = address, address + count * 8 - 1
+    if not A.readable_private(first) then first = last - last % 4096 end
+    if not A.readable_private(last) then last = first - first % 4096 + 4095 end
+    local slots = math.floor((last - first + 1) / 8)
+    if first > last or slots < 1 or not A.readable_private(first) or not A.read(first, slots * 8) then
+        return '(not readable)'
+    end
+    local parts = {}
+    for i = 0, slots - 1 do parts[#parts + 1] = describe_slot(i, targets, image) end
+    return (slots < count and ('(' .. slots .. ' of ' .. count .. ' readable) ') or '') .. table.concat(parts, ' ')
+end
+
+local function probe_indexes(L, targets)
+    local images, order = {}, {}
+    for _, t in ipairs(targets) do
+        for _, x in ipairs(t.indexes) do
+            x.region = A.region(x.at)
+            local base = x.region and x.region.type == MEM_IMAGE and x.region.allocation or 0
+            if base > 0 and not images[base] then
+                local sections, size = image_sections(base)
+                if sections and size and size > 0 then
+                    images[base] = { base = base, size = size, sections = sections, arrays = {}, hits = {},
+                                     scanned = 0, unreadable = 0, file = A.module_file(base) }
+                    order[#order + 1] = images[base]
+                end
+            end
+            if images[base] then
+                x.image, x.rva = images[base], x.at - base
+                table.insert(images[base].arrays, x)
+            end
+        end
+        pause()
+    end
+    for _, image in ipairs(order) do
+        local lo, hi, windows = image.size, 0, {}
+        for _, x in ipairs(image.arrays) do
+            windows[#windows + 1] = { lo = math.max(x.rva - 512, 0), hi = x.rva + x.slots * 8 + 512 }
+            lo, hi = math.min(lo, windows[#windows].lo), math.max(hi, windows[#windows].hi)
+        end
+        scan_references(image, lo, hi, windows)
+    end
+
+    for _, image in ipairs(order) do
+        local name = image.file and image.file:match('[^\\/]+$') or '?'
+        L[#L + 1] = string.format('[module %s] base %s image size %s; code read: %.0f bytes, unreadable %.0f; '
+            .. 'candidate references %d%s', name, hex(image.base), hex(image.size), image.scanned, image.unreadable,
+            #image.hits, #image.hits >= MAX_REFERENCES and ' (list full)' or '')
+        local parts = {}
+        for _, s in ipairs(image.sections) do
+            parts[#parts + 1] = string.format('%s rva %s size %s flags 0x%08X', s.name, hex(s.rva), hex(s.size), s.flags)
+        end
+        L[#L + 1] = 'sections: ' .. table.concat(parts, '; ')
+        L[#L + 1] = ''
+    end
+    for _, t in ipairs(targets) do
+        if #t.indexes == 0 then
+            L[#L + 1] = '[index ' .. t.name .. '] no array indexed by row id was found'
+            L[#L + 1] = ''
+        end
+        for _, x in ipairs(t.indexes) do
+            local image, r = x.image, x.region
+            L[#L + 1] = string.format('[index %s] at %s, %d slots, row id = slot %+d', t.name, hex(x.at), x.slots, x.id_by)
+            L[#L + 1] = r and string.format('memory: type 0x%X (%s), protection 0x%02X, region %s size %s, allocation base %s',
+                r.type, r.type == MEM_IMAGE and 'module image' or 'not a module', r.protection, hex(r.base), hex(r.size),
+                hex(r.allocation)) or 'memory: no region information'
+            if image then
+                local where = 'no section'
+                for _, s in ipairs(image.sections) do
+                    if x.rva >= s.rva and x.rva < s.rva + s.size then
+                        where = string.format('section %s, %.0f bytes after the array until the section ends', s.name,
+                                              s.rva + s.size - (x.rva + x.slots * 8))
+                    end
+                end
+                L[#L + 1] = string.format('module: %s, array at rva %s (%s)', image.file and image.file:match('[^\\/]+$') or '?',
+                                          hex(x.rva), where)
+            end
+            L[#L + 1] = NEIGHBOURS .. ' slots before: ' .. describe_slots(x.at - NEIGHBOURS * 8, NEIGHBOURS, targets, image)
+            L[#L + 1] = NEIGHBOURS .. ' slots after: ' .. describe_slots(x.at + x.slots * 8, NEIGHBOURS, targets, image)
+            if image then
+                -- references grouped by the place they name, relative to the array's first slot
+                local size, groups, keys = x.slots * 8, {}, {}
+                for _, h in ipairs(image.hits) do
+                    local offset = h.target - x.rva
+                    if offset >= -512 and offset < size + 512 then
+                        if not groups[offset] then groups[offset] = {}; keys[#keys + 1] = offset end
+                        table.insert(groups[offset], h)
+                    end
+                end
+                table.sort(keys)
+                local others = {}
+                for _, offset in ipairs(keys) do
+                    local group = groups[offset]
+                    local near = (offset >= -16 and offset <= 16) or (offset >= size - 16 and offset <= size + 16)
+                    if near then
+                        L[#L + 1] = string.format('code naming array %+d: %d', offset, #group)
+                        for n = 1, math.min(#group, 8) do
+                            local h = group[n]
+                            local text = '(not readable)'
+                            if A.read(image.base + h.rva - 48, 76) then
+                                text = hex_bytes(0, 48) .. ' [' .. hex_bytes(48, 4) .. '] ' .. hex_bytes(52, 24)
+                            end
+                            L[#L + 1] = string.format('  %s at rva %s: %s', h.kind, hex(h.rva), text)
+                        end
+                    elseif #group >= 2 and #others < 40 then
+                        others[#others + 1] = string.format('%+d x%d', offset, #group)
+                    end
+                    pause()
+                end
+                L[#L + 1] = 'other places named twice or more (array offset xcount): ' .. table.concat(others, ', ')
+            end
+            L[#L + 1] = ''
+            pause()
+        end
+    end
+end
+
+local PROBE_TABLES = { 'ProjectileSettings', 'DamageSettings', 'ExplosionSettings' }
+
 local function run_probe()
     local targets = {}
-    for _, name in ipairs({ 'ProjectileSettings', 'DamageSettings', 'ExplosionSettings' }) do
+    for _, name in ipairs(PROBE_TABLES) do
         local spec = SPECS[name]
+        local before = #targets
         for _, block in ipairs(spec and spec.blocks or {}) do
             if parse_block(block) then
                 local ids = {}
                 for id, row in pairs(block.index) do ids[row] = id end
                 targets[#targets + 1] = { name = name, block = block, ids = ids, stride = spec.stride,
                     rows_at = block.records_at, rows_end = block.records_at + block.count * spec.stride,
-                    from = block.address, to = block.limit, hits = {}, total = 0 }
+                    from = block.address, to = block.limit, hits = {}, total = 0, indexes = {} }
             end
         end
+        if #targets == before then
+            -- some tables only exist while a mission is loaded: wait for all of them
+            probe.note = 'waiting for ' .. name .. ', which is not loaded yet'
+            return false
+        end
     end
-    if #targets == 0 then return false end
+    probe.note = nil
     local lowest, highest = targets[1].from, targets[1].to
     for _, t in ipairs(targets) do
         if t.from < lowest then lowest = t.from end
@@ -1669,6 +1923,9 @@ local function run_probe()
             end
             local id_by, id_count = best(id_shift)
             local row_by, row_count = best(row_shift)
+            if length >= 16 and id_count * 10 >= length * 9 and #t.indexes < MAX_INDEXES then
+                t.indexes[#t.indexes + 1] = { at = t.hits[run.first].where, slots = length, id_by = id_by }
+            end
             L[#L + 1] = string.format('  at %s: %d pointers, %d to row starts; row id = slot %+d for %d of them, '
                 .. 'row order = slot %+d for %d; first: %s', hex(t.hits[run.first].where), length, starts, id_by, id_count,
                 row_by, row_count, table.concat(sample, ' '))
@@ -1683,6 +1940,9 @@ local function run_probe()
         L[#L + 1] = ''
         pause()
     end
+    state.step = 'probe: reading the code that uses the index arrays'
+    local ok_indexes, why_indexes = pcall(probe_indexes, L, targets)
+    if not ok_indexes then L[#L + 1] = 'index analysis failed: ' .. tostring(why_indexes) end
     write_file('PROBE.txt', table.concat(L, '\r\n') .. '\r\n')
     probe.state = 'done'
     log('probe finished: ' .. string.format('%.0f', probe.bytes) .. ' bytes swept')
@@ -1731,7 +1991,8 @@ local function worker_main()
                 log('probe failed: ' .. tostring(done))
             elseif not done then
                 probe.state = 'off'          -- the tables are not loaded yet: try again later
-                sleep(10)
+                write_status(true)
+                sleep(15)
             end
             write_status(true)
         else

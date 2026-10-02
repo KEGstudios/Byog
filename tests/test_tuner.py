@@ -662,6 +662,117 @@ def check_probe_finds_pointer_arrays_and_writes_nothing(mutate=None):
         rig.close()
 
 
+ENGINE_BASE = 0x7FFD00000000
+
+
+def add_engine_module(rig):
+    """A module image like the game's: code that refers to id-indexed arrays of row pointers in .data.
+
+    -> {table: (array rva, slots)}"""
+    header = bytearray(4096)
+    header[0:2] = b"MZ"
+    struct.pack_into("<I", header, 0x3C, 0x80)
+    header[0x80:0x84] = b"PE\0\0"
+    struct.pack_into("<H", header, 0x80 + 6, 2)                 # NumberOfSections
+    struct.pack_into("<H", header, 0x80 + 20, 240)              # SizeOfOptionalHeader
+    struct.pack_into("<H", header, 0x80 + 24, 0x20B)            # PE32+
+    struct.pack_into("<I", header, 0x80 + 24 + 56, 0xD000)      # SizeOfImage
+    table_at = 0x80 + 24 + 240
+    for n, (name, size, rva, flags) in enumerate(((b".text", 0x8000, 0x1000, 0x60000020),
+                                                  (b".data", 0x4000, 0x9000, 0xC0000040))):
+        o = table_at + n * 40
+        header[o:o + len(name)] = name
+        struct.pack_into("<II", header, o + 8, size, rva)
+        struct.pack_into("<I", header, o + 36, flags)
+
+    data = bytearray(0x4000)
+    arrays = {}
+    for name, rva in (("ProjectileSettings", 0x9800), ("DamageSettings", 0xA400), ("ExplosionSettings", 0xBC00)):
+        t = hd2db.table(name)
+        rows_at = rig.blocks[name][0] + 24 + 16
+        ids = t.by_id()
+        for row_id, row in ids.items():
+            struct.pack_into("<Q", data, rva - 0x9000 + 8 * (row_id - 1), rows_at + row * t.stride)
+        arrays[name] = (rva, max(ids))
+    rva, slots = arrays["ProjectileSettings"]
+    assert sorted(hd2db.table("ProjectileSettings").by_id()) == list(range(1, slots + 1))
+    struct.pack_into("<Q", data, rva - 0x9000 - 8, slots)                       # a count right before the array
+    struct.pack_into("<Q", data, rva - 0x9000 + slots * 8 + 8, ENGINE_BASE + 0x1234)
+    struct.pack_into("<I", data, 0x3F00, rva)                                   # data, not code: never a reference
+
+    text = bytearray(b"\xCC" * 0x8000)
+
+    def put(at_rva, code):
+        text[at_rva - 0x1000:at_rva - 0x1000 + len(code)] = code
+    put(0x1100, b"\x48\x8D\x0D" + struct.pack("<i", rva - (0x1103 + 4)))        # lea rcx, [rip + array]
+    put(0x2000, b"\x4A\x8B\x84\xC1" + struct.pack("<I", rva - 8))               # mov rax, [rcx + r8*8 + array - 8]
+    put(0x7000, b"\x48\x8D\x05" + struct.pack("<I", 0x9000))                    # names something far from the array
+    # a reference whose 4 bytes straddle two 16 KB reads: it names the end of the array
+    put(0x1000 + 16382 - 3, b"\x48\x8B\x05" + struct.pack("<i", rva + slots * 8 - (0x1000 + 16382 + 4)))
+
+    rig.mem.add(ENGINE_BASE, bytes(header), protect=harness.PAGE_READONLY, mtype=harness.MEM_IMAGE,
+                allocation=ENGINE_BASE)
+    rig.mem.add(ENGINE_BASE + 0x1000, bytes(text), protect=harness.PAGE_EXECUTE_READ, mtype=harness.MEM_IMAGE,
+                allocation=ENGINE_BASE)
+    region = rig.mem.add(ENGINE_BASE + 0x9000, bytes(data), mtype=harness.MEM_IMAGE, allocation=ENGINE_BASE)
+    region["written"] = True
+    rig.info.setdefault("module_paths", {})[ENGINE_BASE] = "C:\\Games\\Helldivers 2\\bin\\engine.dll"
+    return arrays
+
+
+def check_probe_reads_the_module_that_holds_the_index(mutate=None):
+    rig = Rig("[settings]\nprobe = true\n", mutate)
+    try:
+        arrays = add_engine_module(rig)
+        rva, slots = arrays["ProjectileSettings"]
+        rig.game.frames(6000, until=lambda: "probe: done" in rig.game.status())
+        assert "probe: done" in rig.game.status(), rig.game.status()[:900]
+        report = rig.game.read_out("PROBE.txt")
+        assert "index analysis failed" not in report, report[-600:]
+        assert ("[module engine.dll] base 0x7FFD00000000 image size 0xD000; code read: 32768 bytes, unreadable 0; "
+                "candidate references 3") in report, report[report.find("[module"):][:400]
+        assert "C:\\Games" not in report                                   # file name only, never the folder
+        assert ".text rva 0x1000 size 0x8000 flags 0x60000020; .data rva 0x9000 size 0x4000 flags 0xC0000040" in report
+        section = report.split("[index ProjectileSettings]")[1].split("[index DamageSettings]")[0]
+        lines = section.split("\r\n")
+        assert lines[0] == " at 0x7FFD00009800, %d slots, row id = slot +1" % slots, lines[0]
+        assert lines[1].startswith("memory: type 0x1000000 (module image), protection 0x04,"), lines[1]
+        assert lines[2].startswith("module: engine.dll, array at rva 0x9800 (section .data, "), lines[2]
+        assert lines[3].startswith("64 slots before: ") and lines[3].endswith(" 0x%X" % slots), lines[3][-60:]
+        assert lines[4].startswith("64 slots after: 0 img+0x1234 0 "), lines[4][:60]
+        assert "code naming array -8: 1\r\n  image at rva 0x2004: " in section, section[:1500]
+        assert "code naming array +0: 1\r\n  rip at rva 0x1103: " in section
+        assert "code naming array %+d: 1\r\n  rip at rva 0x4FFE: " % (slots * 8) in section
+        context = section.split("rip at rva 0x1103: ")[1].split("\r\n")[0]
+        assert " 48 8D 0D [" in context and context.count(" ") == 75, context
+        assert "[index ExplosionSettings] at 0x7FFD0000BC00, " in report
+        assert rig.mem.writes == [] and rig.mem.protects == []
+        assert rig.mem.absent_reads == 0
+        assert max(rig.game.frame_cost) <= BUDGET_US + STEP_SLACK_US, max(rig.game.frame_cost)
+    finally:
+        rig.close()
+
+
+def check_probe_waits_until_every_table_is_loaded(mutate=None):
+    rig = Rig("[settings]\nprobe = true\n", mutate)
+    try:
+        hidden = rig.blocks["DamageSettings"][0] + 8                       # the block's type hash
+        real = rig.mem.peek(hidden, "<I")
+        rig.mem.poke(hidden, "<I", real ^ 0x5A5A5A5A)                      # "not loaded yet"
+        rig.game.frames(1500)
+        assert "waiting for DamageSettings" in rig.game.status(), rig.game.status()[:900]
+        assert rig.game.read_out("PROBE.txt") == ""
+        rig.mem.poke(hidden, "<I", real)                                   # "mission loaded"
+        for _ in range(6):
+            rig.game.skip_time(16)
+            rig.game.frames(6000, until=lambda: "probe: done" in rig.game.status())
+        assert "probe: done" in rig.game.status(), rig.game.status()[:900]
+        assert "[DamageSettings] block" in rig.game.read_out("PROBE.txt")
+        assert rig.mem.writes == []
+    finally:
+        rig.close()
+
+
 CHECKS = [v for k, v in sorted(globals().items()) if k.startswith("check_")]
 
 
@@ -822,6 +933,22 @@ MUTATIONS = [
      "                    if usable[k] then\n                        local last = k",
      "                    if true then\n                        local last = k",
      check_probe_finds_pointer_arrays_and_writes_nothing),
+    ("probe: a reference that straddles two reads is missed",
+     "                local extra = (at + span < stop) and 3 or 0       -- a value may straddle two chunks",
+     "                local extra = 0",
+     check_probe_reads_the_module_that_holds_the_index),
+    ("probe: relative reference measured from the wrong place",
+     "            local target = rva + i + 4 + v",
+     "            local target = rva + i + v",
+     check_probe_reads_the_module_that_holds_the_index),
+    ("probe: data is read as if it were code",
+     "        if region.state == MEM_COMMIT and region.type == MEM_IMAGE and EXECUTE[region.protection] then",
+     "        if region.state == MEM_COMMIT and region.type == MEM_IMAGE then",
+     check_probe_reads_the_module_that_holds_the_index),
+    ("probe: runs although a table is missing",
+     "            probe.note = 'waiting for ' .. name .. ', which is not loaded yet'\n            return false",
+     "            probe.note = 'waiting for ' .. name .. ', which is not loaded yet'",
+     check_probe_waits_until_every_table_is_loaded),
     ("reload key not debounced",
      "        if pressed_at - last_key_reload >= RELOAD_DEBOUNCE then",
      "        if true then",

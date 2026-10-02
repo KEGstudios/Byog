@@ -460,7 +460,18 @@ Spare rows (offline): 80 projectile rows are referenced by no entity component, 
 explosion; 32 of them have a damage row nothing else references. For the Liberator: projectile 267 (an
 unused near-twin of its round 276: same calibre and damage row, 12 words differ) and damage row 55
 (owned by the equally unreferenced projectile 221). **"Unreferenced" is not proof of "unused"**: game
-code, or tables outside the plaintext bundle, may refer to a row by enum value. Not yet tested in game.
+code, or tables outside the plaintext bundle, may refer to a row by enum value.
+
+**In-game result (tuner v0.3.1, one tester): the takeover works.** With the Liberator on rows 267 / 55
+and `damage = 5000` on its own rows, only the Liberator changed; restoring worked; no oddity reported.
+So a weapon's `projectile_type` is read live enough for this, and rows 267 / 55 were safe in that session.
+
+**How the game finds a row (probe, v0.3.1):** game.dll holds a static array of row pointers per table,
+indexed by row id: 350 pointers for ProjectileSettings, 422 for ExplosionSettings, each pointing at a row
+start, slot + 1 = row id for every one. The table's own row order is irrelevant. Consequences:
+ids are fixed at build time (an id without a slot cannot be looked up, so tables cannot simply be
+extended with new ids), and the number of things that can have a projectile of their own is bounded by
+the number of unused ids: 80 projectile, 164 damage, 225 explosion rows offline.
 
 ### 6.3 Copies, reloads, drift
 Per the skill's case studies: several copies of a table can exist in memory, new copies appear on

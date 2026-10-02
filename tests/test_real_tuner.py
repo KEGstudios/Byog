@@ -81,6 +81,7 @@ class RealApi(unittest.TestCase):
         cls.damage_block, cls.damage_table = cls.plant("DamageSettings")
         cls.fire_block, cls.fire_table = cls.plant("ProjectileWeaponComponentData")
         cls.readonly_block, cls.projectile_table = cls.plant("ProjectileSettings", protect=PAGE_READONLY)
+        cls.plant("ExplosionSettings")
 
         folder = os.path.join(cls.tmp, "HD2StatTuner")
         os.makedirs(folder)
@@ -195,6 +196,43 @@ class RealApi(unittest.TestCase):
         self.assertEqual(self.peek(self.rpm_address(), "<f"), 640.0)
         self.assertEqual(self.peek(self.velocity_address(), "<f"), 900.0)
         self.assertEqual(self.page_protection(self.velocity_address()), PAGE_READONLY)
+
+    def test_5_probe_reads_a_real_module(self):
+        # An id-indexed array of row pointers inside the real module game.dll (pages of an image that
+        # were written to, like the game's), and one instruction in executable memory that names it.
+        base = self.dll._handle
+        t = self.projectile_table
+        rows_at = self.readonly_block + 24 + 16
+        ids = t.by_id()
+        array_rva, code_rva = 0x3100, 0x8100
+        array = bytearray(8 * len(ids))
+        for row_id, row in ids.items():
+            struct.pack_into("<Q", array, 8 * (row_id - 1), rows_at + row * t.stride)
+        old = ctypes.c_uint32(0)
+        self.assertTrue(self.k32.VirtualProtect(ctypes.c_void_p(base + 0x3000), 0x2000, PAGE_READWRITE, ctypes.byref(old)))
+        ctypes.memmove(base + array_rva - 8, struct.pack("<Q", len(ids)) + bytes(array), 8 + len(array))
+        code = b"\x48\x8D\x0D" + struct.pack("<i", array_rva - (code_rva + 3 + 4))
+        self.assertTrue(self.k32.VirtualProtect(ctypes.c_void_p(base + 0x8000), 0x1000, PAGE_READWRITE, ctypes.byref(old)))
+        ctypes.memmove(base + code_rva, code, len(code))
+        self.assertTrue(self.k32.VirtualProtect(ctypes.c_void_p(base + 0x8000), 0x1000, 0x20, ctypes.byref(old)))
+
+        with open(self.config_path, "w") as f:
+            f.write("[settings]\nauto_reload_seconds = 1\nprobe = true\n")
+        status = type(self).run_until(lambda s: "probe: done" in s or "probe: failed" in s, seconds=300)
+        self.assertIn("probe: done", status, status[:1500])
+        with open(os.path.join(self.tmp, "HD2StatTuner", "PROBE.txt"), "rb") as f:
+            report = f.read().decode("utf-8", "replace")
+        self.assertNotIn("index analysis failed", report)
+        self.assertIn("[module game.dll] base 0x%X image size 0x10000; code read: 4096 bytes, unreadable 0;" % base, report)
+        self.assertIn(".rdata rva 0x1000 size 0xD51C flags 0x40000040", report)
+        section = [x for x in report.split("[index ProjectileSettings]")[1:] if "module image" in x.split("[index")[0]][0]
+        self.assertTrue(section.startswith(" at 0x%X, %d slots, row id = slot +1" % (base + array_rva, len(ids))),
+                        section[:200])
+        self.assertIn("memory: type 0x1000000 (module image), protection 0x04,", section)
+        self.assertIn("allocation base 0x%X" % base, section)
+        self.assertIn("module: game.dll, array at rva 0x3100 (section .rdata,", section)
+        self.assertIn("code naming array +0: 1\r\n  rip at rva 0x%X: " % (code_rva + 3), section)
+        self.assertRegex(section, r"64 slots before: .* 0x%X\r\n" % len(ids))
 
 
 if __name__ == "__main__":
