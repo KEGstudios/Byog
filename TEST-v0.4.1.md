@@ -1,4 +1,4 @@
-# TEST v0.4.0 — Liberator'a yepyeni bir mermi kaydı
+# TEST v0.4.1 — Liberator'a yepyeni bir mermi kaydı
 
 Önceki sürüm Liberator'a oyunda **kullanılmayan** bir mermi kaydını veriyordu. Bu sürüm oyunda
 **hiç olmayan** yeni bir mermi kaydı üretiyor. Çalışırsa "boş kayıt sayısı" sınırı kalkar.
@@ -9,12 +9,12 @@
 Bu deneysel bir sürüm: oyunun çökmesi mümkün. Çökerse **ne yaparken çöktüğünü** yaz, bu da bir sonuç.
 Değişiklikler sadece bellekte; oyunu kapatınca her şey eski haline döner.
 
-Dosya: `dist/HD2-Stat-Tuner-v0.4.0.zip`
+Dosya: `dist/HD2-Stat-Tuner-v0.4.1.zip`
 
 ## Kurulum
 
 1. Arsenal'da eski **HD2 Stat Tuner**'ı sil.
-2. `HD2-Stat-Tuner-v0.4.0.zip` dosyasını Arsenal'a ekle, etkinleştir, **Deploy** et.
+2. `HD2-Stat-Tuner-v0.4.1.zip` dosyasını Arsenal'a ekle, etkinleştir, **Deploy** et.
 3. `%LOCALAPPDATA%\HD2StatTuner\config.txt` dosyasını Not Defteri ile aç.
 
 Her denemede `config.txt` içeriğini bloktakiyle **tamamen değiştir**, kaydet, oyunda **F10**'a bas.

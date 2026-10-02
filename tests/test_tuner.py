@@ -926,6 +926,14 @@ class Startup(unittest.TestCase):
         finally:
             rig.close()
 
+    def test_shipped_data_is_generated_fresh(self):
+        # what pack_addon puts into the zip, not what a test passes in
+        text = harness.addon_source("tuner")
+        for label, _exe, _dll in gen_tuner_data.BUILDS:
+            for table, (rva, slots) in gen_tuner_data.INDEXES[label].items():
+                self.assertIn("\nN|%s|%s|%X|%d\n" % (label, table, rva, slots), text)
+            self.assertIn("\nV|%s|" % label, text)
+
     def test_update_chain_is_preserved(self):
         rig = Rig(BASE_CONFIG)
         try:

@@ -164,8 +164,16 @@ def render(kind, version=None, data=None):
     if not re.fullmatch(r"\d+\.\d+\.\d+", version):
         raise ValueError("version must look like 1.2.3")
     if data is None:
-        with open(os.path.join(ROOT, spec["data"]), encoding="utf-8") as f:
-            data = f.read()
+        if kind == "tuner":
+            # always regenerate: a stale blob once shipped a build without its newest data lines
+            import gen_tuner_data
+            data, _stats = gen_tuner_data.generate()
+            os.makedirs(os.path.dirname(os.path.join(ROOT, spec["data"])), exist_ok=True)
+            with open(os.path.join(ROOT, spec["data"]), "w", encoding="utf-8", newline="\n") as f:
+                f.write(data)
+        else:
+            with open(os.path.join(ROOT, spec["data"]), encoding="utf-8") as f:
+                data = f.read()
     if "]==]" in data:
         raise ValueError("data blob contains the long-string terminator")
     for token in ("@@VERSION@@", "@@DATA@@"):
