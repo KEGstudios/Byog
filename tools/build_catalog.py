@@ -403,9 +403,9 @@ def live_stratagems():
                         "sources": ["live:" + name], "stats": [
                             dict(row, id="cooldown", field="cooldown_duration_success", offset=104, storage="FP32",
                                  original=float(cooldown)),
-                            dict(row, id="uses", field="uses", offset=80, storage="UINT32", original=int(uses)),
-                            dict(row, id="call_in_time", field="spawn_time", offset=84, storage="FP32",
-                                 original=float(call_in))]})
+                            dict(row, id="uses", field="uses", offset=80, storage="UINT32", original=int(uses))]})
+            # spawn_time (+84, here `call_in`) is not offered: set to 20 s on the Recoilless Rifle it changed
+            # nothing in game (tuner v0.11.0 and v0.12.0, also when set before the mission).
     return out
 
 

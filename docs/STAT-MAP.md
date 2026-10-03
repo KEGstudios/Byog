@@ -362,8 +362,10 @@ The live table has 149 rows in 11 groups, including stratagems that are not in t
 mission takes effect after the next use. The other float fields were then settled offline by the same
 comparison of the rows read in game with the snapshot: `spawn_time` +84 (76 of 76 informative rows),
 `spawn_radius` +88, `beacon_linger_time` +96, `extra_travel_time` +100, `cooldown_duration_fail` +108; the
-member the current build added sits at +92. Tuner v0.10.0 edits `cooldown` and `uses` per row (v0.11.0
-adds `call_in_time` = `spawn_time`); the rows and their
+member the current build added sits at +92. Tuner v0.10.0 edits `cooldown` and `uses` per row.
+`spawn_time` was offered as `call_in_time` in v0.11.0 / v0.12.0 and **changed nothing in game** (20 s on
+the Recoilless Rifle, set before and during missions: the pod landed in the normal time), so it was
+removed; the rows and their
 stock values come from that recon run (`tools/live_stratagems.txt`), not from the snapshot. The row id
 is at +4 and a row is in exactly one of the 11 group blocks.
 

@@ -1320,7 +1320,7 @@ def check_stratagems_backpacks_shields_and_vehicles(mutate=None):
     probe = Rig("", None)
     name, _at, cooldown, _uses = stratagem_in_the_fake_world(probe)
     probe.close()
-    config = ("[stratagem: %s]\ncooldown = 50%%\nuses = 5\ncall_in_time = 1\n"
+    config = ("[stratagem: %s]\ncooldown = 50%%\nuses = 5\n"
               "[backpack: recoilless_rifle_backpack]\ncharges = 10\ncharges_start = 4\n"
               "[shield: energy_shield_backpack]\nshield_health = 300\nshield_broken_delay = 1\n"
               "[vehicle: combat_walker]\nhealth = 200%%\narmor = 6\npart_leg_left_health = 2000\n"
@@ -1339,7 +1339,7 @@ def check_stratagems_backpacks_shields_and_vehicles(mutate=None):
         assert rig.mem.peek(shield, "<f") == 150.0 and rig.mem.peek(walker, "<i") == 1800
         assert rig.mem.peek(shield + 16, "<f") == 12.0 and rig.mem.peek(walker + 280, "<I") == 4
         status = rig.settle()
-        assert first_line(status) == "OK - 11 values applied", status[:2000]
+        assert first_line(status) == "OK - 10 values applied", status[:2000]
         # a part of the vehicle: its own health and armor, somewhere inside the 22 KB health record
         leg = walker + catalog_stat("combat_walker", "part_leg_left_health")[1]["offset"]
         leg_armor = walker + catalog_stat("combat_walker", "part_leg_left_armor")[1]["offset"]
@@ -1348,11 +1348,10 @@ def check_stratagems_backpacks_shields_and_vehicles(mutate=None):
         other_leg = walker + catalog_stat("combat_walker", "part_leg_right_health")[1]["offset"]
         assert rig.mem.peek(other_leg, "<i") == 550
         assert rig.mem.peek(row + 104, "<f") == cooldown / 2 and rig.mem.peek(row + 80, "<I") == 5
-        assert rig.mem.peek(row + 84, "<f") == 1.0
         assert rig.mem.peek(shield + 16, "<f") == 1.0 and rig.mem.peek(walker + 280, "<I") == 6
         assert rig.mem.peek(backpack, "<I") == 10 and rig.mem.peek(backpack + 4, "<i") == 4
         assert rig.mem.peek(shield, "<f") == 300.0 and rig.mem.peek(walker, "<i") == 3600
-        assert sorted(a for a, _d in rig.mem.writes) == sorted([row + 104, row + 80, row + 84, backpack, backpack + 4,
+        assert sorted(a for a, _d in rig.mem.writes) == sorted([row + 104, row + 80, backpack, backpack + 4,
                                                                 shield, shield + 16, walker, walker + 280,
                                                                 leg, leg_armor])
         assert "also affects" not in status and "WARNING" not in status
@@ -1361,6 +1360,15 @@ def check_stratagems_backpacks_shields_and_vehicles(mutate=None):
         assert ("WARNING: part leg_right has 100000 health and passes 100% of its damage on, the main health is 1800"
                 in status), status[:2000]
         assert rig.mem.peek(other_leg, "<i") == 100000 and rig.mem.peek(walker, "<i") == 1800
+        # a line that names one value wins over the shortcut that also covers it (in game the two rejected each other)
+        status = rig.reload("[vehicle: combat_walker]\nall_health = 300%\npart_leg_left_health = 10\n"
+                            "part_leg_right_health = 100000\n")
+        assert "REJECTED" not in status, status[:2000]
+        assert rig.mem.peek(walker, "<i") == 5400 and rig.mem.peek(leg, "<i") == 10
+        assert rig.mem.peek(other_leg, "<i") == 100000
+        assert "(set by their own lines instead: " in status and "part_leg_left_health (line 3)" in status
+        assert "WARNING: part leg_right has 100000 health and passes 100% of its damage on, the main health is 5400" in status
+        assert "call_in_time" not in rig.game.read_out("catalog.txt")
         status = rig.reload("[vehicle: combat_walker]\nhealth = 500\n")
         assert "WARNING: part leg_right has 550 health" in status or "WARNING: part leg_left has 550 health" in status
         # everything together keeps the game's relations; and the share a part passes on is a value of its own
@@ -1577,6 +1585,10 @@ MUTATIONS = [
     ("a vehicle part that outlasts its vehicle is not reported",
      "            if health and not w.request.warning then",
      "            if false then",
+     check_stratagems_backpacks_shields_and_vehicles),
+    ("a shortcut and a line for one of its values reject each other",
+     "                local line = direct[request.category .. ':' .. request.item:lower() .. ':' .. target.stat]",
+     "                local line = nil",
      check_stratagems_backpacks_shields_and_vehicles),
     ("attachment values written 4 bytes off",
      "        local address = block.records_at + field.offset\n",

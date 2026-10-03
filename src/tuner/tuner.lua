@@ -1445,6 +1445,31 @@ local function build_desired(text)
     for _, request in ipairs(config.requests) do
         if not request.status then resolve_request(request, own_bullet) end
     end
+    -- A line that names one value wins over a shortcut that also covers it: with all_health = 300% and
+    -- part_leg_left_health = 10 the leg gets 10. (In game, v0.12.0, the two lines rejected each other.)
+    local direct = {}
+    for _, request in ipairs(config.requests) do
+        if request.status == 'accepted' and not ALIASES[request.stat] then
+            for _, target in ipairs(request.targets) do
+                direct[request.category .. ':' .. request.item:lower() .. ':' .. target.stat] = request.line
+            end
+        end
+    end
+    for _, request in ipairs(config.requests) do
+        if request.status == 'accepted' and ALIASES[request.stat] then
+            local kept = {}
+            for _, target in ipairs(request.targets) do
+                local line = direct[request.category .. ':' .. request.item:lower() .. ':' .. target.stat]
+                if line then
+                    request.yielded = (request.yielded and (request.yielded .. ', ') or '') .. target.stat
+                        .. ' (line ' .. line .. ')'
+                else
+                    kept[#kept + 1] = target
+                end
+            end
+            request.targets = kept
+        end
+    end
     -- shared values: different targets for the same field reject every request involved
     local claims = {}
     for _, request in ipairs(config.requests) do
@@ -2109,7 +2134,8 @@ local function build_status()
                 a.new_damage and string.format(', damage row %d -> NEW ID %.0f', a.blast.damage, a.new_damage) or '',
                 in_place, total, (note or a.problem) and ('  ' .. tostring(note or a.problem)) or ''))
         else
-            add(head .. (request.warning and ('   WARNING: ' .. request.warning) or ''))
+            add(head .. (request.warning and ('   WARNING: ' .. request.warning) or '')
+                .. (request.yielded and ('   (set by their own lines instead: ' .. request.yielded .. ')') or ''))
             for _, target in ipairs(request.targets) do
                 local entry, field = applied[target.field.key], target.field
                 local copies, originals, foreign = 0, {}, false
