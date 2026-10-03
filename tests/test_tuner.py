@@ -447,7 +447,7 @@ def check_api(mutate=None):
     try:
         rig.settle()
         api = rig.game.state()[b"api"]
-        assert sorted(x for x in api[b"categories"]().values()) == [b"backpack", b"shield", b"stratagem", b"throwable", b"vehicle", b"weapon"]
+        assert sorted(x for x in api[b"categories"]().values()) == [b"backpack", b"shield", b"stratagem", b"stratagem_weapon", b"throwable", b"vehicle", b"weapon"]
         stats = {s[b"id"]: s for s in api[b"stats"](b"weapon", b"assault_rifle").values()}
         assert stats[b"damage"][b"game"] == 90 and stats[b"damage"][b"shared_with"] == 3
         assert stats[b"capacity"][b"editable"] is False
@@ -1392,6 +1392,71 @@ def check_stratagems_backpacks_shields_and_vehicles(mutate=None):
         rig.close()
 
 
+SENTRY_GUN = 0x37CDE43876BA26BB              # the machine gun sentry's gun: fires the MG-43's round (148)
+
+
+def check_stratagem_weapons_and_blast_from(mutate=None):
+    gas = catalog_stat("gas_grenade", "blast_inner_radius")[1]["key"]
+    config = ("[stratagem_weapon: orbital_precision_strike]\ndamage = 5000\n"
+              "[stratagem_weapon: turret_machinegun_gpmg]\ndamage = 200\n"
+              "[weapon: grenade_launcher]\nblast_from = gas_grenade\n"
+              "[throwable: frag_grenade]\nblast_from = gas_grenade\n")
+    rig = Rig(config, mutate, auto=True)
+    try:
+        index = add_game_index(rig)
+        P = hd2db.table("ProjectileSettings")
+        shell_damage = struct.unpack_from("<I", P.record(P.by_id()[100]), 60)[0]
+        orbital = rig.row_field("DamageSettings", shell_damage, 4)
+        sentry = rig.keyed_field("ProjectileWeaponComponentData", SENTRY_GUN, 0)
+        hand_gun = rig.keyed_field("ProjectileWeaponComponentData", item_entity_of("machinegun"), 0)
+        launcher = rig.keyed_field("ProjectileWeaponComponentData", item_entity("grenade_launcher"), 0)
+        frag = rig.keyed_field("ExplosiveComponentData", item_entity("frag_grenade"), 36)
+        before = snapshot(rig)
+        assert rig.mem.peek(sentry, "<I") == 148 and rig.mem.peek(hand_gun, "<I") == 148 and rig.mem.peek(frag, "<I") == 257
+        status = rig.settle()
+        assert first_line(status) == "OK - 4 values applied, 2 weapons on their own bullet", status[:2500]
+        # an orbital shell: its damage row, in place
+        assert rig.mem.peek(orbital, "<i") == 5000
+        # the sentry's gun gets rows of its own: the MG-43 in a diver's hands keeps the stock round
+        new_id = rig.mem.peek(sentry, "<I")
+        assert new_id > INDEX_SLOTS and rig.mem.peek(hand_gun, "<I") == 148
+        row = rig.mem.peek(index["ProjectileSettings"] + 8 * new_id, "<Q")
+        damage_row = rig.mem.peek(index["DamageSettings"] + 8 * rig.mem.peek(row + 60, "<I"), "<Q")
+        assert rig.mem.peek(damage_row + 4, "<i") == 200 and rig.mem.peek(rig.row_field("DamageSettings", 125, 4), "<i") == 90
+        # the launcher explodes like a gas grenade: the id is in ITS projectile row, on impact only
+        own = rig.mem.peek(index["ProjectileSettings"] + 8 * rig.mem.peek(launcher, "<I"), "<Q")
+        assert rig.mem.peek(own + 144, "<I") == gas and rig.mem.peek(own + 156, "<I") == 361
+        assert rig.mem.peek(rig.row_field("ProjectileSettings", 280, 144), "<I") == 361      # the shared round: untouched
+        assert rig.mem.peek(frag, "<I") == gas
+        assert "blast_from: explosion row 361 -> gas_grenade (explosion row %d)" % gas in status, status[:2500]
+        status = rig.reload("[weapon: grenade_launcher]\nblast_from = assault_rifle\n")
+        assert "blast_from takes the name of an item that explodes" in status
+        status = rig.reload("")
+        after = snapshot(rig)
+        assert all(after[base] == data for base, data in before.items())
+        catalog = rig.game.read_out("catalog.txt")
+        assert "[stratagem_weapon: turret_machinegun_gpmg]" in catalog and "  blast_from = <item>" in catalog
+    finally:
+        rig.close()
+
+
+def item_entity_of(name):
+    return int(catalog_stat(name, "damage")[0]["entity"], 16)
+
+
+def check_globals_dump_is_read_only(mutate=None):
+    rig = Rig("[settings]\ndump_globals = true\n", mutate)
+    try:
+        rig.settle()
+        rig.game.frames(200)
+        text = rig.game.read_out("GLOBALS.txt")
+        assert "global names" in text and "HD2StatTuner (table, " in text, text[:400]
+        assert "\r\nstring (table, " in text and " format:f " in text
+        assert rig.mem.writes == []
+    finally:
+        rig.close()
+
+
 CHECKS = [v for k, v in sorted(globals().items()) if k.startswith("check_")]
 
 
@@ -1473,7 +1538,7 @@ class Startup(unittest.TestCase):
         self.assertIn("Y|ExplosionSettings|28", lines)
         own = [x for x in lines if x.startswith("B|") and x.split("|")[5] == "1"]
         borrow = [x for x in lines if x.startswith("B|") and x.split("|")[5] == "0"]
-        self.assertEqual((len(own), len(borrow)), (42, 15))
+        self.assertEqual((len(own), len(borrow)), (51, 33))       # hand weapons, throwables, stratagem weapons
         # every row that may be borrowed, and every row copied into one, ships with its stock bytes
         for row in [x for x in lines if x.startswith("S|")][0].split("|")[2].split(","):
             self.assertTrue([x for x in lines if x.startswith("W|ExplosionSettings|%s|" % row)], row)
@@ -1590,6 +1655,22 @@ MUTATIONS = [
      "                local line = direct[request.category .. ':' .. request.item:lower() .. ':' .. target.stat]",
      "                local line = nil",
      check_stratagems_backpacks_shields_and_vehicles),
+    ("blast_from: the id goes to the explosion on expiry",
+     "local BLAST_ON_IMPACT = 144      -- ProjectileInfo.explosion_type_on_impact",
+     "local BLAST_ON_IMPACT = 156      -- ProjectileInfo.explosion_type_on_impact",
+     check_stratagem_weapons_and_blast_from),
+    ("blast_from: not possible for a throwable",
+     "    elseif item.blasts and item.blasts[1].kind == 'C' then\n        for _, s in ipairs(item.blasts[1].switches) do",
+     "    elseif false then\n        for _, s in ipairs(item.blasts[1].switches) do",
+     check_stratagem_weapons_and_blast_from),
+    ("blast_from: any item accepted as the source",
+     "    if not source or not source.blasts then\n",
+     "    if not source then\n",
+     check_stratagem_weapons_and_blast_from),
+    ("blast_from: written although the weapon has no row of its own",
+     "    if stat == 'blast_from' then return true end        -- written into the weapon's own projectile row\n",
+     "",
+     check_stratagem_weapons_and_blast_from),
     ("attachment values written 4 bytes off",
      "        local address = block.records_at + field.offset\n",
      "        local address = block.records_at + field.offset + 4\n",

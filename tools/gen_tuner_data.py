@@ -81,7 +81,7 @@ INDEXES = {
 
 CATEGORY = {"primary": "weapon", "secondary": "weapon", "support": "weapon", "melee": "weapon",
             "throwable": "throwable", "backpack": "backpack", "shield": "shield", "vehicle": "vehicle",
-            "stratagem": "stratagem"}
+            "stratagem": "stratagem", "stratagem_weapon": "stratagem_weapon"}
 ID_AT = {"StratagemSettings": 4}       # where a row keeps its id (0 unless listed)
 SKIP_STATS = {"mode"}          # enum fields are not numbers; id-type stats come in Stage 3
 
@@ -92,6 +92,8 @@ RANGES = [
     (r"^(durable_)?bonus2$", -100000, 100000, 0),      # +136 / +140: effect unknown
     (r"(^|_)(durable_)?damage$", 0, 100000, 1),
     (r"(^|_)(demolition|stagger|push)$", 0, 10000, 1),
+    (r"(^|_)status\d_type$", 0, 71, 1),            # a row id of the status table (docs/STATUS-EFFECTS.md)
+    (r"(^|_)status\d_value$", 0, 100000, 0),
     (r"^(rpm|rpm_low|rpm_high|arc_rpm)$", 1, 6000, 0),
     (r"^speed_multiplier$", 0.01, 100, 0),
     (r"^pellets$", 1, 100, 1),
@@ -283,12 +285,14 @@ def generate(builds=None, indexes=None):
         own_magazines += 1
     # explosions: which items need a row of their own, and the rows that may be borrowed for it
     index_of = dict((line.split("|")[3], int(line.split("|")[1])) for line in items
-                    if line.split("|")[2] in ("weapon", "throwable"))
+                    if line.split("|")[2] in ("weapon", "throwable", "stratagem_weapon"))
     with_rows = set(int(x.split("|")[1]) for x in extra if x.startswith("O|"))
     Xp = hd2db.table("ExplosionSettings")
     found, own_blasts = blasts.item_blasts(cat), 0
     for name, item_blasts in sorted(found.items()):
         index = index_of.get(name)
+        # the explosion on impact first: it is the one `blast_from` hands to another item
+        item_blasts.sort(key=lambda b: (b["kind"] == "P" and 144 not in b["switches"], b["explosion"]))
         for b in item_blasts if index is not None else []:
             if b["kind"] == "P":
                 if index not in with_rows:

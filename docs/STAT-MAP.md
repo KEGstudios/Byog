@@ -410,7 +410,10 @@ exactly: zone +204 `projectile_durable_resistance` (cockpit 0.85, hips and legs 
 `affects_main_health` (1.0; the arms, separate entities, 0), +340 `main_health_affect_capped_by_zone_health`
 (flag), +324 `explosion_damage_multiplier` (main 0.5; parts hold FLT_MAX, a "not set" value, so it is not
 offered per part); record +24 `constitution` 2000 and +28 `constitution_changerate` -400. Tuner v0.12.0
-offers them and an `all_health` alias.
+offers them and an `all_health` alias. **In game (v0.12.1, FRV with a health display mod):** `health`
+5000 and `all_health` 300 % (7200) show exactly; `to_main = 0` stops the bonnet's damage from reaching
+the main health; `to_main = 0.5` gave the same 11 per bullet as the stock 1.0, so a fraction did not
+scale.
 
 Offline values: exosuits (Patriot, Emancipator, Lumberer, Breacher) 1800 health / armor 4; FRVs 2400 / 3
 (flamer FRV 2900); tanks 8000 / 4. The unit sits in the shared health table, so an edit is per vehicle

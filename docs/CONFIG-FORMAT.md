@@ -28,7 +28,13 @@ uses, backpack charges, shield health, vehicle health; the stats added in v0.11.
 | `shield` | 4 (`energy_shield_backpack`, `directional_energy_shield`, `energy_shield` = the relay, `energy_shield_grenade`) | `shield_health`, `shield_radius`, `shield_recharge_delay` (before an unbroken shield refills), `shield_broken_delay` (after it broke), `shield_recharge_rate` (per second) - settled in game |
 | `vehicle` | 14 (`combat_walker` = Patriot, `frv`, `tank`...) | `health`, `armor`, `durable_resistance`, `explosion_damage_multiplier`, `constitution`, `constitution_rate`; per part `part_<name>_health`, `_armor`, `_durable_resistance`, `_to_main`, `_overflow_cap`; `all_health` |
 
-Each of these is one record per item: nothing is shared, nothing else changes. A stratagem value changed
+| `stratagem_weapon` (v0.13.0, not yet tested in game) | 53: the guns of sentries, emplacements, drones, exosuits and the Eagle (`turret_machinegun_gpmg`, `gatling_turret`, `mortar_turret`, `combat_walker_autocannon_left`...), and the shells of orbital and Eagle strikes (`orbital_precision_strike`, `orbital_380mm_he_barrage_shell1`...) | the same stats as a hand weapon: damage, armor penetration, blast, fire rate... |
+
+Each of the first four is one record per item: nothing is shared, nothing else changes. A stratagem's gun
+is treated like a hand weapon: when a projectile or damage stat is set it gets rows of its own, so the
+sentry's machine gun and the MG-43 in a diver's hands, which fire the same round, can differ. The shells
+of orbital and Eagle strikes are written in place: STATUS.txt lists who else uses a row under "also
+affects". A stratagem value changed
 during a mission takes effect after the stratagem's next use (seen in game).
 
 **Vehicle parts.** A vehicle's parts (legs, cockpit, doors, tracks...) have their own health and armor.
@@ -45,6 +51,22 @@ the game's relations. `part_<name>_overflow_cap = 1`: the share stops once the p
 A line that names one value wins over a shortcut that also covers it: with `all_health = 300%` and
 `part_leg_left_health = 10` the leg gets 10 and STATUS.txt says so on the shortcut's line (v0.12.1; in
 v0.12.0 the two lines rejected each other). This holds for every shortcut (`recoil`, `ap`, `spread`...).
+
+`part_<name>_to_main = 0` stops a part from passing damage on (works in game: shooting the bonnet of the
+FRV no longer lowered its health). A fraction did not scale it in the one test made (0.5 behaved like 1).
+
+**`blast_from = <item>`** (v0.13.0, not yet tested in game), for weapons that fire projectiles and for
+throwables: the item explodes like the named item (`blast_from = gas_grenade`). The value is an item
+name of `catalog.txt`, never a number: row ids change with game updates. A weapon gets the explosion in
+its own projectile row (on impact), a throwable in its own component record. The explosion itself stays
+the source item's: changing the source's blast values changes both.
+
+**Status effects** (v0.13.0, not yet tested in game): `status1_type` .. `status4_type` and
+`status1_value` .. `status4_value` (and `blast_status...` for an explosion): what a hit applies. The
+types are numbers of `docs/STATUS-EFFECTS.md` (5 = Fire, 42 = Gas, 37 = Stun Small...).
+
+**`[settings] dump_globals = true`** (research, read-only): writes the names of the game's Lua globals
+to `GLOBALS.txt`, for building the in-game menu.
 
 A stratagem's call-in time is not offered: the field the data calls `spawn_time` changed nothing in game.
 

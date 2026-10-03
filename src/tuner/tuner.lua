@@ -1127,6 +1127,48 @@ local function own_blast_field(item, field)
     return nil
 end
 
+-- `blast_from = <item>`: this item explodes like that one. The value is not a number but the name of
+-- another item (ids change between builds, names do not): its explosion row id is written into the
+-- weapon's own projectile row, or into a throwable's own component record. The explosion itself stays
+-- the source item's: changing the source's blast changes both.
+local BLAST_ON_IMPACT = 144      -- ProjectileInfo.explosion_type_on_impact
+local function resolve_blast_from(request, item, own_bullet)
+    local source, wanted = nil, trim(request.expression):lower()
+    for _, category in ipairs({ 'weapon', 'throwable', 'stratagem_weapon' }) do
+        source = source or ITEM_BY_NAME[category .. ':' .. wanted]
+    end
+    if not source or not source.blasts then
+        request.status, request.reason = 'rejected', 'blast_from takes the name of an item that explodes (see catalog.txt)'
+        return
+    end
+    local explosion = source.blasts[1].explosion
+    request.targets = {}
+    local function target(field, stock)
+        field.exact = true
+        request.targets[#request.targets + 1] = { stat = 'blast_from', field = field, value = explosion,
+            text = source.name .. ' (explosion row ' .. explosion .. ')', was_text = 'explosion row ' .. stock, own = true }
+    end
+    if item.takeover then
+        local t = own_bullet[item] and own_bullet[item].takeover
+        if not (t and t.fresh) then
+            request.status, request.reason = 'rejected', 'blast_from needs the weapon\'s own projectile row (own_rows = auto)'
+            return
+        end
+        local stock = hex_word(ROWS['ProjectileSettings|' .. t.src_projectile], BLAST_ON_IMPACT)
+        target(get_field(own_name('ProjectileSettings'), string.format('%.0f', t.new_projectile), BLAST_ON_IMPACT, 'u32',
+                         stock), stock)
+    elseif item.blasts and item.blasts[1].kind == 'C' then
+        for _, s in ipairs(item.blasts[1].switches) do
+            target(get_field(s.table, item.entity, s.offset, 'u32', item.blasts[1].explosion), item.blasts[1].explosion)
+            request.targets[#request.targets].own = nil      -- the item's own record: a plain value
+        end
+    else
+        request.status, request.reason = 'rejected', 'blast_from is not possible for this item'
+        return
+    end
+    request.status = 'accepted'
+end
+
 local function resolve_request(request, own_bullet)
     local item = ITEM_BY_NAME[request.category .. ':' .. request.item:lower()]
     if not item then
@@ -1136,6 +1178,7 @@ local function resolve_request(request, own_bullet)
     local stats, nonzero = { request.stat }, false
     local alias = ALIASES[request.stat]
     if alias then stats, nonzero = alias.targets, alias.mode == 'nonzero' end
+    if request.stat == 'blast_from' then return resolve_blast_from(request, item, own_bullet) end
     request.targets = {}
     for _, stat in ipairs(stats) do
         local entry, range = item.stats[stat], RANGES[stat]
@@ -1209,6 +1252,7 @@ end
 
 -- Does `stat` of `item` live in the projectile / damage row the weapon shares with others?
 local function touches_shared_rows(item, stat)
+    if stat == 'blast_from' then return true end        -- written into the weapon's own projectile row
     local t, stats = item.takeover, { stat }
     if ALIASES[stat] then stats = ALIASES[stat].targets end
     for _, name in ipairs(stats) do
@@ -1233,7 +1277,7 @@ local function build_desired(text)
     config.requests, config.problems = {}, {}
     config.enabled, config.reload_key, config.reload_vk = true, 'F10', 0x79
     config.auto_reload, config.rescan, config.probe, config.own_rows = 0, DEFAULT_RESCAN_SECONDS, false, true
-    config.census, config.canary = false, false
+    config.census, config.canary, config.dump_globals = false, false, false
     local section, line_number = nil, 0
     local by_stat = {}   -- 'category:item:stat' -> request (a later line replaces an earlier one)
     for raw in ((text or '') .. '\n'):gmatch('([^\n]*)\n') do
@@ -1271,6 +1315,8 @@ local function build_desired(text)
                         config.census = parse_bool(value)
                     elseif key == 'canary' and parse_bool(value) ~= nil then
                         config.canary = parse_bool(value)
+                    elseif key == 'dump_globals' and parse_bool(value) ~= nil then
+                        config.dump_globals = parse_bool(value)
                     elseif key == 'own_rows' and (value:lower() == 'auto' or parse_bool(value) ~= nil) then
                         config.own_rows = value:lower() == 'auto' or parse_bool(value) == true
                     else
@@ -1388,7 +1434,7 @@ local function build_desired(text)
     if config.own_rows then
         local notes, refused = {}, {}
         for _, request in ipairs(config.requests) do
-            local item = not request.status and request.stat ~= 'own_bullet'
+            local item = not request.status and request.stat ~= 'own_bullet' and request.stat ~= 'blast_from'
                 and ITEM_BY_NAME[request.category .. ':' .. request.item:lower()]
             for _, b in ipairs(item and not declined[item] and item.blasts or {}) do
                 local in_row, in_damage = blast_touch(item, b, request.stat)
@@ -2233,6 +2279,10 @@ local function write_catalog()
                     show(range.min, 'f32'), show(range.max, 'f32'), range.integer and ', whole numbers' or '',
                     #notes > 0 and ('   # ' .. table.concat(notes, '; ')) or '')
             end
+            if item.takeover or (item.blasts and item.blasts[1].kind == 'C') then
+                L[#L + 1] = '  blast_from = <item>   # explode like another item, by its name (frag_grenade, '
+                    .. 'gas_grenade, grenade_launcher...)'
+            end
             if item.takeover then
                 L[#L + 1] = '  own_bullet = false   (' .. (item.takeover.new_projectile ~= 0 and 'true / ' or '')
                     .. 'false / new)   # happens by itself when a projectile or damage stat of this weapon is set: '
@@ -2883,6 +2933,37 @@ local function run_census()
     return true
 end
 
+-- ---------------------------------------------------------------- globals (read-only research)
+-- Question for the in-game menu: what does the game's Lua offer (drawing, text, input)? With
+-- [settings] dump_globals = true the names and types of the global tables are written to GLOBALS.txt,
+-- once per session. Nothing is called and nothing is changed.
+local globals_dumped = false
+local function dump_globals()
+    globals_dumped = true
+    local names = {}
+    for name in pairs(_G) do
+        if type(name) == 'string' then names[#names + 1] = name end
+    end
+    table.sort(names)
+    local L = { MOD.title .. ' v' .. MOD.version .. ' globals (read-only)', #names .. ' global names', '' }
+    for n, name in ipairs(names) do
+        local value = rawget(_G, name)
+        if type(value) == 'table' then
+            local keys = {}
+            for key, member in pairs(value) do
+                if #keys < 400 then keys[#keys + 1] = tostring(key) .. ':' .. type(member):sub(1, 1) end
+            end
+            table.sort(keys)
+            L[#L + 1] = name .. ' (table, ' .. #keys .. ' keys) ' .. table.concat(keys, ' ')
+        else
+            L[#L + 1] = name .. ' (' .. type(value) .. ')'
+        end
+        if n % 8 == 0 then pause() end
+    end
+    write_file('GLOBALS.txt', table.concat(L, '\r\n') .. '\r\n')
+    log('globals written: ' .. #names .. ' names')
+end
+
 -- ---------------------------------------------------------------- the worker
 local wake = { at = 0, reload = false, config_check_at = 0 }
 
@@ -2908,6 +2989,10 @@ local function worker_main()
             state.step = 'reading config.txt'
             load_config()
             backoff = 1
+        end
+        if config.dump_globals and not globals_dumped then
+            local ok_globals, why_globals = pcall(dump_globals)
+            if not ok_globals then log('globals: ' .. tostring(why_globals)) end
         end
         if build.state ~= 'verified' then
             state.phase = 'refused'

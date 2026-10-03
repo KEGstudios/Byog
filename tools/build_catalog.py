@@ -132,6 +132,13 @@ def damage_stats(T, stats, prefix, dmg_id):
                       ("demolition", "demolition_strength"), ("stagger", "force_strength"),
                       ("push", "force_impulse")):
         stat(stats, prefix + sid, "DamageSettings", dmg_id, "DamageInfo", path, rec)
+    # what a hit applies: four slots of (status effect id, strength). The ids are the rows of the game's
+    # status table (docs/STATUS-EFFECTS.md, read in game); 0 = empty slot.
+    for i in range(4):
+        stat(stats, "%sstatus%d_type" % (prefix, i + 1), "DamageSettings", dmg_id, "DamageInfo",
+             "status_effects[%d].type" % i, rec)
+        stat(stats, "%sstatus%d_value" % (prefix, i + 1), "DamageSettings", dmg_id, "DamageInfo",
+             "status_effects[%d].value" % i, rec)
 
 
 def explosion_stats(T, stats, prefix, exp_id):
@@ -384,6 +391,77 @@ def resolve_equipment(T):
     return out
 
 
+def slug(name):
+    return "_".join("".join(c.lower() if c.isalnum() else " " for c in name).split())
+
+
+def stratagem_weapons(T, seen):
+    """What stratagems shoot: the guns of sentries, emplacements, drones, vehicles and the Eagle (entities
+    with a weapon component, resolved exactly like a hand weapon), and the shells of orbital and Eagle
+    strikes (a projectile id inside a Bombardment / Eagle / OrbitalAbility component).
+    The links come from tools/stratagems.py (data/stratagems.json)."""
+    path = os.path.join(ROOT, "data", "stratagems.json")
+    if not os.path.exists(path):
+        return []
+    with open(path, encoding="utf-8") as f:
+        stratagems = json.load(f)
+    out, names, done = [], {}, set(seen)
+
+    def unique(name):
+        names[name] = names.get(name, 0) + 1
+        return name if names[name] == 1 else "%s_%d" % (name, names[name])
+
+    for s in stratagems:
+        base = slug(s["debug_name"])
+        shells, guns, damage = [], [], []
+        for kind, rows in s.get("rows", {}).items():
+            for row_id, links in rows.items():
+                for link in links:
+                    component, rest = link.split("+")
+                    offset, ent = rest.split("@")
+                    if component in ("ProjectileWeaponComponent", "BeamWeaponComponent", "ArcWeaponComponent",
+                                     "SprayWeaponComponent"):
+                        guns.append(int(ent, 16))
+                    elif component in ("BombardmentComponent", "EagleComponent", "OrbitalAbilityComponent"):
+                        (shells if kind == "projectile" else damage if kind == "damage" else []).append(
+                            (int(offset), int(row_id), ent))
+        for ent in guns:
+            if ent in done:
+                continue
+            done.add(ent)
+            r = resolve_weapon(T, ent)
+            if not r["stats"]:
+                continue
+            path_name = hashnames.name(ent)
+            name = unique(path_name.rsplit("/", 1)[-1] if path_name else base + "_weapon")
+            out.append({"category": "stratagem_weapon", "entity": "%016X" % ent,
+                        "path": "stratagem_weapons/" + name, "stratagem": s["debug_name"], **r})
+        rounds = []
+        for offset, row_id, ent in sorted(shells):
+            if row_id not in [r[1] for r in rounds]:
+                rounds.append((offset, row_id, ent))
+        for n, (offset, row_id, ent) in enumerate(rounds):
+            if ("shell", ent, row_id) in done:
+                continue
+            done.add(("shell", ent, row_id))
+            stats = []
+            if projectile_stats(T, stats, row_id) is None:
+                continue
+            name = unique(base if len(rounds) == 1 else "%s_shell%d" % (base, n + 1))
+            out.append({"category": "stratagem_weapon", "entity": ent, "path": "stratagem_weapons/" + name,
+                        "stratagem": s["debug_name"], "sources": ["shell:%d" % row_id], "stats": stats})
+        for offset, row_id, ent in sorted(damage):
+            if ("damage", ent, row_id) in done:
+                continue
+            done.add(("damage", ent, row_id))
+            stats = []
+            damage_stats(T, stats, "", row_id)
+            if stats:
+                out.append({"category": "stratagem_weapon", "entity": ent, "path": "stratagem_weapons/" + unique(base),
+                            "stratagem": s["debug_name"], "sources": ["damage:%d" % row_id], "stats": stats})
+    return out
+
+
 def live_stratagems():
     """Stratagem rows as read in game (tools/live_stratagems.txt): the table is not in the offline data.
     Offsets: uses +80, call-in time +84 and cooldown +104 of StratagemInfo, settled by comparing the rows
@@ -486,7 +564,7 @@ def main():
             seen.add(ent)
             r = resolve_throwable(T, ent) if cat == "throwable" else resolve_weapon(T, ent)
             items.append({"category": cat, "entity": "%016X" % ent, "path": path, **r})
-    items += resolve_equipment(T) + live_stratagems()
+    items += stratagem_weapons(T, seen) + resolve_equipment(T) + live_stratagems()
     unnamed = sorted("%016X" % e for e in T.weapon.index if hashnames.name(e) is None)
     cat = {"snapshot": {"source": "FileDiver datalibrary mirror", "projectile_rows": T.projectile.count,
                         "damage_rows": T.damage.count, "explosion_rows": T.explosion.count},
