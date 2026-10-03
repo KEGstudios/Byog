@@ -379,9 +379,10 @@ is at +4 and a row is in exactly one of the 11 group blocks.
 | Recharge delay / delay once broken / recharge rate / charge when it comes back | `recharge_delay`, `broken_recharge_delay`, `recharge_rate`, `starter_charge_on_recharge` | **+80..+100, one slot uncertain** | f32 | type alignment says +80/+88/+92/+96, SHODAN says +88/+92/+96/+100 |
 
 Same ambiguity as the stratagem cooldown (new members inside a run of floats). Shield health itself is
-not affected: **in game (v0.10.0): `charge` works** (150 -> 5000). Tuner v0.11.0 offers the five floats at
-+80, +88, +92, +96, +100 as `shield_value_<offset>` so that a tester can tell which one is which; the
-Shield Generator Pack holds 0, 60, 12, 150, 150 there.
+not affected: **in game (v0.10.0): `charge` works** (150 -> 5000). **Settled in game (v0.11.0, Shield Generator
+Pack, which holds 0, 60, 12, 150, 150 at +80..+100):** +88 = delay before an unbroken shield recharges,
++92 = delay after it broke, +96 = recharge per second; +100 showed no effect. The second name source is
+right here, the type library's names are one slot early.
 
 ### 4.11 Vehicles (exosuits, FRVs, tanks) — `HealthComponentData` (0xB3915DE3), keyed, `HealthComponent` (22096 B)
 
@@ -399,6 +400,15 @@ name sources and the values agree) and the parts: `damageable_zones[38]`, 552 B 
 `armor` +216, `health` +232, `zone_name` +96 (the upper half of murmur64a of the name; 35 of 88 names of
 the helldiver vehicles recovered by hashing plausible words, `tools/zone_names.txt`). Patriot: cockpit
 front left / front right / rear and hips 400 health / armor 4, legs 550 / 3, the two front lights 10 / 0.
+
+**In game (v0.11.0):** a leg with health 10 and armor 0 breaks in a few bullets. A leg with 100000 health
+never broke: the exosuit died first, because a part passes its damage on to the main health
+(`affects_main_health`). The zone fields that decide this match a community wiki table of the Patriot
+exactly: zone +204 `projectile_durable_resistance` (cockpit 0.85, hips and legs 0.80), +248
+`affects_main_health` (1.0; the arms, separate entities, 0), +340 `main_health_affect_capped_by_zone_health`
+(flag), +324 `explosion_damage_multiplier` (main 0.5; parts hold FLT_MAX, a "not set" value, so it is not
+offered per part); record +24 `constitution` 2000 and +28 `constitution_changerate` -400. Tuner v0.12.0
+offers them and an `all_health` alias.
 
 Offline values: exosuits (Patriot, Emancipator, Lumberer, Breacher) 1800 health / armor 4; FRVs 2400 / 3
 (flamer FRV 2900); tanks 8000 / 4. The unit sits in the shared health table, so an edit is per vehicle

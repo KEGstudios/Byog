@@ -1509,6 +1509,39 @@ local function build_desired(text)
             end
         end
     end
+    -- A vehicle part that outlasts the vehicle: damage to a part also goes to the main health (to_main),
+    -- so a part whose health is above what the main health can pay for never breaks (seen in game,
+    -- v0.11.0: a leg with 100000 health, the exosuit was destroyed first). Said on the line, not "fixed".
+    local function effective(item_key, item, stat)
+        local w = wanted[item_key .. ':' .. stat]
+        if w then return tonumber(w.target.text) end
+        return item.stats[stat] and item.stats[stat].field.stock
+    end
+    local function outlasts(item_key, item, part)
+        local main, share = effective(item_key, item, 'health'), effective(item_key, item, 'part_' .. part .. '_to_main')
+        local health = effective(item_key, item, 'part_' .. part .. '_health')
+        if main and share and health and share > 0 and health * share > main then return health, main, share end
+        return nil
+    end
+    for _, w in pairs(wanted) do
+        local item_key = w.request.category .. ':' .. w.request.item:lower()
+        local item = ITEM_BY_NAME[item_key]
+        local part = w.target.stat:match('^part_(.+)_health$') or w.target.stat:match('^part_(.+)_to_main$')
+        local parts = part and { part } or {}
+        if w.target.stat == 'health' and w.request.category == 'vehicle' then
+            for _, stat in ipairs(item.stat_order) do
+                parts[#parts + 1] = stat:match('^part_(.+)_health$')
+            end
+        end
+        for _, name in ipairs(parts) do
+            local health, main, share = outlasts(item_key, item, name)
+            if health and not w.request.warning then
+                w.request.warning = string.format('part %s has %d health and passes %d%% of its damage on, the main health '
+                    .. 'is %d: the vehicle is destroyed before this part breaks. Raise health, lower part_%s_to_main, or '
+                    .. 'use all_health to scale everything together', name, health, share * 100, main, name)
+            end
+        end
+    end
     -- Magazine values of a weapon's own. Where a default magazine attachment sets the magazine values,
     -- the attachment is shared by every weapon that carries it. Its run of magazine deltas is switched
     -- off (count 0 in the delta storage), and every weapon that carries this magazine by default gets

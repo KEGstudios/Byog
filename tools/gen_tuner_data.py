@@ -109,7 +109,14 @@ RANGES = [
     (r"^charges_refill$", 0, 9999, 1),
     (r"^shield_health$", 1, 1000000, 0),
     (r"^shield_radius$", 0, 500, 0),
-    (r"^shield_value_\d+$", 0, 100000, 0),          # research: recharge values, meaning being settled in game
+    (r"^shield_(recharge|broken)_delay$", 0, 3600, 0),
+    (r"^shield_recharge_rate$", 0, 1000000, 0),
+    (r"(^|_)durable_resistance$", 0, 1, 0),
+    (r"^explosion_damage_multiplier$", 0, 10, 0),
+    (r"^constitution$", 0, 1000000, 1),
+    (r"^constitution_rate$", -100000, 100000, 0),
+    (r"^part_.+_to_main$", 0, 10, 0),
+    (r"^part_.+_overflow_cap$", 0, 1, 1),
     (r"^armor$", 0, 10, 1),
     (r"^part_.+_health$", 1, 1000000, 1),
     (r"^part_.+_armor$", 0, 10, 1),
@@ -333,6 +340,10 @@ def generate(builds=None, indexes=None):
         lines.append("R|%s|%s|%s|%d" % (stat, repr(lo), repr(hi), integer))
     for alias, mode, targets in ALIASES:
         lines.append("A|%s|%s|%s" % (alias, mode, ",".join(targets)))
+    # all_health: the main health and every part's health of a vehicle together. With a percentage the
+    # relations between them stay as the game has them (a part still breaks before the vehicle is gone).
+    parts = sorted(s for s in stats_seen if re.search(r"^part_.+_health$", s))
+    lines.append("A|all_health|all|%s" % ",".join(["health"] + parts))
     blob = "\n".join(lines) + "\n"
     assert "]==]" not in blob
     return blob, {"tables": len(tables), "items": len(items), "fields": len(fields), "stats": len(stats_seen),

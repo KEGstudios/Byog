@@ -296,7 +296,11 @@ def resolve_throwable(T, ent):
     return {"sources": ["throwable"] if th else [], "stats": stats}
 
 
-SHIELD_RESEARCH = (80, 88, 92, 96, 100)
+# Settled in game (tuner v0.11.0, one tester, Shield Generator Pack): +88 is the delay before an unbroken
+# shield starts to recharge, +92 the delay after it broke, +96 the recharge per second. This is the
+# reading of the second name source; the type library's own names sit one slot earlier. +80 and +100
+# showed no effect and are not offered.
+SHIELD_RECHARGE = (("shield_recharge_delay", 88), ("shield_broken_delay", 92), ("shield_recharge_rate", 96))
 ZONE_NAMES = {}
 with open(os.path.join(HERE, "zone_names.txt"), encoding="utf-8") as _f:
     for _line in _f:
@@ -329,10 +333,8 @@ def resolve_equipment(T):
             stats, key, rec = [], "%016X" % ent, shield.record(ent)
             stat(stats, "shield_health", "ShieldComponentData", key, "ShieldComponent", "charge", rec)
             stat(stats, "shield_radius", "ShieldComponentData", key, "ShieldComponent", "radius", rec)
-            # The four recharge values sit in a run of floats where the two name sources disagree by one
-            # slot (STAT-MAP 4.10). Until a test in game tells which is which they are offered by offset.
-            for o in SHIELD_RESEARCH:
-                stats.append({"id": "shield_value_%d" % o, "table": "ShieldComponentData", "key": key,
+            for sid, o in SHIELD_RECHARGE:
+                stats.append({"id": sid, "table": "ShieldComponentData", "key": key,
                               "record": "ShieldComponent", "field": "+%d" % o, "offset": o, "storage": "FP32",
                               "original": round(struct.unpack_from("<f", rec, o)[0], 6)})
             add("shield", ent, path, stats)
@@ -344,6 +346,12 @@ def resolve_equipment(T):
             stat(stats, "health", "HealthComponentData", key, "HealthComponent", "health", rec)
             # armor of the main body: both name sources and the values (FRV 3, exosuits and tanks 4) agree
             stat(stats, "armor", "HealthComponentData", key, "HealthComponent", "default_damageable_zone_info.armor", rec)
+            # How the main body takes damage. The Patriot's values equal the community wiki's table
+            # (durable 100 %, explosion damage 50 %, constitution 2000 at -400 / s), which confirms the offsets.
+            for sid, field in (("durable_resistance", "default_damageable_zone_info.projectile_durable_resistance"),
+                               ("explosion_damage_multiplier", "default_damageable_zone_info.explosion_damage_multiplier"),
+                               ("constitution", "constitution"), ("constitution_rate", "constitution_changerate")):
+                stat(stats, sid, "HealthComponentData", key, "HealthComponent", field, rec)
             # the parts: each damageable zone has its own health and armor (a part can break on its own)
             zones_at, zones_size = off("HealthComponent", "damageable_zones")[0], _layouts["HealthComponent"]
             zone = next(m for m in zones_size["members"] if m["offset"] == zones_at)
@@ -354,9 +362,21 @@ def resolve_equipment(T):
                 if not name_hash:
                     continue
                 part = ZONE_NAMES.get(name_hash, "%08x" % name_hash)
-                for sid, field in (("health", "health"), ("armor", "armor")):
+                # to_main: the share of the damage to this part that also goes to the main health;
+                # overflow_cap: 1 = that share stops once the part's own health is gone
+                for sid, field in (("health", "health"), ("armor", "armor"),
+                                   ("durable_resistance", "projectile_durable_resistance"),
+                                   ("to_main", "affects_main_health"),
+                                   ("overflow_cap", "main_health_affect_capped_by_zone_health")):
                     o, st = off("DamageableZoneInfo", field)
+                    if st == "UINT8":
+                        # a flag byte followed by three unused bytes: written as one whole word
+                        if rec[zones_at + z * step + o + 1:zones_at + z * step + o + 4] != b"\0\0\0":
+                            continue
+                        st = "UINT32"
                     v = struct.unpack_from(_FMT[st], rec, zones_at + z * step + o)[0]
+                    if st == "FP32":
+                        v = round(v, 6)
                     stats.append({"id": "part_%s_%s" % (part, sid), "table": "HealthComponentData", "key": key,
                                   "record": "HealthComponent", "field": "damageable_zones[%d].%s" % (z, field),
                                   "offset": zones_at + z * step + o, "storage": st, "original": v})

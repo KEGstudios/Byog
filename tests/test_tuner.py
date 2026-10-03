@@ -1322,7 +1322,7 @@ def check_stratagems_backpacks_shields_and_vehicles(mutate=None):
     probe.close()
     config = ("[stratagem: %s]\ncooldown = 50%%\nuses = 5\ncall_in_time = 1\n"
               "[backpack: recoilless_rifle_backpack]\ncharges = 10\ncharges_start = 4\n"
-              "[shield: energy_shield_backpack]\nshield_health = 300\nshield_value_92 = 1\n"
+              "[shield: energy_shield_backpack]\nshield_health = 300\nshield_broken_delay = 1\n"
               "[vehicle: combat_walker]\nhealth = 200%%\narmor = 6\npart_leg_left_health = 2000\n"
               "part_leg_left_armor = 5\n") % name
     rig = Rig(config, mutate)
@@ -1355,10 +1355,27 @@ def check_stratagems_backpacks_shields_and_vehicles(mutate=None):
         assert sorted(a for a, _d in rig.mem.writes) == sorted([row + 104, row + 80, row + 84, backpack, backpack + 4,
                                                                 shield, shield + 16, walker, walker + 280,
                                                                 leg, leg_armor])
-        assert "also affects" not in status
+        assert "also affects" not in status and "WARNING" not in status
+        # seen in game: a part with more health than the main health can pay for never breaks. Said, not "fixed".
+        status = rig.reload("[vehicle: combat_walker]\npart_leg_right_health = 100000\n")
+        assert ("WARNING: part leg_right has 100000 health and passes 100% of its damage on, the main health is 1800"
+                in status), status[:2000]
+        assert rig.mem.peek(other_leg, "<i") == 100000 and rig.mem.peek(walker, "<i") == 1800
+        status = rig.reload("[vehicle: combat_walker]\nhealth = 500\n")
+        assert "WARNING: part leg_right has 550 health" in status or "WARNING: part leg_left has 550 health" in status
+        # everything together keeps the game's relations; and the share a part passes on is a value of its own
+        share = walker + catalog_stat("combat_walker", "part_leg_left_to_main")[1]["offset"]
+        status = rig.reload("[vehicle: combat_walker]\nall_health = 200%\npart_leg_left_to_main = 0.5\n"
+                            "durable_resistance = 0.5\n")
+        assert "WARNING" not in status and "REJECTED" not in status, status[:2000]
+        assert rig.mem.peek(walker, "<i") == 3600 and rig.mem.peek(leg, "<i") == 1100
+        assert rig.mem.peek(other_leg, "<i") == 1100 and rig.mem.peek(share, "<f") == 0.5
+        assert rig.mem.peek(walker + 268, "<f") == 0.5
         status = rig.reload("")
         assert snapshot(rig) == before
         catalog = rig.game.read_out("catalog.txt")
+        assert "  shield_recharge_rate = 150   (0 .. 1000000)" in catalog and "shield_value_" not in catalog
+        assert "  part_leg_left_to_main = 1   (0 .. 10)" in catalog and "  constitution = 2000   (" in catalog
         for header in ("[stratagem: %s]" % name, "[backpack: recoilless_rifle_backpack]",
                        "[shield: energy_shield_backpack]", "[vehicle: combat_walker]"):
             assert header in catalog, header
@@ -1556,6 +1573,10 @@ MUTATIONS = [
     ("row ids always read at the start of the row",
      "stride = tonumber(f[5]), id_at = tonumber(f[6]), blocks = {} }",
      "stride = tonumber(f[5]), id_at = 0, blocks = {} }",
+     check_stratagems_backpacks_shields_and_vehicles),
+    ("a vehicle part that outlasts its vehicle is not reported",
+     "            if health and not w.request.warning then",
+     "            if false then",
      check_stratagems_backpacks_shields_and_vehicles),
     ("attachment values written 4 bytes off",
      "        local address = block.records_at + field.offset\n",
