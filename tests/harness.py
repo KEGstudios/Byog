@@ -267,7 +267,8 @@ KEYED_TABLES = ["WeaponDataComponentData", "ProjectileWeaponComponentData", "Wea
                 "ArcWeaponComponentData", "SprayWeaponComponentData", "MeleeWeaponComponentData",
                 "ThrowableComponentData", "ExplosiveComponentData", "DepositComponentData",
                 "ShieldComponentData", "HealthComponentData", "VehicleComponentData",
-                "WeaponCustomizationComponentData", "AvatarComponentData"]
+                "WeaponCustomizationComponentData", "AvatarComponentData",
+                "BombardmentComponentData", "EagleComponentData", "OrbitalAbilityComponentData"]
 
 _cache = {}
 

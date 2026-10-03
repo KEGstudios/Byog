@@ -1414,15 +1414,36 @@ def check_stratagem_weapons_and_blast_from(mutate=None):
         before = snapshot(rig)
         assert rig.mem.peek(sentry, "<I") == 148 and rig.mem.peek(hand_gun, "<I") == 148 and rig.mem.peek(frag, "<I") == 257
         status = rig.settle()
-        assert first_line(status) == "OK - 4 values applied, 2 weapons on their own bullet", status[:2500]
-        # an orbital shell: its damage row, in place
-        assert rig.mem.peek(orbital, "<i") == 5000
+        assert first_line(status) == "OK - 4 values applied, 3 weapons on their own bullet", status[:2500]
+        # an orbital shell: the strike's own component names a new round, whose damage row is its own
+        strike = rig.keyed_field("BombardmentComponentData",
+                                 int(catalog_stat("orbital_precision_strike", "damage")[0]["entity"], 16), 64)
+        shell = rig.mem.peek(strike, "<I")
+        assert shell > INDEX_SLOTS and rig.mem.peek(orbital, "<i") == 4000          # the shared row: untouched
+        shell_row = rig.mem.peek(index["ProjectileSettings"] + 8 * shell, "<Q")
+        shell_damage_row = rig.mem.peek(index["DamageSettings"] + 8 * rig.mem.peek(shell_row + 60, "<I"), "<Q")
+        assert rig.mem.peek(shell_damage_row + 4, "<i") == 5000
         # the sentry's gun gets rows of its own: the MG-43 in a diver's hands keeps the stock round
         new_id = rig.mem.peek(sentry, "<I")
         assert new_id > INDEX_SLOTS and rig.mem.peek(hand_gun, "<I") == 148
         row = rig.mem.peek(index["ProjectileSettings"] + 8 * new_id, "<Q")
         damage_row = rig.mem.peek(index["DamageSettings"] + 8 * rig.mem.peek(row + 60, "<I"), "<Q")
         assert rig.mem.peek(damage_row + 4, "<i") == 200 and rig.mem.peek(rig.row_field("DamageSettings", 125, 4), "<i") == 90
+        # seen in game (v0.13.0): the sentry takes its rounds from the magazine's belt pattern, not from the
+        # weapon record. Every entry of the pattern is switched; the tracer gets a row of its own on the
+        # same damage row, so every round of the belt does the new damage.
+        belt = rig.keyed_field("WeaponMagazineComponentData", SENTRY_GUN, 0)
+        assert [rig.mem.peek(belt + o, "<I") for o in (4, 8, 12, 16)] == [new_id] * 4
+        tracer = rig.mem.peek(belt + 20, "<I")
+        assert tracer > INDEX_SLOTS and tracer != new_id
+        tracer_row = rig.mem.peek(index["ProjectileSettings"] + 8 * tracer, "<Q")
+        assert rig.mem.peek(tracer_row + 60, "<I") == rig.mem.peek(row + 60, "<I")
+        stock_tracer = bytearray(row_bytes(rig, rig.row_field("ProjectileSettings", 242, 0), 272))
+        struct.pack_into("<I", stock_tracer, 0, tracer)
+        struct.pack_into("<I", stock_tracer, 60, rig.mem.peek(row + 60, "<I"))
+        assert row_bytes(rig, tracer_row, 272) == bytes(stock_tracer)
+        hand_belt = rig.keyed_field("WeaponMagazineComponentData", item_entity_of("machinegun"), 0)
+        assert [rig.mem.peek(hand_belt + o, "<I") for o in (4, 8, 12, 16, 20)] == [148, 148, 148, 148, 242]
         # the launcher explodes like a gas grenade: the id is in ITS projectile row, on impact only
         own = rig.mem.peek(index["ProjectileSettings"] + 8 * rig.mem.peek(launcher, "<I"), "<Q")
         assert rig.mem.peek(own + 144, "<I") == gas and rig.mem.peek(own + 156, "<I") == 361
@@ -1442,6 +1463,18 @@ def check_stratagem_weapons_and_blast_from(mutate=None):
 
 def item_entity_of(name):
     return int(catalog_stat(name, "damage")[0]["entity"], 16)
+
+
+def check_drawing_probe_without_the_engine_does_nothing(mutate=None):
+    rig = Rig("[settings]\nui_probe = text\n[weapon: assault_rifle]\nrpm = 150%\n", mutate)
+    try:
+        status = rig.settle()                                  # this fake game has no stingray table at all
+        assert first_line(status) == "OK - 1 values applied", first_line(status)
+        report = rig.game.read_out("UIPROBE.txt")
+        assert "state: failed" in report and "no stingray table" in report, report
+        assert rig.mem.peek(rig.rpm, "<f") == 960.0
+    finally:
+        rig.close()
 
 
 def check_globals_dump_is_read_only(mutate=None):
@@ -1538,7 +1571,7 @@ class Startup(unittest.TestCase):
         self.assertIn("Y|ExplosionSettings|28", lines)
         own = [x for x in lines if x.startswith("B|") and x.split("|")[5] == "1"]
         borrow = [x for x in lines if x.startswith("B|") and x.split("|")[5] == "0"]
-        self.assertEqual((len(own), len(borrow)), (51, 33))       # hand weapons, throwables, stratagem weapons
+        self.assertEqual((len(own), len(borrow)), (57, 43))       # hand weapons, throwables, stratagem weapons
         # every row that may be borrowed, and every row copied into one, ships with its stock bytes
         for row in [x for x in lines if x.startswith("S|")][0].split("|")[2].split(","):
             self.assertTrue([x for x in lines if x.startswith("W|ExplosionSettings|%s|" % row)], row)
@@ -1670,6 +1703,14 @@ MUTATIONS = [
     ("blast_from: written although the weapon has no row of its own",
      "    if stat == 'blast_from' then return true end        -- written into the weapon's own projectile row\n",
      "",
+     check_stratagem_weapons_and_blast_from),
+    ("own bullet: the belt pattern of the magazine still names the shared round",
+     "        for _, s in ipairs(t.fresh and item.switches or {}) do",
+     "        for _, s in ipairs({}) do",
+     check_stratagem_weapons_and_blast_from),
+    ("own bullet: the tracer of a belt keeps the shared row",
+     "            if s.projectile ~= t.src_projectile and rounds[s.projectile] == nil and stock",
+     "            if false and stock",
      check_stratagem_weapons_and_blast_from),
     ("attachment values written 4 bytes off",
      "        local address = block.records_at + field.offset\n",

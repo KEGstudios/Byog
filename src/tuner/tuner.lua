@@ -475,6 +475,10 @@ local function parse_data()
         elseif kind == 'O' then
             ITEMS[tonumber(f[2])].takeover = { base_projectile = tonumber(f[3]), src_projectile = tonumber(f[4]),
                 new_projectile = tonumber(f[5]), src_damage = tonumber(f[6]), new_damage = tonumber(f[7]) }
+        elseif kind == 'U' then
+            local item = ITEMS[tonumber(f[2])]
+            item.switches = item.switches or {}
+            item.switches[#item.switches + 1] = { table = f[3], offset = tonumber(f[4]), projectile = tonumber(f[5]) }
         elseif kind == 'W' then
             ROWS[f[2] .. '|' .. f[3]] = f[4]
         elseif kind == 'X' then
@@ -1277,7 +1281,7 @@ local function build_desired(text)
     config.requests, config.problems = {}, {}
     config.enabled, config.reload_key, config.reload_vk = true, 'F10', 0x79
     config.auto_reload, config.rescan, config.probe, config.own_rows = 0, DEFAULT_RESCAN_SECONDS, false, true
-    config.census, config.canary, config.dump_globals = false, false, false
+    config.census, config.canary, config.dump_globals, config.ui_probe = false, false, false, false
     local section, line_number = nil, 0
     local by_stat = {}   -- 'category:item:stat' -> request (a later line replaces an earlier one)
     for raw in ((text or '') .. '\n'):gmatch('([^\n]*)\n') do
@@ -1317,6 +1321,8 @@ local function build_desired(text)
                         config.canary = parse_bool(value)
                     elseif key == 'dump_globals' and parse_bool(value) ~= nil then
                         config.dump_globals = parse_bool(value)
+                    elseif key == 'ui_probe' and (value:lower() == 'text' or parse_bool(value) ~= nil) then
+                        config.ui_probe = value:lower() == 'text' and 'text' or parse_bool(value)
                     elseif key == 'own_rows' and (value:lower() == 'auto' or parse_bool(value) ~= nil) then
                         config.own_rows = value:lower() == 'auto' or parse_bool(value) == true
                     else
@@ -1368,8 +1374,18 @@ local function build_desired(text)
             request.status, request.reason = 'rejected', 'new row ids are not possible: ' .. tostring(why)
             return nil
         end
+        -- other rounds of the same weapon (tracers in a belt): a row of their own each, on the same damage row
+        local rounds = {}
+        for _, s in ipairs(item.switches or {}) do
+            local stock = ROWS['ProjectileSettings|' .. s.projectile]
+            if s.projectile ~= t.src_projectile and rounds[s.projectile] == nil and stock
+                and hex_word(stock, OWN_DAMAGE_AT) == t.src_damage then
+                rounds[s.projectile] = own_row(item, 'ProjectileSettings', s.projectile, damage_id, ':round' .. s.projectile)
+                    or false
+            end
+        end
         return { base_projectile = t.base_projectile, src_projectile = t.src_projectile, new_projectile = id,
-                 src_damage = t.src_damage, new_damage = damage_id, fresh = true }
+                 src_damage = t.src_damage, new_damage = damage_id, fresh = true, rounds = rounds }
     end
     for _, request in ipairs(config.requests) do
         if not request.status and request.stat == 'own_bullet' then
@@ -1726,8 +1742,16 @@ local function build_desired(text)
                      OWN_DAMAGE_AT, t.new_damage)
             copy_row('DamageSettings', t.src_damage, t.new_damage, SPECS.DamageSettings.stride, -1, 0)
         end
-        want(get_field('ProjectileWeaponComponentData', item.entity, 0, 'u32', t.base_projectile),
-             t.new_projectile, 2)
+        if t.base_projectile then
+            want(get_field('ProjectileWeaponComponentData', item.entity, 0, 'u32', t.base_projectile),
+                 t.new_projectile, 2)
+        end
+        -- every other place of the item's own records that names a round (belt pattern, strike component)
+        for _, s in ipairs(t.fresh and item.switches or {}) do
+            local new = t.new_projectile
+            if s.projectile ~= t.src_projectile then new = t.rounds and t.rounds[s.projectile] end
+            if new then want(get_field(s.table, item.entity, s.offset, 'u32', s.projectile), new, 2) end
+        end
         if item.ammo_delta then
             want(get_field('ComponentEntityDeltaStorage', 'data', item.ammo_delta.offset, 'u32',
                            item.ammo_delta.expected), t.new_projectile, 2)
@@ -2955,6 +2979,23 @@ local function dump_globals()
             end
             table.sort(keys)
             L[#L + 1] = name .. ' (table, ' .. #keys .. ' keys) ' .. table.concat(keys, ' ')
+            -- one level deeper for the engine's and the other frameworks' tables: their function names
+            if name == 'stingray' or name:sub(1, 10) == 'HD2Runtime' or name == 'CowboyBingusModLoader' then
+                local inner = {}
+                for key, member in pairs(value) do
+                    if type(member) == 'table' and type(key) == 'string' then inner[#inner + 1] = key end
+                end
+                table.sort(inner)
+                for k, key in ipairs(inner) do
+                    local members = {}
+                    for member, v in pairs(value[key]) do
+                        if #members < 300 then members[#members + 1] = tostring(member) .. ':' .. type(v):sub(1, 1) end
+                    end
+                    table.sort(members)
+                    L[#L + 1] = '  ' .. name .. '.' .. key .. ' (' .. #members .. ') ' .. table.concat(members, ' ')
+                    if k % 8 == 0 then pause() end
+                end
+            end
         else
             L[#L + 1] = name .. ' (' .. type(value) .. ')'
         end
@@ -2962,6 +3003,82 @@ local function dump_globals()
     end
     write_file('GLOBALS.txt', table.concat(L, '\r\n') .. '\r\n')
     log('globals written: ' .. #names .. ' names')
+end
+
+-- ---------------------------------------------------------------- drawing probe (research)
+-- Question for the in-game menu: can an addon draw on the screen? The game's Lua has stingray.Gui,
+-- stingray.World, stingray.Application (GLOBALS.txt, v0.13.0). With [settings] ui_probe = true the
+-- addon tries, once, to create a screen gui in the main world and then draws one yellow rectangle in
+-- the top left corner every frame. Every step is checked for existence and wrapped in pcall, and its
+-- result is written to UIPROBE.txt. `ui_probe = text` also tries to draw a line of text.
+local ui = { state = 'off', log = {}, frames = 0 }
+local function ui_note(text)
+    ui.log[#ui.log + 1] = text
+    ui.dirty = true
+    log('ui probe: ' .. text)
+end
+local function ui_start()
+    ui.state = 'failed'
+    local S = rawget(_G, 'stingray')
+    if type(S) ~= 'table' then return ui_note('no stingray table') end
+    for _, name in ipairs({ 'Application', 'World', 'Gui', 'Vector2', 'Vector3', 'Color', 'Window' }) do
+        ui_note(name .. ': ' .. type(S[name]))
+    end
+    local A_, W_, G_ = S.Application, S.World, S.Gui
+    if type(A_) ~= 'table' or type(W_) ~= 'table' or type(G_) ~= 'table' then return ui_note('Application / World / Gui missing') end
+    local world = nil
+    for _, getter in ipairs({ 'main_world', 'flow_callback_context_world' }) do
+        if not world and type(A_[getter]) == 'function' then
+            local ok, result = pcall(A_[getter])
+            ui_note('Application.' .. getter .. '() -> ' .. tostring(ok) .. ' ' .. type(result))
+            if ok and result ~= nil then world = result end
+        end
+    end
+    if not world and type(A_.worlds) == 'function' then
+        local ok, result = pcall(A_.worlds)
+        ui_note('Application.worlds() -> ' .. tostring(ok) .. ' ' .. type(result))
+        if ok and type(result) == 'table' then world = result[1] end
+    end
+    if world == nil then return ui_note('no world found') end
+    if type(W_.create_screen_gui) ~= 'function' then return ui_note('World.create_screen_gui missing') end
+    local ok, gui = pcall(W_.create_screen_gui, world, 'immediate')
+    ui_note('World.create_screen_gui(world, "immediate") -> ' .. tostring(ok) .. ' ' .. type(gui)
+        .. (ok and '' or (' ' .. tostring(gui))))
+    if not ok or gui == nil then return end
+    ui.S, ui.gui, ui.state = S, gui, 'drawing'
+end
+local function ui_frame()
+    if ui.state ~= 'drawing' then return end
+    local S = ui.S
+    ui.frames = ui.frames + 1
+    local ok, why = pcall(function()
+        S.Gui.rect(ui.gui, S.Vector2(40, 40), S.Vector2(360, 60), S.Color(220, 255, 220, 0))
+    end)
+    if not ok then
+        ui.state = 'failed'
+        return ui_note('Gui.rect failed: ' .. tostring(why))
+    end
+    if ui.frames == 1 then ui_note('Gui.rect drawn without an error') end
+    if config.ui_probe == 'text' and not ui.text_failed then
+        for _, font in ipairs(ui.fonts or {}) do
+            local drawn, reason = pcall(function()
+                S.Gui.text(ui.gui, 'BYOG', font, 32, font, S.Vector2(60, 55), S.Color(255, 0, 0, 0))
+            end)
+            if drawn then
+                if ui.font ~= font then ui_note('Gui.text drawn with font ' .. font) end
+                ui.font = font
+                break
+            else
+                ui_note('Gui.text with ' .. font .. ' failed: ' .. tostring(reason))
+            end
+        end
+        if not ui.font then ui.text_failed = true end
+        ui.fonts = ui.font and { ui.font } or {}
+    end
+end
+local function ui_report()
+    write_file('UIPROBE.txt', MOD.title .. ' v' .. MOD.version .. ' drawing probe\r\nstate: ' .. ui.state
+        .. '  frames drawn: ' .. ui.frames .. '\r\n' .. table.concat(ui.log, '\r\n') .. '\r\n')
 end
 
 -- ---------------------------------------------------------------- the worker
@@ -2989,6 +3106,12 @@ local function worker_main()
             state.step = 'reading config.txt'
             load_config()
             backoff = 1
+        end
+        if config.ui_probe and ui.state == 'off' then
+            ui.fonts = { 'core/performance_hud/debug', 'core/editor_slave/gui/arial', 'gui/fonts/arial' }
+            local ok_ui, why_ui = pcall(ui_start)
+            if not ok_ui then ui_note('start failed: ' .. tostring(why_ui)) end
+            ui_report()
         end
         if config.dump_globals and not globals_dumped then
             local ok_globals, why_globals = pcall(dump_globals)
@@ -3094,6 +3217,13 @@ end
 local function tick()
     state.frame = state.frame + 1
     if state.frame < START_FRAME then return end
+    if ui.state == 'drawing' then
+        ui_frame()                       -- an immediate-mode gui is drawn again every frame
+        if ui.dirty then
+            ui.dirty = false
+            pcall(ui_report)
+        end
+    end
     -- the reload key: one key-state read per frame; the window is only checked on a press
     local down = A.key_down(config.reload_vk)
     if down and not key_was_down and A.game_in_front() then

@@ -592,6 +592,14 @@ record. `canary = true` marks all 24 rows with the smoke grenade's explosion as 
 with a new damage id; other grenades and explosives unchanged; restore ok; errors 0. Canary: two
 missions, no unexpected smoke, limited coverage. Open, like the multiplayer host test.
 
+**Belt patterns (in game, v0.13.0).** A weapon with a `magazine_pattern` (WeaponMagazineComponent +4, 33
+projectile types; 21 catalog items: MG-43 148 x4 + tracer 242, the sentries' guns, the Eagle's) fires
+what the pattern names: switching only `ProjectileWeaponComponent.projectile_type` left the sentry's gun
+unchanged. Tuner v0.14.0 switches every pattern entry (U lines of the data) and gives each further
+round of the belt a row of its own when it uses the weapon's damage row. The same U lines carry the
+projectile fields of Bombardment (+64..), Eagle (+24) and OrbitalAbility (+532) components, so the shells
+of strikes get rows of their own too.
+
 ### 6.3 Copies, reloads, drift
 Per the skill's case studies: several copies of a table can exist in memory, new copies appear on
 mission load, table sizes / record counts / enum ids change with game updates. Hence: locate by

@@ -448,8 +448,11 @@ def stratagem_weapons(T, seen):
             if projectile_stats(T, stats, row_id) is None:
                 continue
             name = unique(base if len(rounds) == 1 else "%s_shell%d" % (base, n + 1))
+            places = sorted(set((link.split("+")[0], int(link.split("+")[1].split("@")[0]))
+                                for link in s["rows"]["projectile"][str(row_id)] if link.endswith("@" + ent)))
             out.append({"category": "stratagem_weapon", "entity": ent, "path": "stratagem_weapons/" + name,
-                        "stratagem": s["debug_name"], "sources": ["shell:%d" % row_id], "stats": stats})
+                        "stratagem": s["debug_name"], "sources": ["shell:%d" % row_id], "stats": stats,
+                        "shell": {"projectile": row_id, "switches": places}})
         for offset, row_id, ent in sorted(damage):
             if ("damage", ent, row_id) in done:
                 continue

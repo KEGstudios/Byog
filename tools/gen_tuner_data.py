@@ -23,6 +23,13 @@ Line format ('|' separated):
       "own bullet": rows nothing references that this weapon may take over (see TAKEOVERS).
       base_projectile is the value in the weapon's own record (0 when only an attachment sets it).
   W|table|row_id|hex            stock bytes of a row involved in a takeover
+      base_projectile "-": the item is not a weapon entity (a shell of an orbital / Eagle strike).
+  U|item_index|table|offset|projectile
+      another place in the item's own records that names a round: an entry of the magazine's belt
+      pattern (WeaponMagazineComponent; seen in game: the sentry's gun takes its rounds from there, not
+      from the weapon record) or the projectile field of a Bombardment / Eagle / OrbitalAbility
+      component. A round other than the weapon's own (a tracer) gets a row of its own as well when it
+      uses the same damage row.
   X|item_index|offset|expected  the default ammo attachment's projectile value: offset inside the
                                 delta storage's data array, and the value expected there
   G|item_index|run_at|count|resource
@@ -191,6 +198,7 @@ def generate(builds=None, indexes=None):
         for table, (rva, slots) in sorted(known.items()):
             lines.append("N|%s|%s|%X|%d" % (label, table, rva, slots))
     tables, items, fields, stats_seen, unranged = {}, [], [], set(), set()
+    cat_of = {}             # item index -> catalog item
     data_start = deltas._load()["xo"]
     magazines = {}          # item index -> (catalog item, {stat: (stat entry, attachment entry)})
     for it in cat["items"]:
@@ -199,6 +207,7 @@ def generate(builds=None, indexes=None):
             continue
         index = len(items)
         items.append("I|%d|%s|%s|%s" % (index, category, it["path"].rsplit("/", 1)[-1], it["entity"]))
+        cat_of[index] = it
         for s in it["stats"]:
             if "error" in s or s["id"] in SKIP_STATS:
                 continue
@@ -226,6 +235,8 @@ def generate(builds=None, indexes=None):
     extra, stock_rows, own_bullets = [], {}, 0
     P, Dm = hd2db.table("ProjectileSettings"), hd2db.table("DamageSettings")
     fire = hd2db.table("ProjectileWeaponComponentData")
+    magazine_table = hd2db.table("WeaponMagazineComponentData")
+    pattern_at = references.member_offsets("ProjectileType", "WeaponMagazineComponent")
     for index, line in enumerate(items):
         _i, _idx, _cat, name, entity_hex = line.split("|")
         # every weapon that fires projectiles can get rows of its own (new ids); the ones listed in
@@ -233,12 +244,16 @@ def generate(builds=None, indexes=None):
         spec = TAKEOVERS.get(name)
         ent = int(entity_hex, 16)
         record = fire.record(ent)
-        if record is None:
+        shell = cat_of[index].get("shell")
+        if record is None and not shell:
             assert not spec, name
             continue
-        base_projectile = struct.unpack_from("<I", record, 0)[0]
-        override = deltas.default_overrides(ent).get(("ProjectileWeaponComponent", 0))
-        src_projectile = struct.unpack("<I", override[0])[0] if override else base_projectile
+        if record is not None:
+            base_projectile = struct.unpack_from("<I", record, 0)[0]
+            override = deltas.default_overrides(ent).get(("ProjectileWeaponComponent", 0))
+            src_projectile = struct.unpack("<I", override[0])[0] if override else base_projectile
+        else:
+            base_projectile, override, src_projectile = "-", None, shell["projectile"]
         if src_projectile not in P.by_id():
             assert not spec, name
             continue
@@ -249,9 +264,25 @@ def generate(builds=None, indexes=None):
             continue
         new_projectile, new_damage = (spec["projectile"], spec["damage"]) if spec else (0, 0)
         assert not spec or (new_projectile in P.by_id() and new_damage in Dm.by_id())
-        extra.append("O|%d|%d|%d|%d|%d|%d" % (index, base_projectile, src_projectile, new_projectile,
+        extra.append("O|%d|%s|%d|%d|%d|%d" % (index, base_projectile, src_projectile, new_projectile,
                                               src_damage, new_damage))
         own_bullets += 1
+        places = []
+        if record is not None:
+            belt = magazine_table.record(ent)
+            for o in pattern_at if belt is not None else []:
+                pid = struct.unpack_from("<I", belt, o)[0]
+                if pid:
+                    places.append(("WeaponMagazineComponentData", o, pid))
+        else:
+            places = [(component + "Data", o, src_projectile) for component, o in shell["switches"]]
+        for table, o, pid in places:
+            extra.append("U|%d|%s|%d|%d" % (index, table, o, pid))
+            tables[table] = True
+            if pid != src_projectile and pid in P.by_id():
+                row = P.record(P.by_id()[pid])
+                if struct.unpack_from("<I", row, 60)[0] == src_damage:
+                    stock_rows[("ProjectileSettings", pid)] = row
         for pid in (src_projectile, new_projectile):
             if pid:
                 stock_rows[("ProjectileSettings", pid)] = P.record(P.by_id()[pid])
@@ -262,7 +293,8 @@ def generate(builds=None, indexes=None):
             extra.append("X|%d|%d|%d" % (index, override[1] - data_start, src_projectile))
             tables["ComponentEntityDeltaStorage"] = True
         tables["ProjectileSettings"] = tables["DamageSettings"] = True
-        tables["ProjectileWeaponComponentData"] = True
+        if record is not None:
+            tables["ProjectileWeaponComponentData"] = True
     # magazines: a default magazine attachment whose magazine deltas form one run of their own can be
     # switched off, so that each weapon's own record counts
     own_magazines = 0
