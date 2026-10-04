@@ -1,0 +1,83 @@
+# The game's own names for the items of the catalog, shown in the in-game menu and in catalog.txt.
+# Written by hand from the names the game shows; config.txt keeps using the internal names.
+# An item that is not listed is shown by its internal name. Corrections and additions are welcome:
+# one line per item, category|internal name|name in the game
+weapon|assault_rifle|AR-23 Liberator
+weapon|assault_rifle_ap|AR-23P Liberator Penetrator
+weapon|assault_rifle_exp|AR-23C Liberator Concussive
+weapon|assault_rifle_karbin|AR-23A Liberator Carbine
+weapon|assault_rifle_patriot|AR-61 Tenderizer
+weapon|lmg_stalwart|M-105 Stalwart
+weapon|machinegun|MG-43 Machine Gun
+weapon|heavy_mg|MG-206 Heavy Machine Gun
+weapon|standard_pistol|P-2 Peacemaker
+weapon|automatic_pistol|P-19 Redeemer
+weapon|revolver_pistol|P-4 Senator
+weapon|grenade_pistol|GP-31 Grenade Pistol
+weapon|laser_pistol|LAS-7 Dagger
+weapon|plasma_pistol|PLAS-15 Loyalist
+weapon|stim_pistol|P-11 Stim Pistol
+weapon|smg_defender|SMG-37 Defender
+weapon|pump_shotgun|SG-8 Punisher
+weapon|pump_shotgun_slug|SG-8S Slugger
+weapon|pump_shotgun_plasma|SG-8P Punisher Plasma
+weapon|assault_shotgun|SG-225 Breaker
+weapon|assault_shotgun_bir|SG-225SP Breaker Spray & Pray
+weapon|assault_shotgun_incendiary|SG-225IE Breaker Incendiary
+weapon|arc_shotgun|ARC-12 Blitzer
+weapon|laser_rifle|LAS-5 Scythe
+weapon|laser_rifle_charge|LAS-16 Sickle
+weapon|plasma_rifle|PLAS-1 Scorcher
+weapon|plasma_rifle_charge|PLAS-101 Purifier
+weapon|marksman_rifle_vigilance|R-63 Diligence
+weapon|marksman_rifle_justice|R-63CS Diligence Counter Sniper
+weapon|jet_rifle|JAR-5 Dominator
+weapon|crossbow_greyfax|CB-9 Exploding Crossbow
+weapon|grenade_launcher|GL-21 Grenade Launcher
+weapon|recoilless_rifle|GR-8 Recoilless Rifle
+weapon|automatic_cannon|AC-8 Autocannon
+weapon|railgun|RS-422 Railgun
+weapon|arc_thrower|ARC-3 Arc Thrower
+weapon|flamethrower|FLAM-40 Flamethrower
+weapon|laser_cannon|LAS-98 Laser Cannon
+weapon|faf_missile_launcher|FAF-14 Spear
+weapon|air_burst_rocket_launcher|RL-77 Airburst Rocket Launcher
+weapon|lat_oneshot|EAT-17 Expendable Anti-Tank
+weapon|sniper_rifle|APW-1 Anti-Materiel Rifle
+weapon|stun_baton|CQC-30 Stun Baton
+weapon|stun_spear|CQC-19 Stun Lance
+weapon|hand_axe|CQC-5 Combat Hatchet
+throwable|frag_grenade|G-6 Frag
+throwable|he_grenade|G-12 High Explosive
+throwable|incendiary_grenade|G-10 Incendiary
+throwable|impact_grenade|G-16 Impact
+throwable|incendiary_impact_grenade|G-13 Incendiary Impact
+throwable|smoke_grenade|G-3 Smoke
+throwable|gas_grenade|G-4 Gas
+throwable|flashbang|G-23 Stun
+throwable|throwing_knife|K-2 Throwing Knife
+stratagem_weapon|turret_machinegun_gpmg|Machine Gun Sentry (gun)
+stratagem_weapon|gatling_turret|Gatling Sentry (gun)
+stratagem_weapon|mortar_turret|Mortar Sentry (gun)
+stratagem_weapon|mortar_turret_staticfield|EMS Mortar Sentry (gun)
+stratagem_weapon|rocket_turret|Rocket Sentry (gun)
+stratagem_weapon|sentrys_autocannon_weapon|Autocannon Sentry (gun)
+stratagem_weapon|tesla_turret|Tesla Tower
+stratagem_weapon|manned_turret|HMG Emplacement (gun)
+stratagem_weapon|orbital_precision_strike|Orbital Precision Strike (shell)
+stratagem_weapon|orbital_railcannon|Orbital Railcannon Strike (shell)
+stratagem_weapon|orbital_laser|Orbital Laser (beam)
+stratagem_weapon|orbital_gas_strike|Orbital Gas Strike (shell)
+stratagem_weapon|orbital_airburst_strike|Orbital Airburst Strike (shell)
+stratagem_weapon|orbital_smoke_strike|Orbital Smoke Strike (shell)
+vehicle|combat_walker|EXO-45 Patriot Exosuit
+vehicle|frv|M-102 Fast Recon Vehicle
+shield|energy_shield_backpack|SH-32 Shield Generator Pack
+shield|directional_energy_shield|SH-51 Directional Shield
+shield|energy_shield|FX-12 Shield Generator Relay
+shield|energy_shield_grenade|Shield grenade
+backpack|recoilless_rifle_backpack|Recoilless Rifle backpack
+backpack|automatic_cannon_backpack|Autocannon backpack
+backpack|faf_missile_launcher_backpack|Spear backpack
+backpack|air_burst_rocket_backpack|Airburst Rocket Launcher backpack
+backpack|ammo_backpack|B-1 Supply Pack

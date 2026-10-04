@@ -620,6 +620,10 @@ is the most likely cause (a native call with a wrong argument does not raise a L
 `Application.back_buffer_size()` without arguments instead, and writes a line to the log file, flushed,
 before the first use of every engine call, so that a crash leaves its place behind. Fonts: the probe
 drew text with `core/performance_hud/debug`.
+**v0.15.1 in game:** the menu opens and does not close the game, so `Gui.resolution(gui)` was the crash.
+The text was unreadable: the Gui does not draw in call order, the panel and the selection bars covered
+the text. v0.15.2 draws with `Vector3` positions, whose z is the layer (panel 900, bars 901, text 902),
+tries that once under pcall, and without layers draws no panel and no bars.
 
 ### 6.3 Copies, reloads, drift
 Per the skill's case studies: several copies of a table can exist in memory, new copies appear on

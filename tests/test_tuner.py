@@ -1500,19 +1500,38 @@ stingray = { drawn = { rects = 0, texts = {} },
   World = { create_screen_gui = function(world, mode) return 'gui' end,
             destroy_gui = function(world, gui) stingray.drawn.destroyed = true end },
   Vector2 = function(x, y) return { x, y } end,
+  Vector3 = function(x, y, z) return { x, y, z } end,
   Color = function(a, r, g, b) return { a, r, g, b } end }
 stingray.Gui = {
   -- the real one takes a viewport and a window: handed a gui it closed the game (v0.15.0)
   resolution = function(gui) stingray.drawn.crashed = true return 1920, 1080 end,
   rect = function(gui, position, size, color)
     stingray.drawn.rects = stingray.drawn.rects + 1
-    stingray.drawn.panel = stingray.drawn.panel or { position[1], position[2], size[1], size[2] }
+    if size[1] > (stingray.drawn.panel and stingray.drawn.panel[3] or 0) then
+      stingray.drawn.panel = { position[1], position[2], size[1], size[2] }
+    end
+    stingray.drawn.top_rect = math.max(stingray.drawn.top_rect or 0, position[3] or 0)
   end,
   text = function(gui, str, font, size, material, position, color)
     stingray.drawn.texts[#stingray.drawn.texts + 1] = str
+    if str ~= ' ' then          -- (a single blank is the menu trying out a font)
+      stingray.drawn.low_text = math.min(stingray.drawn.low_text or 1e9, position[3] or 0)
+    end
   end }
 """
 F9, UP, DOWN, LEFT, RIGHT, TAB, DELETE = 0x78, 0x26, 0x28, 0x25, 0x27, 0x09, 0x2E
+
+
+def menu_order(*categories):
+    """The items of a menu tab in the order the menu shows them: by the game's name where one is known."""
+    shown = {}
+    with open(os.path.join(ROOT, "tools", "display_names.txt"), encoding="utf-8") as f:
+        for line in f:
+            if not line.startswith("#") and line.count("|") == 2:
+                _c, name, label = line.rstrip("\n").split("|")
+                shown[name] = label
+    names = [it["path"].rsplit("/", 1)[-1] for it in _CATALOG.values() if it["category"] in categories]
+    return sorted(names, key=lambda n: shown.get(n, n).lower())
 
 
 def drawn(rig):
@@ -1532,7 +1551,9 @@ def check_menu_changes_a_value_and_remembers_it(mutate=None):
         assert drawn(rig) == ("", 0)                                   # closed: nothing is drawn
         rig.game.press(F9)
         text, rects = drawn(rig)
-        assert "BALANCE YOUR OWN GAME" in text and "assault_rifle" in text and rects > 0, text[:300]
+        assert "BALANCE YOUR OWN GAME" in text and "AR-23 Liberator" in text and rects > 0, text[:300]
+        # seen in game (v0.15.1): drawn without layers, the panel and the bars covered the text
+        assert rig.game.lua.eval(b"stingray.drawn.low_text") > rig.game.lua.eval(b"stingray.drawn.top_rect") >= 901
         # in the middle of a 1920 x 1080 screen (the Gui's origin is the bottom left corner)
         panel = [rig.game.lua.eval(b"stingray.drawn.panel[%d]" % n) for n in (1, 2, 3, 4)]
         scale = 1440 / 1080                                            # the fake screen is 2560 x 1440
@@ -1543,8 +1564,7 @@ def check_menu_changes_a_value_and_remembers_it(mutate=None):
         assert "menu: about to use World.create_screen_gui" in log and "menu: first frame drawn" in log
         assert "menu: screen 2560 x 1440" in log
         # walk to the Liberator, then to its values
-        names = sorted(it["path"].rsplit("/", 1)[-1] for it in _CATALOG.values()
-                       if it["category"] in ("primary", "secondary", "support", "melee"))
+        names = menu_order("primary", "secondary", "support", "melee")
         for _ in range(names.index("assault_rifle")):
             rig.game.press(DOWN)
         rig.game.press(TAB)
@@ -1558,13 +1578,14 @@ def check_menu_changes_a_value_and_remembers_it(mutate=None):
         assert "menu.txt: 1 values set through the in-game menu" in rig.game.status()
         text, _rects = drawn(rig)
         assert "650" in text and "640" in text                        # the new value and the game's
+        assert "assault_rifle   (name in config.txt)" in text
         rig.game.press(DELETE)
         rig.game.frames(40)
         assert rig.mem.peek(rig.rpm, "<f") == 640.0 and "rpm" not in rig.game.read_out("menu.txt")
         # another category, and closing
         rig.game.press(TAB)
         rig.game.press(RIGHT)
-        assert "frag_grenade" in drawn(rig)[0]
+        assert "G-6 Frag" in drawn(rig)[0]
         rig.game.press(F9)
         rig.game.frames(5)
         drawn(rig)
@@ -1607,8 +1628,7 @@ def check_menu_stays_inside_the_range(mutate=None):
         rig.settle()
         rig.game.lua.execute(FAKE_ENGINE)
         rig.game.press(F9)
-        names = sorted(it["path"].rsplit("/", 1)[-1] for it in _CATALOG.values()
-                       if it["category"] in ("primary", "secondary", "support", "melee"))
+        names = menu_order("primary", "secondary", "support", "melee")
         for _ in range(names.index("assault_rifle")):
             rig.game.press(DOWN)
         rig.game.press(TAB)
@@ -1848,6 +1868,10 @@ MUTATIONS = [
     ("menu: the panel is not in the middle of the screen",
      "    local left, bottom = (width - PANEL_W * scale) / 2, (height - PANEL_H * scale) / 2",
      "    local left, bottom = 0, 0",
+     check_menu_changes_a_value_and_remembers_it),
+    ("menu: text drawn without a layer, under the panel",
+     "                   layers and S.Vector3(px, py, 902) or S.Vector2(px, py), S.Color(a, r, g, b))",
+     "                   S.Vector2(px, py), S.Color(a, r, g, b))",
      check_menu_changes_a_value_and_remembers_it),
     ("menu: the gui is handed to a function that takes none",
      "        local ok, w, h = pcall(S.Application.back_buffer_size)",

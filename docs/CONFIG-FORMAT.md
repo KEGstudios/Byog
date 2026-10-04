@@ -16,15 +16,16 @@ magazine = +15            # the game's value plus 15
 recoil_v = -20            # the game's value minus 20
 ```
 
-## The in-game menu (v0.15.1, not yet working in game: v0.15.0 closed the game on F9)
+## The in-game menu (v0.15.2; v0.15.1 opened in game but its text was unreadable)
 
 `[settings] menu_key = F9` (F1..F12) opens a panel in the middle of the screen: categories, items, and the
 values of the selected item. Up / Down and PageUp / PageDown move, Tab switches between the item list and
 the value list, Left / Right changes the category or the value (Shift: ten times the step), Delete puts a
 value back to the game's own. A change is applied by the engine like a config line. The menu's values
 are kept in `menu.txt` next to config.txt, are read again at the next start, and **win over config.txt**
-for the same value. Deleting menu.txt forgets them. The menu shows the internal item names; the game's
-display names are still to come. While the menu is open the game still receives the keys.
+for the same value. Deleting menu.txt forgets them. The menu shows the game's own names where they are known
+(`tools/display_names.txt`, written by hand: AR-23 Liberator, MG-43 Machine Gun...) and the internal name
+otherwise; config.txt and menu.txt always use the internal names, which catalog.txt lists side by side. While the menu is open the game still receives the keys.
 
 ## Sections
 

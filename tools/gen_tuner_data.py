@@ -10,7 +10,9 @@ Line format ('|' separated):
   V|label|exe_sha256|game_dll_sha256
       a game build this data was verified on (reports/..., docs/STAT-MAP.md §0).
   T|name|type_hash_hex|shape|stride|id_at          shape: R rows, K keyed
-  I|index|category|name|entity16
+  I|index|category|name|entity16|display name
+      display name: the game's own name of the item (tools/display_names.txt), empty when not known.
+      Shown in the menu and in catalog.txt; config.txt uses `name`.
   F|item_index|stat|table|key|offset|storage|stock|flags
       one memory field of one stat of one item. key: entity16 (K) or row id (R).
       flags: A = the weapon's default attachment sets this value (STAT-MAP §6.2): the field is
@@ -199,6 +201,12 @@ def generate(builds=None, indexes=None):
             lines.append("N|%s|%s|%X|%d" % (label, table, rva, slots))
     tables, items, fields, stats_seen, unranged = {}, [], [], set(), set()
     cat_of = {}             # item index -> catalog item
+    display = {}
+    with open(os.path.join(HERE, "display_names.txt"), encoding="utf-8") as f:
+        for line in f:
+            if not line.startswith("#") and line.count("|") == 2:
+                c, n, shown = line.rstrip("\n").split("|")
+                display[(c, n)] = shown
     data_start = deltas._load()["xo"]
     magazines = {}          # item index -> (catalog item, {stat: (stat entry, attachment entry)})
     for it in cat["items"]:
@@ -206,7 +214,8 @@ def generate(builds=None, indexes=None):
         if not category:
             continue
         index = len(items)
-        items.append("I|%d|%s|%s|%s" % (index, category, it["path"].rsplit("/", 1)[-1], it["entity"]))
+        short = it["path"].rsplit("/", 1)[-1]
+        items.append("I|%d|%s|%s|%s|%s" % (index, category, short, it["entity"], display.get((category, short), "")))
         cat_of[index] = it
         for s in it["stats"]:
             if "error" in s or s["id"] in SKIP_STATS:
@@ -238,7 +247,7 @@ def generate(builds=None, indexes=None):
     magazine_table = hd2db.table("WeaponMagazineComponentData")
     pattern_at = references.member_offsets("ProjectileType", "WeaponMagazineComponent")
     for index, line in enumerate(items):
-        _i, _idx, _cat, name, entity_hex = line.split("|")
+        _i, _idx, _cat, name, entity_hex, _shown = line.split("|")
         # every weapon that fires projectiles can get rows of its own (new ids); the ones listed in
         # TAKEOVERS can also take over spare rows (new_projectile / new_damage, 0 = none assigned)
         spec = TAKEOVERS.get(name)

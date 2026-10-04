@@ -464,7 +464,7 @@ local function parse_data()
             SPEC_ORDER[#SPEC_ORDER + 1] = spec.name
         elseif kind == 'I' then
             local item = { index = tonumber(f[2]), category = f[3], name = f[4], entity = f[5],
-                           stats = {}, stat_order = {} }
+                           display = f[6] ~= '' and f[6] or nil, stats = {}, stat_order = {} }
             ITEMS[item.index] = item
             ITEM_BY_NAME[item.category .. ':' .. item.name:lower()] = item
         elseif kind == 'F' then
@@ -2318,7 +2318,8 @@ local function write_catalog()
     for index = 0, #ITEMS do
         local item = ITEMS[index]
         if item then
-            local L = { '[' .. item.category .. ': ' .. item.name .. ']' }
+            local L = { '[' .. item.category .. ': ' .. item.name .. ']'
+                            .. (item.display and ('   # ' .. item.display) or '') }
             for _, stat in ipairs(item.stat_order) do
                 local entry, range = item.stats[stat], RANGES[stat]
                 local notes = {}
@@ -3236,7 +3237,9 @@ local function menu_lists()
             lists[item.category][#lists[item.category] + 1] = item
         end
     end
-    for _, list in pairs(lists) do table.sort(list, function(x, y) return x.name < y.name end) end
+    for _, list in pairs(lists) do
+        table.sort(list, function(x, y) return (x.display or x.name):lower() < (y.display or y.name):lower() end)
+    end
     menu.lists = lists
     return lists
 end
@@ -3305,6 +3308,17 @@ local function menu_start()
         end
     end
     if not menu.font then return nil, 'no font could be used' end
+    -- Draw order. In game (v0.15.1) the panel and the selection bars covered the text: the Gui does not
+    -- draw in call order. A Vector3 position carries a layer in z; whether this build takes one is
+    -- tried once, and without layers nothing is drawn that could cover text.
+    if menu.layers == nil then
+        menu_step('Gui.rect / Gui.text with a Vector3 position (layer)')
+        menu.layers = pcall(function()
+            S.Gui.rect(gui, S.Vector3(0, 0, 900), S.Vector2(1, 1), S.Color(0, 0, 0, 0))
+            S.Gui.text(gui, ' ', menu.font, 16, menu.font, S.Vector3(0, 0, 902), S.Color(0, 0, 0, 0))
+        end)
+        log('menu: layers ' .. (menu.layers and 'available' or 'not available: drawn without panel and bars'))
+    end
     return true
 end
 
@@ -3380,19 +3394,23 @@ local function menu_draw()
     local PANEL_W, PANEL_H = 1180, 664
     local left, bottom = (width - PANEL_W * scale) / 2, (height - PANEL_H * scale) / 2
     -- panel coordinates: x from the left edge, y from the TOP edge of the panel (the Gui's origin is bottom left)
-    local function rect(x, y, w_, h_, a, r, g, b)
-        S.Gui.rect(gui, S.Vector2(left + x * scale, bottom + (PANEL_H - y - h_) * scale), S.Vector2(w_ * scale, h_ * scale),
-                   S.Color(a, r, g, b))
+    local layers = menu.layers
+    -- layer 900: the panel, 901: bars on it, 902: text
+    local function rect(x, y, w_, h_, a, r, g, b, layer)
+        if not layers then return end
+        S.Gui.rect(gui, S.Vector3(left + x * scale, bottom + (PANEL_H - y - h_) * scale, layer or 901),
+                   S.Vector2(w_ * scale, h_ * scale), S.Color(a, r, g, b))
     end
     local function text(str, x, y, size, a, r, g, b)
+        local px, py = left + x * scale, bottom + (PANEL_H - y - size) * scale
         S.Gui.text(gui, str, menu.font, size * scale, menu.font,
-                   S.Vector2(left + x * scale, bottom + (PANEL_H - y - size) * scale), S.Color(a, r, g, b))
+                   layers and S.Vector3(px, py, 902) or S.Vector2(px, py), S.Color(a, r, g, b))
     end
-    rect(0, 0, PANEL_W, PANEL_H, 235, 14, 16, 20)
-    rect(0, 0, PANEL_W, 4, 255, 255, 220, 0)
-    text('BALANCE YOUR OWN GAME   v' .. MOD.version, 20, 16, 24, 255, 255, 220, 0)
-    text(config.menu_key .. ' close    Tab switch list    Arrows move / change    Shift x10    Del reset', 560, 22, 15,
-         255, 150, 150, 150)
+    rect(0, 0, PANEL_W, PANEL_H, 245, 8, 10, 14, 900)
+    rect(0, 0, PANEL_W, 4, 255, 255, 214, 0)
+    text('BALANCE YOUR OWN GAME   v' .. MOD.version, 20, 16, 24, 255, 255, 214, 0)
+    text(config.menu_key .. ' close    Tab switch list    Arrows move / change    Shift x10    Del reset', 520, 22, 16,
+         255, 210, 210, 210)
     local lists = menu_lists()
     if not lists then
         text('reading the built-in data ...', 20, 80, 18, 255, 220, 220, 220)
@@ -3402,9 +3420,11 @@ local function menu_draw()
     local x = 20
     for n, category in ipairs(MENU_CATEGORIES) do
         local label = category .. ' ' .. #lists[category]
-        local w_ = 18 + #label * 9
-        if n == menu.tab then rect(x, 56, w_, 26, 255, 255, 220, 0) end
-        text(label, x + 9, 61, 15, 255, n == menu.tab and 0 or 200, n == menu.tab and 0 or 200, n == menu.tab and 0 or 200)
+        local w_ = 18 + #label * 10
+        if n == menu.tab then rect(x, 56, w_, 26, 255, 255, 214, 0) end
+        if n ~= menu.tab then text(label, x + 9, 60, 17, 255, 255, 255, 255)
+        elseif layers then text(label, x + 9, 60, 17, 255, 0, 0, 0)
+        else text(label, x + 9, 60, 17, 255, 255, 214, 0) end
         x = x + w_ + 6
     end
     local category = MENU_CATEGORIES[menu.tab]
@@ -3417,19 +3437,23 @@ local function menu_draw()
         local entry = list[first + row]
         if entry then
             local y = 96 + row * 26
-            if first + row == selected then
-                rect(16, y, 400, 24, 255, menu.focus == 'items' and 255 or 70, menu.focus == 'items' and 220 or 70,
-                     menu.focus == 'items' and 0 or 60)
+            local here, focused = first + row == selected, first + row == selected and menu.focus == 'items'
+            if here then
+                rect(16, y, 400, 24, 255, focused and 255 or 70, focused and 214 or 70, focused and 0 or 60)
             end
-            local dark = first + row == selected and menu.focus == 'items'
-            text(entry.name:sub(1, 40), 24, y + 4, 15, 255, dark and 0 or 220, dark and 0 or 220, dark and 0 or 220)
+            local label = (entry.display or entry.name):sub(1, 38)
+            if not layers and here then label = '> ' .. label end
+            if focused and layers then text(label, 24, y + 3, 17, 255, 0, 0, 0)
+            elseif here and not layers then text(label, 24, y + 3, 17, 255, 255, 214, 0)
+            else text(label, 24, y + 3, 17, 255, 255, 255, 255) end
         end
     end
-    text(string.format('%d of %d', #list > 0 and selected or 0, #list), 24, 96 + MENU_ROWS * 26 + 4, 14, 255, 130, 130, 130)
+    text(string.format('%d of %d', #list > 0 and selected or 0, #list), 24, 96 + MENU_ROWS * 26 + 4, 14, 255, 210, 210, 210)
     -- values of the selected item
     if item then
-        text('value', 780, 96 - 20, 13, 255, 130, 130, 130)
-        text('game', 960, 96 - 20, 13, 255, 130, 130, 130)
+        text(item.display and (item.name .. '   (name in config.txt)') or '', 444, 96 - 22, 15, 255, 210, 210, 210)
+        text('value', 780, 96 - 22, 15, 255, 210, 210, 210)
+        text('game', 960, 96 - 22, 15, 255, 210, 210, 210)
         local at = math.min(menu.stat[item] or 1, #item.stat_order)
         local top = math.max(1, math.min(at - 9, #item.stat_order - MENU_ROWS + 1))
         for row = 0, MENU_ROWS - 1 do
@@ -3438,25 +3462,29 @@ local function menu_draw()
                 local y = 96 + row * 26
                 local value, changed = menu_value(item, stat)
                 local field = item.stats[stat].field
-                local focused = top + row == at and menu.focus == 'stats'
-                if top + row == at then
-                    rect(436, y, 728, 24, 255, focused and 255 or 70, focused and 220 or 70, focused and 0 or 60)
+                local here = top + row == at
+                local focused = here and menu.focus == 'stats'
+                if here then
+                    rect(436, y, 728, 24, 255, focused and 255 or 70, focused and 214 or 70, focused and 0 or 60)
                 end
-                local c = focused and 0 or 220
-                text(stat:sub(1, 36), 444, y + 4, 15, 255, c, c, c)
-                if changed and not focused then
-                    text(show(value, field.storage), 780, y + 4, 15, 255, 255, 220, 0)
+                local dark = focused and layers
+                local c = dark and 0 or 255
+                local name = stat:sub(1, 36)
+                if not layers and here then name = '> ' .. name end
+                if focused and not layers then text(name, 444, y + 3, 17, 255, 255, 214, 0)
+                else text(name, 444, y + 3, 17, 255, c, c, c) end
+                if changed and not dark then
+                    text(show(value, field.storage), 780, y + 3, 17, 255, 255, 214, 0)
                 else
-                    text(show(value, field.storage), 780, y + 4, 15, 255, c, c, c)
+                    text(show(value, field.storage) .. (changed and '  *' or ''), 780, y + 3, 17, 255, c, c, c)
                 end
-                text(show(field.stock, field.storage), 960, y + 4, 15, 255, focused and 0 or 130, focused and 0 or 130,
-                     focused and 0 or 130)
-                if not RANGES[stat] then text('fixed', 1090, y + 4, 13, 255, 130, 130, 130) end
+                text(show(field.stock, field.storage), 960, y + 3, 17, 255, dark and 0 or 210, dark and 0 or 210,
+                     dark and 0 or 210)
             end
         end
-        text(string.format('%d of %d', at, #item.stat_order), 444, 96 + MENU_ROWS * 26 + 4, 14, 255, 130, 130, 130)
+        text(string.format('%d of %d', at, #item.stat_order), 444, 96 + MENU_ROWS * 26 + 4, 14, 255, 210, 210, 210)
     end
-    text(tostring(state.verdict or ''):sub(1, 120), 20, PANEL_H - 26, 14, 255, 150, 150, 150)
+    text(tostring(state.verdict or ''):sub(1, 120), 20, PANEL_H - 26, 14, 255, 210, 210, 210)
     if not menu_trail.drawn then
         menu_trail.drawn = true
         log('menu: first frame drawn')

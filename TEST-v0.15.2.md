@@ -1,8 +1,8 @@
-# TEST v0.15.1 — oyun içi menü (ilk sürüm) + MG-43 düzeltmesi
+# TEST v0.15.2 — oyun içi menü (okunaklı) + oyundaki isimler + MG-43 düzeltmesi
 
-v0.15.0'da F9 oyunu kapatmıştı ve eski deneme ayarı yüzünden köşede BYOG yazısı kalmıştı. İkisi de
-düzeltildi: deneme çizimi tamamen kaldırıldı, menü de artık oyunu kapatan çağrıyı yapmıyor. Yine de
-F9 oyunu kapatırsa `tuner.log` dosyasının son satırları nerede kaldığını söyleyecek; **mutlaka gönder**.
+v0.15.1'de menü açıldı ama yazılar okunmuyordu: oyun motoru paneli yazıların **üstüne** çiziyordu.
+Bu sürümde yazılar panelin üstünde, daha parlak ve daha büyük. Eşyalar artık oyundaki adlarıyla
+görünüyor (bildiklerim; bilmediklerim iç adıyla). Yanlış ya da eksik isim görürsen yaz.
 
 Bu sürümde:
 
@@ -18,12 +18,12 @@ Bu sürümde:
 > Oyun kapanırsa ya da donarsa: ne yaparken olduğunu yaz, `STATUS.txt` ve `tuner.log` dosyalarını
 > yine gönder.
 
-Dosya: `dist/HD2-Stat-Tuner-v0.15.1.zip`
+Dosya: `dist/HD2-Stat-Tuner-v0.15.2.zip`
 
 ## Kurulum
 
 1. Arsenal'da eski **HD2 Stat Tuner**'ı sil.
-2. `HD2-Stat-Tuner-v0.15.1.zip` dosyasını Arsenal'a ekle, etkinleştir, **Deploy** et.
+2. `HD2-Stat-Tuner-v0.15.2.zip` dosyasını Arsenal'a ekle, etkinleştir, **Deploy** et.
 3. `%LOCALAPPDATA%\HD2StatTuner\config.txt` içini **tamamen boşalt** ve kaydet (bu testte her şeyi
    menüden yapacağız).
 
@@ -55,9 +55,9 @@ Gemide **F9**'a bas.
 
 Menüden şunları ayarla (eşyayı bul, **Tab**, değerin üstüne gel, sağ / sol):
 
-1. `weapon` → `machinegun` → `damage` = **5** (Shift + sol hızlı indirir)
-2. `stratagem_weapon` → `turret_machinegun_gpmg` → `damage` = **500 ya da üstü** (Shift + sağ tuşunu basılı tut)
-3. `weapon` → `assault_rifle` → `rpm` = **1200** civarı
+1. `weapon` → **MG-43 Machine Gun** → `damage` = **5** (Shift + sol hızlı indirir)
+2. `stratagem_weapon` → **Machine Gun Sentry (gun)** → `damage` = **500 ya da üstü** (Shift + sağ tuşunu basılı tut)
+3. `weapon` → **AR-23 Liberator** → `rpm` = **1200** civarı
 4. `stratagem` → `orbital_precision_strike` → `cooldown` = **10**
 
 Menüyü kapat, göreve in.
@@ -92,6 +92,7 @@ yeniden başlat. Her şey normal mi?
 | Soru | Cevap |
 |---|---|
 | 1: Menü ortada ve okunaklı | |
+| 1: Yanlış / eksik gördüğün isimler | |
 | 1: Tuşlar beklendiği gibi | |
 | 2: MG-43 neredeyse hasarsız | |
 | 2: Taret tek mermide öldürüyor | |
