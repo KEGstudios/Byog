@@ -1,6 +1,6 @@
 # Config format (approved 2026-10-01)
 
-File: `%LOCALAPPDATA%\HD2StatTuner\config.txt` — plain text, edited by hand. The mod creates a
+File: `%LOCALAPPDATA%\BYOG\config.txt` — plain text, edited by hand. The mod creates a
 commented template on first run. `#` starts a comment. Names are case-insensitive.
 
 ```ini
@@ -99,7 +99,7 @@ A stratagem's call-in time is not offered: the field the data calls `spawn_time`
 
 `<item>` is the game's internal name (for example `assault_rifle` is the AR-23 Liberator). Every item
 and stat the mod knows, with the game's value and the allowed range, is listed in
-`%LOCALAPPDATA%\HD2StatTuner\catalog.txt`, which the mod writes itself. In-game display names come
+`%LOCALAPPDATA%\BYOG\catalog.txt`, which the mod writes itself. In-game display names come
 with the UI (Stage 3).
 
 ## Values
@@ -197,6 +197,6 @@ is **rejected** (never clamped) and reported in STATUS.txt with the range.
 
 ## What the mod writes back
 
-`%LOCALAPPDATA%\HD2StatTuner\STATUS.txt` — first line is the verdict; then build check, tables found,
+`%LOCALAPPDATA%\BYOG\STATUS.txt` — first line is the verdict; then build check, tables found,
 every config line as applied / rejected (with the reason) / waiting (its table is not loaded yet; some
 tables only load with a mission), read-back results and errors.

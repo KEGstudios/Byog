@@ -642,7 +642,7 @@ class Game:
         return self.memory.allocation(address)
 
     def write_config(self, text):
-        folder = os.path.join(self.tmp, "HD2StatTuner")
+        folder = os.path.join(self.tmp, "BYOG" if self.global_name == "BYOG" else "HD2StatTuner")
         os.makedirs(folder, exist_ok=True)
         with open(os.path.join(folder, "config.txt"), "wb") as f:
             f.write((text + self.config_suffix).replace("\n", "\r\n").encode("utf-8"))
@@ -734,7 +734,7 @@ class Game:
         return self.lua.globals()[self.global_name.encode()]
 
     def out_path(self, name):
-        return os.path.join(self.tmp, "HD2StatTuner", name)
+        return os.path.join(self.tmp, "BYOG" if self.global_name == "BYOG" else "HD2StatTuner", name)
 
     def status(self):
         try:

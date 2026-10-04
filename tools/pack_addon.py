@@ -55,12 +55,12 @@ ADDONS = {
         "source": os.path.join("src", "tuner", "tuner.lua"),
         "version_file": os.path.join("src", "tuner", "version.txt"),
         "data": os.path.join("build", "tuner_data.txt"),
-        "resource": "mods/keg/stat_tuner",
-        "title": "HD2 Stat Tuner",
-        "zip": "HD2-Stat-Tuner-v%s.zip",
-        "description": ("Changes weapon and throwable values from a config file: "
-                        "%LOCALAPPDATA%\\HD2StatTuner\\config.txt (created on first run, reload with F10). "
-                        "What happened is written to STATUS.txt in the same folder. "
+        "resource": "mods/keg/byog",
+        "title": "BYOG - Balance Your Own Game",
+        "zip": "BYOG-v%s.zip",
+        "icon": os.path.join("assets", "logo.png"),
+        "description": ("Balance Your Own Game: change the values of weapons, throwables, stratagems, backpacks, "
+                        "shields and vehicles from an in-game menu (F9) or a config file in %LOCALAPPDATA%\\BYOG. "
                         "Needs Bingus Shared Loader v15 or newer (the loader is the only requirement)."),
     },
     "recon": {
@@ -208,6 +208,11 @@ def package(kind, version=None, out_dir=None, flat=False):
         "Description": spec["description"],
         "Options": [{"Name": title, "Description": spec["description"], "Include": ["Addon"]}],
     }
+    icon = None
+    if spec.get("icon") and os.path.exists(os.path.join(ROOT, spec["icon"])):
+        with open(os.path.join(ROOT, spec["icon"]), "rb") as f:
+            icon = f.read()
+        manifest["IconPath"] = "icon.png"
     files = {
         "manifest.json": (json.dumps(manifest, indent=2) + "\n").encode("utf-8"),
         "Addon/" + ARCHIVE_FILE: archive,
@@ -223,6 +228,8 @@ def package(kind, version=None, out_dir=None, flat=False):
         ARCHIVE_FILE + ".stream": b"",
         ARCHIVE_FILE + ".gpu_resources": b"",
     }
+    if icon:
+        files["icon.png"] = flat_files["icon.png"] = icon
     out_dir = out_dir or os.path.join(ROOT, "dist")
     os.makedirs(out_dir, exist_ok=True)
     zip_path = os.path.join(out_dir, spec["zip"] % version)

@@ -46,13 +46,6 @@ Line format ('|' separated):
       uses its damage row.
   S|table|id,id,...              rows that may be borrowed (no table in memory refers to them; census)
   P|table|offset,offset,...      words of a row that hold addresses: copied from memory, never from W
-  Y|table|row_id                 the canary's model row: a harmless, very visible explosion
-  Q|id type|table                census (read-only research): the table whose row ids are counted
-  C|id type|type name|type hash|shape|stride|offline|path;path
-      a type that can hold such an id. shape K / R: the table shapes above, paths start at a record;
-      O: any other block, paths start at its payload. A path is steps separated by ',': a number adds
-      bytes, aN is a dynamic array head (u64 pointer, u64 count, N-byte elements). offline: references
-      counted offline, empty when the type is not in the data we have.
 
     python tools/gen_tuner_data.py        # -> build/tuner_data.txt
 """
@@ -159,7 +152,6 @@ TAKEOVERS = {
 }
 
 MAGAZINE_STATS = ("capacity", "mags_start", "mags_supply", "mags_max")
-CENSUS = [("ExplosionType", "ExplosionSettings")]
 
 ALIASES = [
     ("ap", "nonzero", ["ap_direct", "ap_slight", "ap_large", "ap_extreme"]),
@@ -353,24 +345,11 @@ def generate(builds=None, indexes=None):
                 stock_rows[("DamageSettings", damage)] = Dm.record(Dm.by_id()[damage])
             own_blasts += 1
     spare = [row for row, _score, _why in blasts.pool()]
-    marker = found["smoke_grenade"][0]["explosion"]
     extra.append("S|ExplosionSettings|" + ",".join(str(row) for row in spare))
     extra.append("P|ExplosionSettings|" + ",".join(str(o) for o in references.pointer_words("ExplosionInfo")))
-    extra.append("Y|ExplosionSettings|%d" % marker)
-    for row in spare + [marker]:
+    for row in spare:
         stock_rows[("ExplosionSettings", row)] = Xp.record(Xp.by_id()[row])
     tables["ExplosionSettings"] = tables["DamageSettings"] = True
-    # census: every type that can hold a row id of the tables in CENSUS
-    for target, own_table in CENSUS:
-        extra.append("Q|%s|%s" % (target, own_table))
-        offline = {}
-        for users in references.users(target, own_table).values():
-            for wrapper, _key, _offset in users:
-                offline[wrapper] = offline.get(wrapper, 0) + 1
-        for name, shape, stride, paths, present in references.census_types(target, own_table):
-            extra.append("C|%s|%s|%08X|%s|%d|%s|%s" % (
-                target, name, dlsum(name), shape, stride, offline.get(name, 0) if present else "",
-                ";".join(",".join(p) for p in paths)))
     for (table, row_id), raw in sorted(stock_rows.items()):
         extra.append("W|%s|%d|%s" % (table, row_id, raw.hex().upper()))
     for name in sorted(tables):

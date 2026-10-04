@@ -70,8 +70,8 @@ class Rig:
             old, new = mutate
             assert source.count(old) == 1, "mutation target not found exactly once: %r" % old[:60]
             source = source.replace(old, new)
-        self.game = harness.Game(source, self.mem, self.info, global_name="HD2StatTuner",
-                                 log_name="tuner.log", config=config,
+        self.game = harness.Game(source, self.mem, self.info, global_name="BYOG",
+                                 log_name="byog.log", config=config,
                                  config_suffix="" if auto else SHARED_ROWS, **game)
         self.blocks = self.info["blocks"]
 
@@ -628,155 +628,7 @@ def check_own_bullet_only_where_defined(mutate=None):
         rig.close()
 
 
-def check_probe_finds_pointer_arrays_and_writes_nothing(mutate=None):
-    rig = Rig("[settings]\nprobe = true\n", mutate)
-    try:
-        t = hd2db.table("ProjectileSettings")
-        rows_at = rig.blocks["ProjectileSettings"][0] + 24 + 16
-        ids = sorted(t.by_id())
-        # what an engine-side index could look like: one pointer per id, in id order ...
-        by_id = bytearray(8 * (max(ids) + 1))
-        for row_id, row in t.by_id().items():
-            struct.pack_into("<Q", by_id, 8 * row_id, rows_at + row * t.stride)
-        # ... plus a lone pointer to one row somewhere else, and noise that must not count
-        heap = bytearray(4096 * 4)
-        struct.pack_into("<Q", heap, 0x120, rows_at + 5 * t.stride)
-        struct.pack_into("<Q", heap, 0x200, 0x1E000000000 - 8)            # just below the block
-        struct.pack_into("<Q", heap, 0x1008, rows_at + 9 * t.stride)       # on a page that is not in memory
-        rig.mem.add(0x1EC00000000, bytes(by_id))
-        rig.mem.add(0x1ED00000000, bytes(heap), absent={1})
-        rig.game.frames(4000, until=lambda: "probe: done" in rig.game.status())
-        status = rig.game.status()
-        assert "probe: done" in status, status[:900]
-        report = rig.game.read_out("PROBE.txt")
-        section = report.split("[ProjectileSettings]")[1].split("[DamageSettings]")[0]
-        present = sum(1 for i in ids)                                      # every id has a pointer in the array
-        assert "at 0x1EC00000000:" in section or "at 0x1EC0000" in section, section[:800]
-        import re
-        m = re.search(r"at (0x1EC[0-9A-F]+): (\d+) pointers, (\d+) to row starts; row id = slot ([+-]\d+) for (\d+) of them", section)
-        assert m, section[:800]
-        # one pointer per row, and the engine-style index is recognised as "indexed by row id"
-        assert int(m.group(2)) == len(ids) == int(m.group(3)), m.groups()
-        assert int(m.group(5)) >= 300, m.groups()
-        assert "0x1ED00000120->" in section                               # the lone pointer
-        assert "0x1ED00001008" not in report                              # absent page: never read
-        assert "0x1ED00000200" not in report                              # outside the table: not a hit
-        assert rig.mem.writes == [] and rig.mem.protects == []
-        assert rig.mem.absent_reads == 0
-        assert max(rig.game.frame_cost) <= BUDGET_US + STEP_SLACK_US, max(rig.game.frame_cost)
-    finally:
-        rig.close()
-
-
 ENGINE_BASE = 0x7FFD00000000
-
-
-def add_engine_module(rig):
-    """A module image like the game's: code that refers to id-indexed arrays of row pointers in .data.
-
-    -> {table: (array rva, slots)}"""
-    header = bytearray(4096)
-    header[0:2] = b"MZ"
-    struct.pack_into("<I", header, 0x3C, 0x80)
-    header[0x80:0x84] = b"PE\0\0"
-    struct.pack_into("<H", header, 0x80 + 6, 2)                 # NumberOfSections
-    struct.pack_into("<H", header, 0x80 + 20, 240)              # SizeOfOptionalHeader
-    struct.pack_into("<H", header, 0x80 + 24, 0x20B)            # PE32+
-    struct.pack_into("<I", header, 0x80 + 24 + 56, 0xD000)      # SizeOfImage
-    table_at = 0x80 + 24 + 240
-    for n, (name, size, rva, flags) in enumerate(((b".text", 0x8000, 0x1000, 0x60000020),
-                                                  (b".data", 0x4000, 0x9000, 0xC0000040))):
-        o = table_at + n * 40
-        header[o:o + len(name)] = name
-        struct.pack_into("<II", header, o + 8, size, rva)
-        struct.pack_into("<I", header, o + 36, flags)
-
-    data = bytearray(0x4000)
-    arrays = {}
-    for name, rva in (("ProjectileSettings", 0x9800), ("DamageSettings", 0xA400), ("ExplosionSettings", 0xBC00)):
-        t = hd2db.table(name)
-        rows_at = rig.blocks[name][0] + 24 + 16
-        ids = t.by_id()
-        for row_id, row in ids.items():
-            struct.pack_into("<Q", data, rva - 0x9000 + 8 * (row_id - 1), rows_at + row * t.stride)
-        arrays[name] = (rva, max(ids))
-    rva, slots = arrays["ProjectileSettings"]
-    assert sorted(hd2db.table("ProjectileSettings").by_id()) == list(range(1, slots + 1))
-    struct.pack_into("<Q", data, rva - 0x9000 - 8, slots)                       # a count right before the array
-    struct.pack_into("<Q", data, rva - 0x9000 + slots * 8 + 8, ENGINE_BASE + 0x1234)
-    struct.pack_into("<I", data, 0x3F00, rva)                                   # data, not code: never a reference
-
-    text = bytearray(b"\xCC" * 0x8000)
-
-    def put(at_rva, code):
-        text[at_rva - 0x1000:at_rva - 0x1000 + len(code)] = code
-    put(0x1100, b"\x48\x8D\x0D" + struct.pack("<i", rva - (0x1103 + 4)))        # lea rcx, [rip + array]
-    put(0x2000, b"\x4A\x8B\x84\xC1" + struct.pack("<I", rva - 8))               # mov rax, [rcx + r8*8 + array - 8]
-    put(0x7000, b"\x48\x8D\x05" + struct.pack("<I", 0x9000))                    # names something far from the array
-    # a reference whose 4 bytes straddle two 16 KB reads: it names the end of the array
-    put(0x1000 + 16382 - 3, b"\x48\x8B\x05" + struct.pack("<i", rva + slots * 8 - (0x1000 + 16382 + 4)))
-
-    rig.mem.add(ENGINE_BASE, bytes(header), protect=harness.PAGE_READONLY, mtype=harness.MEM_IMAGE,
-                allocation=ENGINE_BASE)
-    rig.mem.add(ENGINE_BASE + 0x1000, bytes(text), protect=harness.PAGE_EXECUTE_READ, mtype=harness.MEM_IMAGE,
-                allocation=ENGINE_BASE)
-    region = rig.mem.add(ENGINE_BASE + 0x9000, bytes(data), mtype=harness.MEM_IMAGE, allocation=ENGINE_BASE)
-    region["written"] = True
-    rig.info.setdefault("module_paths", {})[ENGINE_BASE] = "C:\\Games\\Helldivers 2\\bin\\engine.dll"
-    return arrays
-
-
-def check_probe_reads_the_module_that_holds_the_index(mutate=None):
-    rig = Rig("[settings]\nprobe = true\n", mutate)
-    try:
-        arrays = add_engine_module(rig)
-        rva, slots = arrays["ProjectileSettings"]
-        rig.game.frames(6000, until=lambda: "probe: done" in rig.game.status())
-        assert "probe: done" in rig.game.status(), rig.game.status()[:900]
-        report = rig.game.read_out("PROBE.txt")
-        assert "index analysis failed" not in report, report[-600:]
-        assert ("[module engine.dll] base 0x7FFD00000000 image size 0xD000; code read: 32768 bytes, unreadable 0; "
-                "candidate references 3") in report, report[report.find("[module"):][:400]
-        assert "C:\\Games" not in report                                   # file name only, never the folder
-        assert ".text rva 0x1000 size 0x8000 flags 0x60000020; .data rva 0x9000 size 0x4000 flags 0xC0000040" in report
-        section = report.split("[index ProjectileSettings]")[1].split("[index DamageSettings]")[0]
-        lines = section.split("\r\n")
-        assert lines[0] == " at 0x7FFD00009800, %d slots, row id = slot +1" % slots, lines[0]
-        assert lines[1].startswith("memory: type 0x1000000 (module image), protection 0x04,"), lines[1]
-        assert lines[2].startswith("module: engine.dll, array at rva 0x9800 (section .data, "), lines[2]
-        assert lines[3].startswith("64 slots before: ") and lines[3].endswith(" 0x%X" % slots), lines[3][-60:]
-        assert lines[4].startswith("64 slots after: 0 img+0x1234 0 "), lines[4][:60]
-        assert "code naming array -8: 1\r\n  image at rva 0x2004: " in section, section[:1500]
-        assert "code naming array +0: 1\r\n  rip at rva 0x1103: " in section
-        assert "code naming array %+d: 1\r\n  rip at rva 0x4FFE: " % (slots * 8) in section
-        context = section.split("rip at rva 0x1103: ")[1].split("\r\n")[0]
-        assert " 48 8D 0D [" in context and context.count(" ") == 75, context
-        assert "[index ExplosionSettings] at 0x7FFD0000BC00, " in report
-        assert rig.mem.writes == [] and rig.mem.protects == []
-        assert rig.mem.absent_reads == 0
-        assert max(rig.game.frame_cost) <= BUDGET_US + STEP_SLACK_US, max(rig.game.frame_cost)
-    finally:
-        rig.close()
-
-
-def check_probe_waits_until_every_table_is_loaded(mutate=None):
-    rig = Rig("[settings]\nprobe = true\n", mutate)
-    try:
-        hidden = rig.blocks["DamageSettings"][0] + 8                       # the block's type hash
-        real = rig.mem.peek(hidden, "<I")
-        rig.mem.poke(hidden, "<I", real ^ 0x5A5A5A5A)                      # "not loaded yet"
-        rig.game.frames(1500)
-        assert "waiting for DamageSettings" in rig.game.status(), rig.game.status()[:900]
-        assert rig.game.read_out("PROBE.txt") == ""
-        rig.mem.poke(hidden, "<I", real)                                   # "mission loaded"
-        for _ in range(6):
-            rig.game.skip_time(16)
-            rig.game.frames(6000, until=lambda: "probe: done" in rig.game.status())
-        assert "probe: done" in rig.game.status(), rig.game.status()[:900]
-        assert "[DamageSettings] block" in rig.game.read_out("PROBE.txt")
-        assert rig.mem.writes == []
-    finally:
-        rig.close()
 
 
 KNOWN_INDEXES = gen_tuner_data.INDEXES["release/01.007.101/19155"]
@@ -1095,68 +947,6 @@ def check_magazine_values_of_the_weapons_own(mutate=None):
         rig.close()
 
 
-def plant_census_blocks(rig):
-    """Blocks of the two types that are not in the offline data, away from an allocation start."""
-    from dump_typelib import dlsum
-    base, region = 0x1EA00000000, bytearray(0x3000)
-
-    def block(at, name, payload):
-        header = b"LDLD" + struct.pack("<III", 1, dlsum(name), len(payload)) + b"\x01" + b"\0" * 7
-        region[at:at + 24 + len(payload)] = header + bytes(payload)
-
-    # DestructionSettings: three levels, each a dynamic array of 96-byte events; the explosion id is at +4
-    at = 0x1004
-    payload = bytearray(168 + 3 * 96)
-    events = base + at + 24 + 168
-    struct.pack_into("<QQ", payload, 0, events, 2)
-    struct.pack_into("<QQ", payload, 48, 0, 0)
-    struct.pack_into("<QQ", payload, 96, events + 2 * 96, 1)
-    for i, explosion in enumerate((13, 300, 13)):
-        struct.pack_into("<I", payload, 168 + i * 96 + 4, explosion)
-    block(at, "DestructionSettings", payload)
-    payload = bytearray(296)
-    struct.pack_into("<I", payload, 28, 77)
-    block(0x2008, "VehicleEffectInfo", payload)
-    rig.mem.add(base, bytes(region))
-    return {13: 2, 300: 1, 77: 1}
-
-
-def check_census_counts_every_reference_in_memory(mutate=None):
-    import references
-    rig = Rig("[settings]\ncensus = true\n", mutate)
-    try:
-        expected = dict(plant_census_blocks(rig))
-        in_world = ("ProjectileSettings", "ExplosiveComponentData", "BeamSettings")
-        for row, users in references.users("ExplosionType", "ExplosionSettings").items():
-            n = sum(1 for wrapper, _key, _offset in users if wrapper in in_world)
-            if n:
-                expected[row] = expected.get(row, 0) + n
-        rig.game.frames(8000, until=lambda: "census: done" in rig.game.status())
-        assert "census: done" in rig.game.status() and "-> CENSUS.txt" in rig.game.status(), rig.game.status()[:900]
-        report = rig.game.read_out("CENSUS.txt")
-        assert "[ExplosionType] ExplosionSettings: 422 rows, highest id 422" in report, report[:600]
-        assert "ProjectileSettings (R): blocks=1 records=350 values=700 references=209 offline=209  as offline" in report, report[:1800]
-        assert "ExplosiveComponentData (K): blocks=1 " in report and "references=71 offline=71  as offline" in report
-        assert ("DestructionSettings (O): blocks=1 records=1 values=3 references=3 offline=-  not in the offline data"
-                in report), report[:1800]
-        assert "\r\n  13 300\r\n" in report
-        assert "VehicleEffectInfo (O): blocks=1 records=1 values=1 references=1 offline=-" in report
-        assert "BackblastComponentData (K): blocks=0 records=0 values=0 references=0 offline=21  NOT FOUND in memory" in report
-        assert "ids beyond the table=0 unparsed blocks=0]" in report and "DIFFERENT" not in report
-        counted = {}
-        for pair in report.split("references per row (id=count):")[1].split("swept")[0].split():
-            row, n = pair.split("=")
-            counted[int(row)] = int(n)
-        assert len(counted) == 422
-        assert {row: n for row, n in counted.items() if n} == expected
-        free = report.split("rows no table refers to: ")[1].split("references per row")[0].split()
-        assert int(free[0]) == 422 - len(expected) and [int(x) for x in free[1:]] == sorted(set(range(1, 423)) - set(expected))
-        assert rig.mem.writes == [] and rig.mem.protects == []
-        assert max(rig.game.frame_cost) <= BUDGET_US + STEP_SLACK_US, max(rig.game.frame_cost)
-    finally:
-        rig.close()
-
-
 BLAST_CONFIG = ("[weapon: grenade_launcher]\nblast_damage = 5000\nblast_inner_radius = 9\n"
                 "[throwable: frag_grenade]\nblast_outer_radius = 30\n"
                 "[throwable: arc_grenade]\nblast_damage = 7\n")
@@ -1261,34 +1051,6 @@ def check_explosion_of_its_own_waits_for_a_proven_index(mutate=None):
         assert rig.mem.peek(explosion_row(rig, 157) + 4, "<I") == 364
         assert "OWN EXPLOSION WAITING" in status and "is not in memory yet" in status, status[:2000]
         assert rig.mem.peek(rig.row_field("DamageSettings", 364, 4), "<i") != 7
-    finally:
-        rig.close()
-
-
-def check_canary_marks_every_row_that_may_be_borrowed(mutate=None):
-    import blasts
-    pool = [row for row, _score, _why in blasts.pool()]
-    marker = 28
-    rig = Rig("[settings]\ncanary = true\n[weapon: grenade_launcher]\nblast_inner_radius = 9\n", mutate, auto=True)
-    try:
-        add_game_index(rig)
-        rig.mem.poke(explosion_row(rig, marker) + 40, "<Q", 0x1E0BBBB0000)
-        before = snapshot(rig)
-        model = row_bytes(rig, explosion_row(rig, marker), 152)
-        status = rig.settle(1500)
-        assert "canary rows marked" in first_line(status) or first_line(status).startswith("PARTIAL"), first_line(status)
-        for row in pool:
-            want = bytearray(model)
-            struct.pack_into("<I", want, 0, row)
-            assert row_bytes(rig, explosion_row(rig, row), 152) == bytes(want), row
-        assert "canary: ACTIVE - every row of the list is a copy of explosion row 28" in status, status[:2500]
-        assert "[borrowed rows] explosion rows that may be borrowed: " + " ".join(str(r) for r in pool) in status
-        # while the canary runs nothing is borrowed: the launcher's blast value goes to the shared row, and says so
-        assert "the rows to borrow are in use by the canary test" in status
-        assert struct.unpack("<f", row_bytes(rig, explosion_row(rig, 361) + 16, 4))[0] == 9.0
-        status = rig.reload("")
-        after = snapshot(rig)
-        assert all(after[base] == data for base, data in before.items())
     finally:
         rig.close()
 
@@ -1465,28 +1227,20 @@ def item_entity_of(name):
     return int(catalog_stat(name, "damage")[0]["entity"], 16)
 
 
-def check_the_old_drawing_probe_setting_draws_nothing(mutate=None):
-    # seen in game: a config that still had `ui_probe = text` kept the probe's rectangle on the screen
-    rig = Rig("[settings]\nui_probe = text\n[weapon: assault_rifle]\nrpm = 150%\n", mutate)
+def check_research_settings_of_the_test_builds_do_nothing(mutate=None):
+    # the probe, census, canary and globals dump of the test builds are gone; a config that still names them
+    # is not a problem and nothing of theirs happens
+    rig = Rig("[settings]\nui_probe = text\nprobe = true\ncensus = true\ncanary = true\ndump_globals = true\n"
+              "[weapon: assault_rifle]\nrpm = 150%\n", mutate)
     try:
         rig.game.lua.execute(FAKE_ENGINE)
         status = rig.settle()
         rig.game.frames(50)
         assert first_line(status) == "OK - 1 values applied" and "config problem" not in status, status[:600]
-        assert drawn(rig) == ("", 0) and rig.game.read_out("UIPROBE.txt") == ""
-    finally:
-        rig.close()
-
-
-def check_globals_dump_is_read_only(mutate=None):
-    rig = Rig("[settings]\ndump_globals = true\n", mutate)
-    try:
-        rig.settle()
-        rig.game.frames(200)
-        text = rig.game.read_out("GLOBALS.txt")
-        assert "global names" in text and "HD2StatTuner (table, " in text, text[:400]
-        assert "\r\nstring (table, " in text and " format:f " in text
-        assert rig.mem.writes == []
+        assert drawn(rig) == ("", 0)
+        for name in ("UIPROBE.txt", "PROBE.txt", "CENSUS.txt", "GLOBALS.txt"):
+            assert rig.game.read_out(name) == "", name
+        assert rig.mem.peek(explosion_row(rig, 258) + 16, "<f") != rig.mem.peek(explosion_row(rig, 28) + 16, "<f")
     finally:
         rig.close()
 
@@ -1560,7 +1314,7 @@ def check_menu_changes_a_value_and_remembers_it(mutate=None):
         want = [(2560 - 1180 * scale) / 2, (1440 - 664 * scale) / 2, 1180 * scale, 664 * scale]
         assert all(abs(a - b) < 0.01 for a, b in zip(panel, want)), (panel, want)
         assert rig.game.lua.eval(b"stingray.drawn.crashed") is None    # no engine call with arguments it does not take
-        log = rig.game.read_out("tuner.log")
+        log = rig.game.read_out("byog.log")
         assert "menu: about to use World.create_screen_gui" in log and "menu: first frame drawn" in log
         assert "menu: screen 2560 x 1440" in log
         # walk to the Liberator, then to its values
@@ -1568,8 +1322,23 @@ def check_menu_changes_a_value_and_remembers_it(mutate=None):
         for _ in range(names.index("assault_rifle")):
             rig.game.press(DOWN)
         rig.game.press(TAB)
-        first = next(s["id"] for s in catalog_stat("assault_rifle", "rpm")[0]["stats"] if s["id"] != "mode")
-        assert first == "rpm", first
+        # the values come in groups under headings: damage first, then what the hit applies, then the round ...
+        text, _rects = drawn(rig)
+        order = [text.index("\n" + heading + "\n") for heading in ("DAMAGE", "STATUS EFFECTS")]
+        assert order == sorted(order) and text.index("\ndamage\n") < text.index("\nstatus1_type\n"), text[:900]
+        assert "\nrpm\n" not in text                                  # further down: the list scrolls
+        stats = [s["id"] for s in catalog_stat("assault_rifle", "rpm")[0]["stats"] if s["id"] != "mode"]
+        ahead = [s for s in stats if s in ("damage", "durable_damage", "ap_direct", "ap_slight", "ap_large", "ap_extreme",
+                                           "demolition", "stagger", "push", "ap_bonus", "durable_ap_bonus", "bonus2",
+                                           "durable_bonus2", "pellets", "velocity", "mass", "calibre", "drag", "gravity",
+                                           "life_time", "penetration_slowdown", "arming_distance", "speed_multiplier")
+                 or s.startswith("status")]
+        for _ in ahead:                                                # walk down to the first value under FIRE
+            rig.game.press(DOWN)
+        drawn(rig)
+        rig.game.frames(2)
+        text, _rects = drawn(rig)
+        assert "\nFIRE\n" in text and "\nrpm\n" in text and "\nAMMO\n" in text, text[:900]
         rig.game.press(RIGHT)
         rig.game.frames(40)                                            # quiet for a moment: handed to the engine
         assert rig.mem.peek(rig.rpm, "<f") == 650.0
@@ -1620,6 +1389,12 @@ def check_tables_are_found_when_their_first_page_is_not_in_memory(mutate=None):
         rig.close()
 
 
+MENU_BEFORE_FIRE = ("damage", "durable_damage", "ap_direct", "ap_slight", "ap_large", "ap_extreme", "demolition",
+                    "stagger", "push", "ap_bonus", "durable_ap_bonus", "bonus2", "durable_bonus2", "pellets", "velocity",
+                    "mass", "calibre", "drag", "gravity", "life_time", "penetration_slowdown", "arming_distance",
+                    "speed_multiplier")
+
+
 def check_menu_stays_inside_the_range(mutate=None):
     rig = Rig("", mutate)
     try:
@@ -1632,6 +1407,9 @@ def check_menu_stays_inside_the_range(mutate=None):
         for _ in range(names.index("assault_rifle")):
             rig.game.press(DOWN)
         rig.game.press(TAB)
+        stats = [s["id"] for s in catalog_stat("assault_rifle", "rpm")[0]["stats"] if s["id"] != "mode"]
+        for _ in range(sum(1 for s in stats if s != "rpm" and (s.startswith("status") or s in MENU_BEFORE_FIRE))):
+            rig.game.press(DOWN)
         rig.game.press(RIGHT)                                          # 5999 + 10 would leave 1 .. 6000
         rig.game.frames(40)
         assert rig.mem.peek(rig.rpm, "<f") == 6000.0 and "REJECTED" not in rig.game.status()
@@ -1722,8 +1500,8 @@ class Startup(unittest.TestCase):
         rig = Rig(BASE_CONFIG)
         try:
             status = rig.settle()
-            self.assertRegex(status.split("\r\n")[1], r"^HD2 Stat Tuner v\d+\.\d+\.\d+$")
-            self.assertRegex(rig.game.log_text().split("\r\n")[0], r"^HD2 Stat Tuner v\d+\.\d+\.\d+$")
+            self.assertRegex(status.split("\r\n")[1], r"^BYOG v\d+\.\d+\.\d+$")
+            self.assertRegex(rig.game.log_text().split("\r\n")[0], r"^BYOG v\d+\.\d+\.\d+$")
         finally:
             rig.close()
 
@@ -1752,11 +1530,7 @@ class Startup(unittest.TestCase):
         self.assertEqual(len([x for x in lines if x.startswith("H|")]), 72)
         # one magazine is the default of three rifles: the same run for all three
         self.assertEqual(len([x for x in lines if x.startswith("G|") and x.endswith("|7BE1E04A7738E673")]), 3)
-        self.assertIn("Q|ExplosionType|ExplosionSettings", lines)
-        self.assertIn("C|ExplosionType|ProjectileSettings|BD4042C2|R|272|209|144;156", lines)
-        # a type we have no data of: found through the type library alone, with its dynamic arrays
-        self.assertIn("C|ExplosionType|DestructionSettings|D6A11545|O|168||0,a96,4;48,a96,4;96,a96,4", lines)
-        self.assertEqual(len([x for x in lines if x.startswith("C|")]), 13)
+        self.assertFalse([x for x in lines if x[:2] in ("C|", "Q|", "Y|")])      # research lines: gone
 
     def test_explosion_data(self):
         blob, stats = gen_tuner_data.generate()
@@ -1765,7 +1539,6 @@ class Startup(unittest.TestCase):
         self.assertEqual(len([x for x in lines if x.endswith("|C|257|335|0|1|ExplosiveComponentData:36")]), 2)
         self.assertTrue([x for x in lines if x.startswith("S|ExplosionSettings|258,371,")])
         self.assertIn("P|ExplosionSettings|40,44,48,52", lines)
-        self.assertIn("Y|ExplosionSettings|28", lines)
         own = [x for x in lines if x.startswith("B|") and x.split("|")[5] == "1"]
         borrow = [x for x in lines if x.startswith("B|") and x.split("|")[5] == "0"]
         self.assertEqual((len(own), len(borrow)), (57, 43))       # hand weapons, throwables, stratagem weapons
@@ -1821,18 +1594,6 @@ MUTATIONS = [
      "entry = { field = field, value = item.stats[stat].field.stock, sources = {}, base = true }",
      "entry = { field = field, value = base.stock, sources = {}, base = true }",
      check_magazine_values_of_the_weapons_own),
-    ("census: array elements stepped by the wrong size",
-     "                census_follow(pointer + n * step.array, steps, k + 1, block, tally)",
-     "                census_follow(pointer + n * 4, steps, k + 1, block, tally)",
-     check_census_counts_every_reference_in_memory),
-    ("census: every record read at the first one",
-     "        records_at, count, stride = block.records_at, block.count, c.stride",
-     "        records_at, count, stride = block.records_at, block.count, 0",
-     check_census_counts_every_reference_in_memory),
-    ("census: blocks away from an allocation start are missed",
-     "                                local where = at + hits[h] * 4",
-     "                                local where = at + hits[h] * 4 + (hits[h] > 0 and 4 or 0)",
-     check_census_counts_every_reference_in_memory),
     ("explosion of its own: the borrowed row keeps the shared damage row",
      "                if offset == 4 and damage then value = damage end",
      "",
@@ -1857,14 +1618,6 @@ MUTATIONS = [
      "    spare.next[table_name] = n\n",
      "",
      check_explosions_of_their_own),
-    ("explosion of its own: rows borrowed while the canary uses them",
-     "                        elseif config.canary then\n",
-     "                        elseif false then\n",
-     check_canary_marks_every_row_that_may_be_borrowed),
-    ("canary does not mark the rows",
-     "            copy_explosion(MARKER.ExplosionSettings, id, nil, 'canary')",
-     "",
-     check_canary_marks_every_row_that_may_be_borrowed),
     ("more magazines at the start than the maximum is not reported",
      "            if limit and start and start > limit then",
      "            if false then",
@@ -1925,6 +1678,10 @@ MUTATIONS = [
      "if (item.display or ''):lower():find(menu.filter, 1, true) or item.name:lower():find(menu.filter, 1, true) then",
      "if item.name:lower():find(menu.filter, 1, true) then",
      check_menu_search_finds_items_of_every_category),
+    ("menu: the values of an item are not grouped",
+     "        if x.rank ~= y.rank then return x.rank < y.rank end\n        if x.first ~= y.first",
+     "        if x.first ~= y.first",
+     check_menu_changes_a_value_and_remembers_it),
     ("menu: text drawn without a layer, under the panel",
      "                   layers and S.Vector3(px, py, 902) or S.Vector2(px, py), S.Color(a, r, g, b))",
      "                   S.Vector2(px, py), S.Color(a, r, g, b))",
@@ -2049,26 +1806,6 @@ MUTATIONS = [
      "        if not desired[key] and entry.order == 2 then restore(key, entry) end",
      "",
      check_own_bullet_gives_the_weapon_private_rows),
-    ("probe reads pages that are not in memory",
-     "                    if usable[k] then\n                        local last = k",
-     "                    if true then\n                        local last = k",
-     check_probe_finds_pointer_arrays_and_writes_nothing),
-    ("probe: a reference that straddles two reads is missed",
-     "                local extra = (at + span < stop) and 3 or 0       -- a value may straddle two chunks",
-     "                local extra = 0",
-     check_probe_reads_the_module_that_holds_the_index),
-    ("probe: relative reference measured from the wrong place",
-     "            local target = rva + i + 4 + v",
-     "            local target = rva + i + v",
-     check_probe_reads_the_module_that_holds_the_index),
-    ("probe: data is read as if it were code",
-     "        if region.state == MEM_COMMIT and region.type == MEM_IMAGE and EXECUTE[region.protection] then",
-     "        if region.state == MEM_COMMIT and region.type == MEM_IMAGE then",
-     check_probe_reads_the_module_that_holds_the_index),
-    ("probe: runs although a table is missing",
-     "            probe.note = 'waiting for ' .. name .. ', which is not loaded yet'\n            return false",
-     "            probe.note = 'waiting for ' .. name .. ', which is not loaded yet'",
-     check_probe_waits_until_every_table_is_loaded),
     ("new id: weapon switched although the index is not proven",
      "            elseif want.needs_index and not index_ok then",
      "            elseif false then",
