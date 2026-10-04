@@ -114,6 +114,7 @@ class FakeMemory:
         last = (address + size - 1 - r["base"]) // PAGE
         if any(p in r["absent"] for p in range(first, last + 1)):
             self.absent_reads += 1
+            r["absent"] -= set(range(first, last + 1))      # like the real thing: reading pages it in
         self.bytes_read += size
         o = address - r["base"]
         return bytes(r["data"][o:o + size])

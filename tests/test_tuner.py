@@ -1490,6 +1490,125 @@ def check_globals_dump_is_read_only(mutate=None):
         rig.close()
 
 
+# a stand-in for the engine's Gui: records what the menu draws
+FAKE_ENGINE = b"""
+stingray = { drawn = { rects = 0, texts = {} },
+  Application = { main_world = function() return 'world' end },
+  World = { create_screen_gui = function(world, mode) return 'gui' end,
+            destroy_gui = function(world, gui) stingray.drawn.destroyed = true end },
+  Vector2 = function(x, y) return { x, y } end,
+  Color = function(a, r, g, b) return { a, r, g, b } end }
+stingray.Gui = {
+  resolution = function(gui) return 1920, 1080 end,
+  rect = function(gui, position, size, color)
+    stingray.drawn.rects = stingray.drawn.rects + 1
+    stingray.drawn.panel = stingray.drawn.panel or { position[1], position[2], size[1], size[2] }
+  end,
+  text = function(gui, str, font, size, material, position, color)
+    stingray.drawn.texts[#stingray.drawn.texts + 1] = str
+  end }
+"""
+F9, UP, DOWN, LEFT, RIGHT, TAB, DELETE = 0x78, 0x26, 0x28, 0x25, 0x27, 0x09, 0x2E
+
+
+def drawn(rig):
+    """-> (text drawn since the last call, rectangles since the last call)"""
+    text = rig.game.lua.eval(b"table.concat(stingray.drawn.texts, '\\n')").decode()
+    rects = rig.game.lua.eval(b"stingray.drawn.rects")
+    rig.game.lua.execute(b"stingray.drawn.texts = {}; stingray.drawn.rects = 0")
+    return text, rects
+
+
+def check_menu_changes_a_value_and_remembers_it(mutate=None):
+    rig = Rig("", mutate)
+    try:
+        rig.settle()
+        rig.game.lua.execute(FAKE_ENGINE)
+        rig.game.frames(5)
+        assert drawn(rig) == ("", 0)                                   # closed: nothing is drawn
+        rig.game.press(F9)
+        text, rects = drawn(rig)
+        assert "BALANCE YOUR OWN GAME" in text and "assault_rifle" in text and rects > 0, text[:300]
+        # in the middle of a 1920 x 1080 screen (the Gui's origin is the bottom left corner)
+        panel = [rig.game.lua.eval(b"stingray.drawn.panel[%d]" % n) for n in (1, 2, 3, 4)]
+        assert panel == [370, 208, 1180, 664], panel
+        # walk to the Liberator, then to its values
+        names = sorted(it["path"].rsplit("/", 1)[-1] for it in _CATALOG.values()
+                       if it["category"] in ("primary", "secondary", "support", "melee"))
+        for _ in range(names.index("assault_rifle")):
+            rig.game.press(DOWN)
+        rig.game.press(TAB)
+        first = next(s["id"] for s in catalog_stat("assault_rifle", "rpm")[0]["stats"] if s["id"] != "mode")
+        assert first == "rpm", first
+        rig.game.press(RIGHT)
+        rig.game.frames(40)                                            # quiet for a moment: handed to the engine
+        assert rig.mem.peek(rig.rpm, "<f") == 650.0
+        saved = rig.game.read_out("menu.txt")
+        assert "[weapon: assault_rifle]" in saved and "rpm = 650" in saved, saved
+        assert "menu.txt: 1 values set through the in-game menu" in rig.game.status()
+        text, _rects = drawn(rig)
+        assert "650" in text and "640" in text                        # the new value and the game's
+        rig.game.press(DELETE)
+        rig.game.frames(40)
+        assert rig.mem.peek(rig.rpm, "<f") == 640.0 and "rpm" not in rig.game.read_out("menu.txt")
+        # another category, and closing
+        rig.game.press(TAB)
+        rig.game.press(RIGHT)
+        assert "frag_grenade" in drawn(rig)[0]
+        rig.game.press(F9)
+        rig.game.frames(5)
+        drawn(rig)
+        rig.game.frames(5)
+        assert drawn(rig) == ("", 0) and rig.game.lua.eval(b"stingray.drawn.destroyed") is True
+    finally:
+        rig.close()
+
+
+def check_menu_values_are_read_at_start(mutate=None):
+    rig = Rig("[weapon: assault_rifle]\nrpm = 150%\n", mutate)
+    try:
+        with open(rig.game.out_path("menu.txt"), "wb") as f:
+            f.write(b"# Written by the in-game menu.\r\n\r\n[weapon: assault_rifle]\r\nrpm = 700\r\n")
+        status = rig.settle()
+        assert rig.mem.peek(rig.rpm, "<f") == 700.0, status[:900]      # the menu's value wins over config.txt
+    finally:
+        rig.close()
+
+
+def check_tables_are_found_when_their_first_page_is_not_in_memory(mutate=None):
+    # seen in game: the system takes pages the game has not touched out of the working set; when that
+    # was the first page of a chain of tables, the engine waited for those tables for a whole mission
+    rig = Rig(BASE_CONFIG, mutate)
+    try:
+        for base in (0x1E000000000, 0x1E100000000):
+            rig.mem.find(base)["absent"].add(0)
+        status = rig.settle()
+        assert first_line(status) == "OK - 3 values applied", status[:900]
+        assert rig.mem.peek(rig.damage, "<I") == 120 and rig.mem.peek(rig.rpm, "<f") == 960.0
+    finally:
+        rig.close()
+
+
+def check_menu_stays_inside_the_range(mutate=None):
+    rig = Rig("", mutate)
+    try:
+        with open(rig.game.out_path("menu.txt"), "wb") as f:
+            f.write(b"[weapon: assault_rifle]\r\nrpm = 5999\r\n")
+        rig.settle()
+        rig.game.lua.execute(FAKE_ENGINE)
+        rig.game.press(F9)
+        names = sorted(it["path"].rsplit("/", 1)[-1] for it in _CATALOG.values()
+                       if it["category"] in ("primary", "secondary", "support", "melee"))
+        for _ in range(names.index("assault_rifle")):
+            rig.game.press(DOWN)
+        rig.game.press(TAB)
+        rig.game.press(RIGHT)                                          # 5999 + 10 would leave 1 .. 6000
+        rig.game.frames(40)
+        assert rig.mem.peek(rig.rpm, "<f") == 6000.0 and "REJECTED" not in rig.game.status()
+    finally:
+        rig.close()
+
+
 CHECKS = [v for k, v in sorted(globals().items()) if k.startswith("check_")]
 
 
@@ -1712,6 +1831,30 @@ MUTATIONS = [
      "            if s.projectile ~= t.src_projectile and rounds[s.projectile] == nil and stock",
      "            if false and stock",
      check_stratagem_weapons_and_blast_from),
+    ("tables behind a first page that is not in memory are not found",
+     "            if A.readable_start(base, size) then",
+     "            if A.readable_private(base) then",
+     check_tables_are_found_when_their_first_page_is_not_in_memory),
+    ("menu: the panel is not in the middle of the screen",
+     "    local left, bottom = (width - PANEL_W * scale) / 2, (height - PANEL_H * scale) / 2",
+     "    local left, bottom = 0, 0",
+     check_menu_changes_a_value_and_remembers_it),
+    ("menu: a change never reaches the engine",
+     "        menu.dirty_at = nil\n        request_reload()\n        pcall(menu_save)",
+     "        menu.dirty_at = nil\n        pcall(menu_save)",
+     check_menu_changes_a_value_and_remembers_it),
+    ("menu: drawn although it is closed",
+     "    if not menu.open then return end\n    local ok, why = pcall(function()",
+     "    if not menu.S then return end\n    local ok, why = pcall(function()",
+     check_menu_changes_a_value_and_remembers_it),
+    ("menu: menu.txt is not read at start",
+     "    if not menu.loaded then pcall(menu_load) end",
+     "    menu.loaded = true",
+     check_menu_values_are_read_at_start),
+    ("menu: a value outside the allowed range",
+     "    if value > range.max then value = range.max end\n    if same_value",
+     "    if same_value",
+     check_menu_stays_inside_the_range),
     ("attachment values written 4 bytes off",
      "        local address = block.records_at + field.offset\n",
      "        local address = block.records_at + field.offset + 4\n",

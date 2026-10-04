@@ -600,6 +600,21 @@ round of the belt a row of its own when it uses the weapon's damage row. The sam
 projectile fields of Bombardment (+64..), Eagle (+24) and OrbitalAbility (+532) components, so the shells
 of strikes get rows of their own too.
 
+**In game (v0.14.0):** with the pattern switched the sentry's gun does the new damage on every round.
+
+**Pages that are not in the working set (in game, v0.12.0 and v0.14.0; fixed in v0.15.0).** The engine
+looked for tables only at allocation starts whose first page `QueryWorkingSetEx` reports as present.
+Windows trims pages a process has not touched for a while; the game does not touch its settings pages
+after loading. When the first page of a chain was trimmed, every table of that chain was invisible:
+"waiting for their table" in the middle of a mission, with the tables in memory. Now a large allocation
+whose first page is not present is judged by its region (committed, private, readable), and a write
+reads its page first, which brings it back.
+
+**Drawing (in game, v0.14.0).** `stingray.World.create_screen_gui(stingray.Application.main_world(),
+"immediate")` gives a Gui; `stingray.Gui.rect(gui, Vector2 position, Vector2 size, Color(a, r, g, b))` and
+`stingray.Gui.text(gui, text, font, size, material, Vector2 position, Color)` draw for one frame; the
+origin is the bottom left corner. The in-game menu of v0.15.0 is built on exactly these calls.
+
 ### 6.3 Copies, reloads, drift
 Per the skill's case studies: several copies of a table can exist in memory, new copies appear on
 mission load, table sizes / record counts / enum ids change with game updates. Hence: locate by

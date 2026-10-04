@@ -234,6 +234,20 @@ local function build_api()
         local present, protection, shared = a.page(address)
         return present and not shared and (protection == PAGE_READWRITE or protection == PAGE_READONLY)
     end
+    -- The first page of an allocation. A page the system has taken out of the working set (the game has
+    -- not touched it for a while) says nothing through a.page; in game this hid whole chains of tables
+    -- ("waiting for their table" in a running mission, v0.12.0 and v0.14.0). For a large allocation the
+    -- region is asked instead: committed, private and readable is enough, reading brings the page back.
+    function a.readable_start(address, size)
+        local present, protection, shared = a.page(address)
+        if present then
+            return not shared and (protection == PAGE_READWRITE or protection == PAGE_READONLY)
+        end
+        if size < 65536 then return false end
+        local r = a.region(address)
+        return r ~= nil and r.state == 0x1000 and r.type == 0x20000
+            and (r.protection == PAGE_READWRITE or r.protection == PAGE_READONLY)
+    end
 
     a.buffer_size = FILE_CHUNK + 16
     a.buffer = ffi.new('uint8_t[?]', a.buffer_size)
@@ -631,7 +645,7 @@ local function find_tables()
         if not base then break end
         if allocated then
             search.allocations = search.allocations + 1
-            if A.readable_private(base) then
+            if A.readable_start(base, size) then
                 if A.u32(base) == LDLD and A.u32(base + 4) == 1 then
                     walk(base, 'allocation+0', found)
                 elseif A.u32(base + 4) == LDLD and A.u32(base + 8) == 1 then
@@ -1021,6 +1035,7 @@ end
 
 -- ---------------------------------------------------------------- config
 local config = { text = nil, enabled = true, reload_vk = 0x79, reload_key = 'F10', auto_reload = 0, probe = false,
+                 menu_vk = 0x78, menu_key = 'F9',
                  own_rows = true,
                  rescan = DEFAULT_RESCAN_SECONDS, requests = {}, problems = {} }
 local overrides = {}     -- 'category:item:stat' -> expression, set through the API (a future UI)
@@ -1280,6 +1295,7 @@ end
 local function build_desired(text)
     config.requests, config.problems = {}, {}
     config.enabled, config.reload_key, config.reload_vk = true, 'F10', 0x79
+    config.menu_key, config.menu_vk = 'F9', 0x78
     config.auto_reload, config.rescan, config.probe, config.own_rows = 0, DEFAULT_RESCAN_SECONDS, false, true
     config.census, config.canary, config.dump_globals, config.ui_probe = false, false, false, false
     local section, line_number = nil, 0
@@ -1309,6 +1325,10 @@ local function build_desired(text)
                         and tonumber(value:sub(2)) >= 1 and tonumber(value:sub(2)) <= 12 then
                         config.reload_key = value:upper()
                         config.reload_vk = 0x6F + tonumber(value:sub(2))
+                    elseif key == 'menu_key' and value:upper():match('^F%d%d?$')
+                        and tonumber(value:sub(2)) >= 1 and tonumber(value:sub(2)) <= 12 then
+                        config.menu_key = value:upper()
+                        config.menu_vk = 0x6F + tonumber(value:sub(2))
                     elseif key == 'auto_reload_seconds' and tonumber(value) and tonumber(value) >= 0 then
                         config.auto_reload = tonumber(value)
                     elseif key == 'rescan_seconds' and tonumber(value) and tonumber(value) >= 0 then
@@ -1830,6 +1850,10 @@ local function write_checked(address, field, value)
     local bits = encode(value, field.storage)
     if bits == nil then return false, 'value cannot be stored' end
     local present, protection, shared = A.page(address)
+    if not present then
+        A.u32(address)                   -- not in the working set: reading the value brings the page back
+        present, protection, shared = A.page(address)
+    end
     if not present or shared then return false, 'memory page is not present or not private' end
     local unlocked = false
     if protection == PAGE_READONLY then
@@ -2122,9 +2146,12 @@ local function build_status()
         for _, known in ipairs(BUILDS) do add('  ' .. known.label .. ' exe=' .. known.exe .. ' dll=' .. known.dll) end
     end
     add('')
-    add(string.format('[settings] enabled=%s reload_key=%s auto_reload_seconds=%s rescan_seconds=%s own_rows=%s',
-                      tostring(config.enabled), config.reload_key, tostring(config.auto_reload), tostring(config.rescan),
-                      config.own_rows and 'auto' or 'off'))
+    add(string.format('[settings] enabled=%s reload_key=%s menu_key=%s auto_reload_seconds=%s rescan_seconds=%s own_rows=%s',
+                      tostring(config.enabled), config.reload_key, config.menu_key, tostring(config.auto_reload),
+                      tostring(config.rescan), config.own_rows and 'auto' or 'off'))
+    local from_menu = 0
+    for _ in pairs(overrides) do from_menu = from_menu + 1 end
+    if from_menu > 0 then add('menu.txt: ' .. from_menu .. ' values set through the in-game menu (they win over config.txt)') end
     if config.probe or probe.state ~= 'off' then
         add('probe: ' .. probe.state .. (probe.note and (' (' .. probe.note .. ')') or '')
             .. (probe.bytes and string.format(', %.0f bytes swept', probe.bytes) or '')
@@ -3214,9 +3241,319 @@ local function request_reload()
     wake.reload, wake.at = true, 0
 end
 
+-- ---------------------------------------------------------------- in-game menu
+-- A panel in the middle of the screen, drawn with the engine's own immediate-mode Gui (confirmed in
+-- game by the drawing probe of v0.14.0). Keyboard only:
+--   menu key (F9)   open / close            Left / Right   category, or change the value
+--   Up / Down       move                    Tab            item list <-> value list
+--   PageUp / Down   move ten                Shift          ten times the step
+--   Delete          back to the game's value
+-- A change is an entry of `overrides` (the same path the API uses): it is applied by the engine like a
+-- config line, wins over config.txt for that value, and is kept in menu.txt.
+local MENU_FILE = 'menu.txt'
+local VK = { UP = 0x26, DOWN = 0x28, LEFT = 0x25, RIGHT = 0x27, TAB = 0x09, DELETE = 0x2E, PAGE_UP = 0x21,
+             PAGE_DOWN = 0x22, SHIFT = 0x10 }
+local MENU_CATEGORIES = { 'weapon', 'throwable', 'stratagem_weapon', 'stratagem', 'backpack', 'shield', 'vehicle' }
+local MENU_ROWS = 20
+local MENU_FONTS = { 'core/performance_hud/debug', 'core/editor_slave/gui/arial', 'gui/fonts/arial' }
+local menu = { open = false, state = 'closed', tab = 1, focus = 'items', item = {}, stat = {}, keys = {},
+               toggle_down = false, loaded = false }
+
+local function menu_key_of(item, stat) return item.category .. ':' .. item.name:lower() .. ':' .. stat end
+
+-- menu.txt: the config format, written by the menu only
+local function menu_load()
+    menu.loaded = true
+    local text = read_file(MENU_FILE)
+    local section = nil
+    for raw in ((text or '') .. '\n'):gmatch('([^\n]*)\n') do
+        local line = trim((raw:gsub('#.*$', ''):gsub('\r', '')))
+        local category, item = line:match('^%[%s*([%w_]+)%s*:%s*(.-)%s*%]$')
+        local key, value = line:match('^([^=]+)=(.*)$')
+        if category then
+            section = category:lower() .. ':' .. item:lower()
+        elseif key and section then
+            overrides[section .. ':' .. trim(key):lower()] = trim(value)
+        end
+    end
+end
+local function menu_save()
+    local keys = {}
+    for key in pairs(overrides) do keys[#keys + 1] = key end
+    table.sort(keys)
+    local L, last = { '# Written by the in-game menu. Values here win over config.txt. Delete the file to forget them.' }, nil
+    for _, key in ipairs(keys) do
+        local category, item, stat = key:match('^([^:]+):([^:]+):(.+)$')
+        if category then
+            if last ~= category .. ':' .. item then
+                last = category .. ':' .. item
+                L[#L + 1] = ''
+                L[#L + 1] = '[' .. category .. ': ' .. item .. ']'
+            end
+            L[#L + 1] = stat .. ' = ' .. overrides[key]
+        end
+    end
+    write_file(MENU_FILE, table.concat(L, '\r\n') .. '\r\n')
+end
+
+local function menu_lists()
+    if menu.lists then return menu.lists end
+    if ITEMS[0] == nil then return nil end                -- the built-in data is still being read
+    local lists = {}
+    for _, category in ipairs(MENU_CATEGORIES) do lists[category] = {} end
+    for index = 0, #ITEMS do
+        local item = ITEMS[index]
+        if item and lists[item.category] and #item.stat_order > 0 then
+            lists[item.category][#lists[item.category] + 1] = item
+        end
+    end
+    for _, list in pairs(lists) do table.sort(list, function(x, y) return x.name < y.name end) end
+    menu.lists = lists
+    return lists
+end
+
+-- the value shown for a stat: the menu's own, else the game's. -> value, changed?
+local function menu_value(item, stat)
+    local expression = overrides[menu_key_of(item, stat)]
+    return tonumber(expression) or item.stats[stat].field.stock, expression ~= nil
+end
+
+local function menu_change(item, stat, direction, big, now)
+    local entry, range = item.stats[stat], RANGES[stat]
+    if not range then return end
+    local whole = range.integer or entry.field.storage ~= 'f32'
+    local size = math.abs(entry.field.stock)
+    local step = whole and 1 or (size >= 100 and 10 or (size >= 10 and 1 or 0.1))
+    if big then step = step * 10 end
+    local value = menu_value(item, stat) + direction * step
+    if not whole then value = math.floor(value * 1000 + 0.5) / 1000 end
+    if value < range.min then value = range.min end
+    if value > range.max then value = range.max end
+    if same_value(entry.field.storage, value, entry.field.stock) then
+        overrides[menu_key_of(item, stat)] = nil
+    else
+        overrides[menu_key_of(item, stat)] = whole and string.format('%.0f', value) or tostring(value)
+    end
+    menu.dirty_at = now
+end
+
+-- true when the key was just pressed, and again while it is held
+local function menu_pressed(name, now)
+    local k = menu.keys[name]
+    if not A.key_down(VK[name]) then
+        menu.keys[name] = nil
+        return false
+    end
+    if not k then
+        menu.keys[name] = { since = now, last = now }
+        return true
+    end
+    if now - k.since > 0.35 and now - k.last > 0.05 then
+        k.last = now
+        return true
+    end
+    return false
+end
+
+local function menu_start()
+    local S = rawget(_G, 'stingray')
+    if type(S) ~= 'table' or type(S.Application) ~= 'table' or type(S.World) ~= 'table' or type(S.Gui) ~= 'table' then
+        return nil, 'the engine has no Gui here'
+    end
+    local ok, world = pcall(S.Application.main_world)
+    if not ok or world == nil then return nil, 'no world to draw in' end
+    local made, gui = pcall(S.World.create_screen_gui, world, 'immediate')
+    if not made or gui == nil then return nil, 'the screen gui could not be created: ' .. tostring(gui) end
+    menu.S, menu.world, menu.gui = S, world, gui
+    if not menu.font then
+        for _, font in ipairs(MENU_FONTS) do
+            if not menu.font and pcall(function()
+                S.Gui.text(gui, ' ', font, 16, font, S.Vector2(0, 0), S.Color(0, 0, 0, 0))
+            end) then menu.font = font end
+        end
+    end
+    if not menu.font then return nil, 'no font could be used' end
+    return true
+end
+
+local function menu_close(now)
+    menu.open, menu.state = false, 'closed'
+    if menu.S and menu.gui then pcall(menu.S.World.destroy_gui, menu.world, menu.gui) end
+    menu.gui, menu.world = nil, nil
+    if menu.dirty_at then
+        menu.dirty_at = nil
+        request_reload()
+    end
+    pcall(menu_save)
+end
+
+local function menu_input(now)
+    local lists = menu_lists()
+    if not lists or not A.game_in_front() then return end
+    local category = MENU_CATEGORIES[menu.tab]
+    local list = lists[category]
+    local selected = math.min(menu.item[category] or 1, math.max(#list, 1))
+    local item = list[selected]
+    local big = A.key_down(VK.SHIFT)
+    local function move(by)
+        if menu.focus == 'items' then
+            menu.item[category] = math.max(1, math.min(#list, selected + by))
+        elseif item then
+            local at = menu.stat[item] or 1
+            menu.stat[item] = math.max(1, math.min(#item.stat_order, at + by))
+        end
+    end
+    if menu_pressed('TAB', now) then menu.focus = menu.focus == 'items' and 'stats' or 'items' end
+    if menu_pressed('UP', now) then move(-1) end
+    if menu_pressed('DOWN', now) then move(1) end
+    if menu_pressed('PAGE_UP', now) then move(-10) end
+    if menu_pressed('PAGE_DOWN', now) then move(10) end
+    local side = (menu_pressed('RIGHT', now) and 1 or 0) - (menu_pressed('LEFT', now) and 1 or 0)
+    if side ~= 0 then
+        if menu.focus == 'items' then
+            menu.tab = (menu.tab - 1 + side) % #MENU_CATEGORIES + 1
+        elseif item then
+            menu_change(item, item.stat_order[menu.stat[item] or 1], side, big, now)
+        end
+    end
+    if menu_pressed('DELETE', now) and menu.focus == 'stats' and item then
+        overrides[menu_key_of(item, item.stat_order[menu.stat[item] or 1])] = nil
+        menu.dirty_at = now
+    end
+    -- a change is handed to the engine when the keys have been quiet for a moment
+    if menu.dirty_at and now - menu.dirty_at > 0.3 then
+        menu.dirty_at = nil
+        request_reload()
+        pcall(menu_save)
+    end
+end
+
+local function menu_draw()
+    local S, gui = menu.S, menu.gui
+    local width, height = 1920, 1080
+    local ok, w, h = pcall(S.Gui.resolution, gui)
+    if ok and type(w) == 'number' and type(h) == 'number' and w > 0 and h > 0 then width, height = w, h end
+    local scale = height / 1080
+    local PANEL_W, PANEL_H = 1180, 664
+    local left, bottom = (width - PANEL_W * scale) / 2, (height - PANEL_H * scale) / 2
+    -- panel coordinates: x from the left edge, y from the TOP edge of the panel (the Gui's origin is bottom left)
+    local function rect(x, y, w_, h_, a, r, g, b)
+        S.Gui.rect(gui, S.Vector2(left + x * scale, bottom + (PANEL_H - y - h_) * scale), S.Vector2(w_ * scale, h_ * scale),
+                   S.Color(a, r, g, b))
+    end
+    local function text(str, x, y, size, a, r, g, b)
+        S.Gui.text(gui, str, menu.font, size * scale, menu.font,
+                   S.Vector2(left + x * scale, bottom + (PANEL_H - y - size) * scale), S.Color(a, r, g, b))
+    end
+    rect(0, 0, PANEL_W, PANEL_H, 235, 14, 16, 20)
+    rect(0, 0, PANEL_W, 4, 255, 255, 220, 0)
+    text('BALANCE YOUR OWN GAME   v' .. MOD.version, 20, 16, 24, 255, 255, 220, 0)
+    text(config.menu_key .. ' close    Tab switch list    Arrows move / change    Shift x10    Del reset', 560, 22, 15,
+         255, 150, 150, 150)
+    local lists = menu_lists()
+    if not lists then
+        text('reading the built-in data ...', 20, 80, 18, 255, 220, 220, 220)
+        return
+    end
+    -- categories
+    local x = 20
+    for n, category in ipairs(MENU_CATEGORIES) do
+        local label = category .. ' ' .. #lists[category]
+        local w_ = 18 + #label * 9
+        if n == menu.tab then rect(x, 56, w_, 26, 255, 255, 220, 0) end
+        text(label, x + 9, 61, 15, 255, n == menu.tab and 0 or 200, n == menu.tab and 0 or 200, n == menu.tab and 0 or 200)
+        x = x + w_ + 6
+    end
+    local category = MENU_CATEGORIES[menu.tab]
+    local list = lists[category]
+    local selected = math.min(menu.item[category] or 1, math.max(#list, 1))
+    local item = list[selected]
+    -- items
+    local first = math.max(1, math.min(selected - 9, #list - MENU_ROWS + 1))
+    for row = 0, MENU_ROWS - 1 do
+        local entry = list[first + row]
+        if entry then
+            local y = 96 + row * 26
+            if first + row == selected then
+                rect(16, y, 400, 24, 255, menu.focus == 'items' and 255 or 70, menu.focus == 'items' and 220 or 70,
+                     menu.focus == 'items' and 0 or 60)
+            end
+            local dark = first + row == selected and menu.focus == 'items'
+            text(entry.name:sub(1, 40), 24, y + 4, 15, 255, dark and 0 or 220, dark and 0 or 220, dark and 0 or 220)
+        end
+    end
+    text(string.format('%d of %d', #list > 0 and selected or 0, #list), 24, 96 + MENU_ROWS * 26 + 4, 14, 255, 130, 130, 130)
+    -- values of the selected item
+    if item then
+        text('value', 780, 96 - 20, 13, 255, 130, 130, 130)
+        text('game', 960, 96 - 20, 13, 255, 130, 130, 130)
+        local at = math.min(menu.stat[item] or 1, #item.stat_order)
+        local top = math.max(1, math.min(at - 9, #item.stat_order - MENU_ROWS + 1))
+        for row = 0, MENU_ROWS - 1 do
+            local stat = item.stat_order[top + row]
+            if stat then
+                local y = 96 + row * 26
+                local value, changed = menu_value(item, stat)
+                local field = item.stats[stat].field
+                local focused = top + row == at and menu.focus == 'stats'
+                if top + row == at then
+                    rect(436, y, 728, 24, 255, focused and 255 or 70, focused and 220 or 70, focused and 0 or 60)
+                end
+                local c = focused and 0 or 220
+                text(stat:sub(1, 36), 444, y + 4, 15, 255, c, c, c)
+                if changed and not focused then
+                    text(show(value, field.storage), 780, y + 4, 15, 255, 255, 220, 0)
+                else
+                    text(show(value, field.storage), 780, y + 4, 15, 255, c, c, c)
+                end
+                text(show(field.stock, field.storage), 960, y + 4, 15, 255, focused and 0 or 130, focused and 0 or 130,
+                     focused and 0 or 130)
+                if not RANGES[stat] then text('fixed', 1090, y + 4, 13, 255, 130, 130, 130) end
+            end
+        end
+        text(string.format('%d of %d', at, #item.stat_order), 444, 96 + MENU_ROWS * 26 + 4, 14, 255, 130, 130, 130)
+    end
+    text(tostring(state.verdict or ''):sub(1, 120), 20, PANEL_H - 26, 14, 255, 150, 150, 150)
+end
+
+-- once per frame
+local function menu_tick()
+    if not menu.loaded then pcall(menu_load) end
+    local down = A.key_down(config.menu_vk)
+    local toggled = down and not menu.toggle_down
+    menu.toggle_down = down
+    if toggled and not A.game_in_front() then toggled = false end
+    local now = A.now()
+    if toggled then
+        if menu.open then
+            menu_close(now)
+        else
+            local ok, started, why = pcall(menu_start)
+            if ok and started then
+                menu.open, menu.state = true, 'open'
+            else
+                menu.state = 'failed: ' .. tostring(why or started)
+                log('menu: ' .. menu.state)
+            end
+        end
+    end
+    if not menu.open then return end
+    local ok, why = pcall(function()
+        menu_input(now)
+        menu_draw()
+    end)
+    if not ok then
+        log('menu: closed after an error: ' .. tostring(why))
+        menu_close(now)
+        menu.state = 'failed: ' .. tostring(why)
+    end
+end
+
+
 local function tick()
     state.frame = state.frame + 1
     if state.frame < START_FRAME then return end
+    menu_tick()
     if ui.state == 'drawing' then
         ui_frame()                       -- an immediate-mode gui is drawn again every frame
         if ui.dirty then

@@ -16,6 +16,16 @@ magazine = +15            # the game's value plus 15
 recoil_v = -20            # the game's value minus 20
 ```
 
+## The in-game menu (v0.15.0, not yet tested in game)
+
+`[settings] menu_key = F9` (F1..F12) opens a panel in the middle of the screen: categories, items, and the
+values of the selected item. Up / Down and PageUp / PageDown move, Tab switches between the item list and
+the value list, Left / Right changes the category or the value (Shift: ten times the step), Delete puts a
+value back to the game's own. A change is applied by the engine like a config line. The menu's values
+are kept in `menu.txt` next to config.txt, are read again at the next start, and **win over config.txt**
+for the same value. Deleting menu.txt forgets them. The menu shows the internal item names; the game's
+display names are still to come. While the menu is open the game still receives the keys.
+
 ## Sections
 
 `[<category>: <item>]`. Categories: `weapon`, `throwable`, and since v0.10.0 (works in game: cooldown,
@@ -37,7 +47,8 @@ shells of orbital and Eagle strikes get rows of their own in the same way.
 
 In game (v0.13.0): an orbital shell's blast radius, `blast_from` and the status slots work. The sentry's
 gun did not change: it takes its rounds from the belt pattern of its magazine, which v0.14.0 switches
-as well (not yet tested in game). The same holds for the MG-43 and the other belt-fed weapons. A stratagem value changed
+as well (in game: the machine gun sentry then one-shots; the MG-43 in the same test stayed unchanged
+because the engine had lost sight of the tables, fixed in v0.15.0). A stratagem value changed
 during a mission takes effect after the stratagem's next use (seen in game).
 
 **Vehicle parts.** A vehicle's parts (legs, cockpit, doors, tracks...) have their own health and armor.
