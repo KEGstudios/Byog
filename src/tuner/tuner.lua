@@ -1589,6 +1589,17 @@ local function build_desired(text)
             end
         end
     end
+    -- More ammunition than a resupply can fill. Seen in game (v1.0.0, minigun): with 1500 rounds the weapon
+    -- starts a mission with 1500, but a resupply only fills up to 1023 (the largest 10-bit number), so the
+    -- limit is in the game's resupply, not in the value. Said on the line, the value is written as asked.
+    local RESUPPLY_LIMIT = 1023
+    for _, w in pairs(wanted) do
+        local amount = tonumber(w.target.text)
+        if (w.target.stat == 'charges' or w.target.stat == 'rounds_max') and amount and amount > RESUPPLY_LIMIT then
+            w.request.warning = string.format('%s %d is above %d: the game starts with %d, but a resupply fills up to '
+                .. '%d at most', w.target.stat, amount, RESUPPLY_LIMIT, amount, RESUPPLY_LIMIT)
+        end
+    end
     -- A vehicle part that outlasts the vehicle: damage to a part also goes to the main health (to_main),
     -- so a part whose health is above what the main health can pay for never breaks (seen in game,
     -- v0.11.0: a leg with 100000 health, the exosuit was destroyed first). Said on the line, not "fixed".
@@ -2561,6 +2572,17 @@ local function menu_rows(item)
     return rows, stats
 end
 
+-- what the engine has to say about the selected value (the WARNING of its line), or nil
+local function menu_warning(item, stat)
+    for _, request in ipairs(config.requests) do
+        if request.warning and request.stat == stat and request.category == item.category
+            and request.item:lower() == item.name:lower() then
+            return request.warning
+        end
+    end
+    return nil
+end
+
 -- the value shown for a stat: the menu's own, else the game's. -> value, changed?
 local function menu_value(item, stat)
     local expression = overrides[menu_key_of(item, stat)]
@@ -2597,7 +2619,10 @@ local function menu_current(lists)
         local found = { filter = menu.filter }
         for _, category in ipairs(MENU_CATEGORIES) do
             for _, item in ipairs(lists[category]) do
-                if (item.display or ''):lower():find(menu.filter, 1, true) or item.name:lower():find(menu.filter, 1, true) then
+                -- an internal name has '_' where one types a space: "minigun b" finds minigun_backpack
+                local internal = (item.name:lower():gsub('_', ' '))
+                if (item.display or ''):lower():find(menu.filter, 1, true) or internal:find(menu.filter, 1, true)
+                    or item.name:lower():find(menu.filter, 1, true) then
                     found[#found + 1] = item
                 end
             end
@@ -2850,6 +2875,8 @@ local function menu_draw()
             end
         end
         text(string.format('%d of %d', at, #stats), 444, 96 + MENU_ROWS * 26 + 4, 14, 255, 210, 210, 210)
+        local warning = stats[at] and menu_warning(item, stats[at])
+        if warning then text('! ' .. warning:sub(1, 150), 20, PANEL_H - 46, 14, 255, 255, 214, 0) end
     end
     text(tostring(state.verdict or ''):sub(1, 120), 20, PANEL_H - 26, 14, 255, 210, 210, 210)
     if not menu_trail.drawn then

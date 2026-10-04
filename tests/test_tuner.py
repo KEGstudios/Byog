@@ -1449,6 +1449,31 @@ def check_menu_search_finds_items_of_every_category(mutate=None):
         rig.close()
 
 
+def check_more_ammunition_than_a_resupply_fills_is_said(mutate=None):
+    # seen in game: the minigun started with 1500 rounds, a resupply filled it to 1023 only
+    rig = Rig("[backpack: minigun_backpack]\ncharges = 150%\ncharges_start = 150%\n"
+              "[backpack: recoilless_rifle_backpack]\ncharges = 150%\n", mutate)
+    try:
+        status = rig.settle()
+        assert first_line(status) == "OK - 3 values applied", status[:900]
+        pack = rig.keyed_field("DepositComponentData", entity("backpacks/minigun_backpack/minigun_backpack"), 0)
+        assert rig.mem.peek(pack, "<I") == 1500 and rig.mem.peek(pack + 4, "<i") == 1500      # written as asked
+        assert status.count("WARNING") == 1, status[:1500]
+        assert ("WARNING: charges 1500 is above 1023: the game starts with 1500, but a resupply fills up to 1023 at most"
+                in status)
+        # and the menu says it where the value is
+        rig.game.lua.execute(FAKE_ENGINE)
+        rig.game.press(F9)
+        for key in b"MINIGUN B":                                       # a space where the internal name has '_'
+            rig.game.press(key)
+        rig.game.press(TAB)
+        drawn(rig)
+        rig.game.frames(2)
+        assert "! charges 1500 is above 1023" in drawn(rig)[0]
+    finally:
+        rig.close()
+
+
 def check_sentry_lifetime(mutate=None):
     rig = Rig("[stratagem_weapon: turret_machinegun_gpmg]\nlifetime_seconds = 600\nsight_range = 150\n"
               "[stratagem_weapon: mortar_turret]\nproximity_range = 50%\n"
@@ -1680,9 +1705,17 @@ MUTATIONS = [
      "    if true then\n        local category = MENU_CATEGORIES[menu.tab]",
      check_menu_search_finds_items_of_every_category),
     ("menu: search looks at the internal names only",
-     "if (item.display or ''):lower():find(menu.filter, 1, true) or item.name:lower():find(menu.filter, 1, true) then",
-     "if item.name:lower():find(menu.filter, 1, true) then",
+     "                if (item.display or ''):lower():find(menu.filter, 1, true) or internal:find(menu.filter, 1, true)\n",
+     "                if internal:find(menu.filter, 1, true)\n",
      check_menu_search_finds_items_of_every_category),
+    ("more ammunition than a resupply fills is not reported",
+     "    local RESUPPLY_LIMIT = 1023\n",
+     "    local RESUPPLY_LIMIT = 99999\n",
+     check_more_ammunition_than_a_resupply_fills_is_said),
+    ("menu: the warning of the selected value is not shown",
+     "        if warning then text('! ' .. warning:sub(1, 150)",
+     "        if false then text('! ' .. warning:sub(1, 150)",
+     check_more_ammunition_than_a_resupply_fills_is_said),
     ("menu: the values of an item are not grouped",
      "        if x.rank ~= y.rank then return x.rank < y.rank end\n        if x.first ~= y.first",
      "        if x.first ~= y.first",

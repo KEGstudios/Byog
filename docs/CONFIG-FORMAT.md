@@ -154,6 +154,10 @@ is **rejected** (never clamped) and reported in STATUS.txt with the range.
   listed under "also affects". Known limit: a weapon on which the player has fitted that magazine as a
   non-default choice reads its own record, which the mod has not filled. `own_rows = off` keeps the
   v0.7.0 behaviour.
+* **More than 1023 rounds** (reported by a player of v1.0.0, minigun set to 1500): the weapon starts a
+  mission with the full amount, but a resupply only fills it up to 1023. The limit is in the game's
+  resupply, not in the value, so the mod cannot lift it. Since v1.0.1 STATUS.txt and the menu put a
+  WARNING on `charges` and `rounds_max` above 1023; the value is still written as asked.
 * `mags_start` above `mags_max` is capped by the game (seen in game: 10 with a maximum of 8 started
   with 8). STATUS.txt puts a WARNING on the line; the mod does not raise the maximum by itself.
 * **Explosions of an item's own (v0.9.0, works in game).** With `own_rows = auto` a `blast_*`

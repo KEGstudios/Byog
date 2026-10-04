@@ -6,7 +6,7 @@ A Helldivers 2 mod that lets you change the numbers of the game from inside the 
 penetration, fire rate, recoil, magazines, explosions, stratagem cooldowns, sentry lifetime, backpack
 charges, shield and vehicle health, and more. Every value is set on its own, for one item at a time.
 
-Download: [`dist/BYOG-v1.0.0.zip`](dist/BYOG-v1.0.0.zip)
+Download: [`dist/BYOG-v1.0.1.zip`](dist/BYOG-v1.0.1.zip)
 
 ## What you need
 
@@ -16,7 +16,7 @@ Download: [`dist/BYOG-v1.0.0.zip`](dist/BYOG-v1.0.0.zip)
 
 ## Install
 
-1. Add `BYOG-v1.0.0.zip` to your mod manager, enable it, deploy.
+1. Add `BYOG-v1.0.1.zip` to your mod manager, enable it, deploy.
 2. Start the game. Press **F9**.
 
 To remove it: disable the mod in the manager. Your settings stay in `%LOCALAPPDATA%\BYOG`; delete that
@@ -72,6 +72,8 @@ line of your config is listed with its result.
   refuses until a new version is released.
 * **Keys.** While the menu is open the game still receives the keys you press. Typing a search moves
   your character; use the menu on the ship or when it is safe.
+* **More than 1023 rounds.** A weapon can start with more, but the game's resupply fills up to 1023 at
+  most. The menu says so when you go above it.
 * **Names.** Items the mod knows the game's name of are shown by that name, the others by the game's
   internal name. The list is in [`tools/display_names.txt`](tools/display_names.txt); corrections are
   welcome.
