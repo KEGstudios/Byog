@@ -578,6 +578,22 @@ def main():
             if not any(s.get("id") == "lifetime_seconds" for s in it["stats"]):
                 stat(it["stats"], "lifetime_seconds", "HellpodPayloadComponentData", it["entity"],
                      "HellpodPayloadComponent", "life_time", rec)
+    # How far a sentry sees. The type library has no names for the members of these two components, so
+    # this rests on the values alone: the first float of SensorEyeComponent is 75 for the machine gun and
+    # Gatling sentries, 100 for the rocket and autocannon sentries, 125 for the mortar sentries, 25 for
+    # the Tesla tower; SensorProximityComponent (mortar sentries only) holds the same 125.
+    # NOT confirmed by a name source: to be checked in game (docs/STAT-MAP.md 4.9).
+    eye, near = hd2db.table("SensorEyeComponentData"), hd2db.table("SensorProximityComponentData")
+    for it in items:
+        if it["category"] != "stratagem_weapon":
+            continue
+        for sid, t, record in (("sight_range", eye, "SensorEyeComponent"),
+                               ("proximity_range", near, "SensorProximityComponent")):
+            rec = t.record(int(it["entity"], 16))
+            if rec is not None and not any(s.get("id") == sid for s in it["stats"]):
+                it["stats"].append({"id": sid, "table": record + "Data", "key": it["entity"], "record": record,
+                                    "field": "+0", "offset": 0, "storage": "FP32",
+                                    "original": round(struct.unpack_from("<f", rec, 0)[0], 6)})
     items += live_stratagems()
     unnamed = sorted("%016X" % e for e in T.weapon.index if hashnames.name(e) is None)
     cat = {"snapshot": {"source": "FileDiver datalibrary mirror", "projectile_rows": T.projectile.count,

@@ -2498,7 +2498,7 @@ for rank, group in ipairs({
               .. 'charges_refill start_amount max_amount refill_amount' },
     { 'HANDLING', 'recoil_drift_h recoil_drift_v recoil_climb_h recoil_climb_v spread_h spread_v sway ergonomics' },
     { 'THROW', 'throw_distance_max arming_delay fuse' },
-    { 'STRATAGEM', 'cooldown uses lifetime_seconds' },
+    { 'STRATAGEM', 'cooldown uses lifetime_seconds sight_range proximity_range' },
     { 'SHIELD', 'shield_health shield_radius shield_recharge_delay shield_broken_delay shield_recharge_rate' },
     { 'VEHICLE', 'health armor durable_resistance explosion_damage_multiplier constitution constitution_rate' },
 }) do

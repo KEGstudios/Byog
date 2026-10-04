@@ -43,7 +43,7 @@ a vehicle's health shows on the next weapon or vehicle, a stratagem's cooldown a
 |---|---|---|
 | `weapon` | 114 primary, secondary, support and melee weapons | damage, durable damage, armor penetration per angle, demolition, stagger, push, fire rate, projectile speed / drag / gravity, pellets, blast radius and blast damage, magazine size and counts, recoil, spread, sway, ergonomics, heat, status effects |
 | `throwable` | 31 grenades and mines | amounts, fuse, throw distance, blast radius and damage |
-| `stratagem_weapon` | 53: sentry, emplacement, drone, exosuit and Eagle guns; orbital and Eagle shells | the same values as a weapon; lifetime of sentries |
+| `stratagem_weapon` | 53: sentry, emplacement, drone, exosuit and Eagle guns; orbital and Eagle shells | the same values as a weapon; lifetime and sight range of sentries |
 | `stratagem` | 149 | cooldown, uses |
 | `backpack` | 18 | charges, starting charges, refill |
 | `shield` | 4 | health, radius, recharge delay and rate, lifetime of the relay |

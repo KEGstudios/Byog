@@ -23,6 +23,9 @@ bu haliyle oyunda hiç çalıştırılmadı. Nexus'a yüklemeden önce bir kez d
 4. `sentry` yazarak ara, **Machine Gun Sentry (gun)** → `lifetime_seconds` = 30: taret ~30 saniyede
    yok oluyor mu?
 5. **MG-43 Machine Gun** → `damage` = 5: neredeyse hasarsız mı?
+5b. **Taret menzili (doğrulanmadı, bu kontrol önemli):** **Machine Gun Sentry (gun)** → `sight_range` = 10
+   (normali 75). Taret artık yalnızca çok yakındaki (~10 m) düşmanlara mı ateş ediyor? Değişmiyorsa bu
+   değer menzil değil demektir; söyle, yayından önce çıkarayım.
 6. Oyunu kapat-aç: ayarlar duruyor mu? (`%LOCALAPPDATA%\BYOG\menu.txt`)
 7. `%LOCALAPPDATA%\BYOG\STATUS.txt` ilk satırı `OK - ...` mi?
 
@@ -34,6 +37,7 @@ bu haliyle oyunda hiç çalıştırılmadı. Nexus'a yüklemeden önce bir kez d
 | 3: Değişiklik oyunda etkili | |
 | 4: Taret ~30 sn'de yok oldu | |
 | 5: MG-43 neredeyse hasarsız | |
+| 5b: `sight_range = 10` ile taret sadece yakına ateş ediyor | |
 | 6: Yeniden açınca ayarlar duruyor | |
 | 7: STATUS `OK` | |
 | Tuhaflık / çökme? | |

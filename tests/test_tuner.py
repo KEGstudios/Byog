@@ -1450,7 +1450,8 @@ def check_menu_search_finds_items_of_every_category(mutate=None):
 
 
 def check_sentry_lifetime(mutate=None):
-    rig = Rig("[stratagem_weapon: turret_machinegun_gpmg]\nlifetime_seconds = 600\n"
+    rig = Rig("[stratagem_weapon: turret_machinegun_gpmg]\nlifetime_seconds = 600\nsight_range = 150\n"
+              "[stratagem_weapon: mortar_turret]\nproximity_range = 50%\n"
               "[shield: energy_shield]\nlifetime_seconds = 200%\n", mutate)
     try:
         sentry = rig.keyed_field("HellpodPayloadComponentData", SENTRY_GUN, 4)
@@ -1458,9 +1459,13 @@ def check_sentry_lifetime(mutate=None):
                                 murmur64a(b"content/fac_helldivers/hellpod/energy_shield/energy_shield"), 4)
         assert rig.mem.peek(sentry, "<f") == 150.0 and rig.mem.peek(relay, "<f") == 40.0
         status = rig.settle()
-        assert first_line(status) == "OK - 2 values applied", status[:900]
+        assert first_line(status) == "OK - 4 values applied", status[:900]
         assert rig.mem.peek(sentry, "<f") == 600.0 and rig.mem.peek(relay, "<f") == 80.0
-        assert sorted(a for a, _d in rig.mem.writes) == sorted([sentry, relay])
+        sight = rig.keyed_field("SensorEyeComponentData", SENTRY_GUN, 0)
+        mortar = rig.keyed_field("SensorProximityComponentData",
+                                 murmur64a(b"content/fac_helldivers/hellpod/mortar_turret/mortar_turret"), 0)
+        assert rig.mem.peek(sight, "<f") == 150.0 and rig.mem.peek(mortar, "<f") == 62.5       # 75 and 125 in the game
+        assert sorted(a for a, _d in rig.mem.writes) == sorted([sentry, relay, sight, mortar])
     finally:
         rig.close()
 

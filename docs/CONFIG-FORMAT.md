@@ -49,6 +49,11 @@ uses, backpack charges, shield health, vehicle health; the stats added in v0.11.
 relay: how long the deployed thing stays before it removes itself (sentries 150, mortar sentries 180,
 shield relay 40; 0 = stays).
 
+`sight_range` (v1.0.0, **not confirmed in game**), on sentry guns and the Tesla tower: how far the
+sentry sees a target (machine gun and Gatling 75, rocket and autocannon 100, mortar 125, Tesla tower 25).
+Mortar sentries also have `proximity_range` (125). The game's data has no names for these two values;
+they were recognised by their numbers.
+
 Each of the first four is one record per item: nothing is shared, nothing else changes. A stratagem's gun
 is treated like a hand weapon: when a projectile or damage stat is set it gets rows of its own, so the
 sentry's machine gun and the MG-43 in a diver's hands, which fire the same round, can differ. Since v0.14.0 the

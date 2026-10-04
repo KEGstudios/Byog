@@ -374,6 +374,14 @@ Lifetime of deployed stratagems: `HellpodPayloadComponentData` (keyed by the dep
 sentries 180, Tesla tower 150, shield generator relay 40, HMG emplacement 0. Tuner v0.16.0:
 `lifetime_seconds`; not yet tested in game.
 
+Range of sentries (tuner v1.0.0, **inferred, not confirmed**): `SensorEyeComponentData` +0, f32, and for
+mortar sentries `SensorProximityComponentData` +0, f32. Neither component has member names in the type
+library or in the other name source; the reading rests on the values alone (machine gun and Gatling 75,
+rocket and autocannon 100, mortar 125 in both components, Tesla tower 25, gunship turret 200). Other
+candidates seen in the same records: `TurretComponent` +8 / +12 (50 / 80 for the machine gun sentry,
+55 / 55 mortar, 40 / 40 rocket, 20 / 20 autocannon) and `TargetingComponent` +0 (25; mortar 0.1, rocket 5).
+A test in game has to say whether `sight_range` is the engagement range.
+
 ### 4.10 Energy shields — `ShieldComponentData` (0x5154DB66), keyed, `ShieldComponent` (344 B)
 
 16 records offline: Shield Generator Pack (charge 150), directional shield (1000), Shield Generator Relay
