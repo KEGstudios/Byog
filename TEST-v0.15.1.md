@@ -1,4 +1,8 @@
-# TEST v0.15.0 — oyun içi menü (ilk sürüm) + MG-43 düzeltmesi
+# TEST v0.15.1 — oyun içi menü (ilk sürüm) + MG-43 düzeltmesi
+
+v0.15.0'da F9 oyunu kapatmıştı ve eski deneme ayarı yüzünden köşede BYOG yazısı kalmıştı. İkisi de
+düzeltildi: deneme çizimi tamamen kaldırıldı, menü de artık oyunu kapatan çağrıyı yapmıyor. Yine de
+F9 oyunu kapatırsa `tuner.log` dosyasının son satırları nerede kaldığını söyleyecek; **mutlaka gönder**.
 
 Bu sürümde:
 
@@ -14,12 +18,12 @@ Bu sürümde:
 > Oyun kapanırsa ya da donarsa: ne yaparken olduğunu yaz, `STATUS.txt` ve `tuner.log` dosyalarını
 > yine gönder.
 
-Dosya: `dist/HD2-Stat-Tuner-v0.15.0.zip`
+Dosya: `dist/HD2-Stat-Tuner-v0.15.1.zip`
 
 ## Kurulum
 
 1. Arsenal'da eski **HD2 Stat Tuner**'ı sil.
-2. `HD2-Stat-Tuner-v0.15.0.zip` dosyasını Arsenal'a ekle, etkinleştir, **Deploy** et.
+2. `HD2-Stat-Tuner-v0.15.1.zip` dosyasını Arsenal'a ekle, etkinleştir, **Deploy** et.
 3. `%LOCALAPPDATA%\HD2StatTuner\config.txt` içini **tamamen boşalt** ve kaydet (bu testte her şeyi
    menüden yapacağız).
 

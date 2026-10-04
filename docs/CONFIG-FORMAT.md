@@ -16,7 +16,7 @@ magazine = +15            # the game's value plus 15
 recoil_v = -20            # the game's value minus 20
 ```
 
-## The in-game menu (v0.15.0, not yet tested in game)
+## The in-game menu (v0.15.1, not yet working in game: v0.15.0 closed the game on F9)
 
 `[settings] menu_key = F9` (F1..F12) opens a panel in the middle of the screen: categories, items, and the
 values of the selected item. Up / Down and PageUp / PageDown move, Tab switches between the item list and
@@ -83,9 +83,8 @@ types are numbers of `docs/STATUS-EFFECTS.md` (5 = Fire, 42 = Gas, 37 = Stun Sma
 **`[settings] dump_globals = true`** (research, read-only): writes the names of the game's Lua globals
 to `GLOBALS.txt`, for building the in-game menu.
 
-**`[settings] ui_probe = true`** or `text` (research, v0.14.0): tries to draw a yellow rectangle (and the
-word BYOG) in the top left corner through the engine's own Gui, and writes every step to `UIPROBE.txt`.
-May close the game: a first attempt at something no data confirms.
+`[settings] ui_probe` (research, v0.14.0 only) drew a test rectangle; it showed that an addon can draw.
+The setting is still accepted and does nothing since v0.15.1.
 
 A stratagem's call-in time is not offered: the field the data calls `spawn_time` changed nothing in game.
 

@@ -3032,82 +3032,6 @@ local function dump_globals()
     log('globals written: ' .. #names .. ' names')
 end
 
--- ---------------------------------------------------------------- drawing probe (research)
--- Question for the in-game menu: can an addon draw on the screen? The game's Lua has stingray.Gui,
--- stingray.World, stingray.Application (GLOBALS.txt, v0.13.0). With [settings] ui_probe = true the
--- addon tries, once, to create a screen gui in the main world and then draws one yellow rectangle in
--- the top left corner every frame. Every step is checked for existence and wrapped in pcall, and its
--- result is written to UIPROBE.txt. `ui_probe = text` also tries to draw a line of text.
-local ui = { state = 'off', log = {}, frames = 0 }
-local function ui_note(text)
-    ui.log[#ui.log + 1] = text
-    ui.dirty = true
-    log('ui probe: ' .. text)
-end
-local function ui_start()
-    ui.state = 'failed'
-    local S = rawget(_G, 'stingray')
-    if type(S) ~= 'table' then return ui_note('no stingray table') end
-    for _, name in ipairs({ 'Application', 'World', 'Gui', 'Vector2', 'Vector3', 'Color', 'Window' }) do
-        ui_note(name .. ': ' .. type(S[name]))
-    end
-    local A_, W_, G_ = S.Application, S.World, S.Gui
-    if type(A_) ~= 'table' or type(W_) ~= 'table' or type(G_) ~= 'table' then return ui_note('Application / World / Gui missing') end
-    local world = nil
-    for _, getter in ipairs({ 'main_world', 'flow_callback_context_world' }) do
-        if not world and type(A_[getter]) == 'function' then
-            local ok, result = pcall(A_[getter])
-            ui_note('Application.' .. getter .. '() -> ' .. tostring(ok) .. ' ' .. type(result))
-            if ok and result ~= nil then world = result end
-        end
-    end
-    if not world and type(A_.worlds) == 'function' then
-        local ok, result = pcall(A_.worlds)
-        ui_note('Application.worlds() -> ' .. tostring(ok) .. ' ' .. type(result))
-        if ok and type(result) == 'table' then world = result[1] end
-    end
-    if world == nil then return ui_note('no world found') end
-    if type(W_.create_screen_gui) ~= 'function' then return ui_note('World.create_screen_gui missing') end
-    local ok, gui = pcall(W_.create_screen_gui, world, 'immediate')
-    ui_note('World.create_screen_gui(world, "immediate") -> ' .. tostring(ok) .. ' ' .. type(gui)
-        .. (ok and '' or (' ' .. tostring(gui))))
-    if not ok or gui == nil then return end
-    ui.S, ui.gui, ui.state = S, gui, 'drawing'
-end
-local function ui_frame()
-    if ui.state ~= 'drawing' then return end
-    local S = ui.S
-    ui.frames = ui.frames + 1
-    local ok, why = pcall(function()
-        S.Gui.rect(ui.gui, S.Vector2(40, 40), S.Vector2(360, 60), S.Color(220, 255, 220, 0))
-    end)
-    if not ok then
-        ui.state = 'failed'
-        return ui_note('Gui.rect failed: ' .. tostring(why))
-    end
-    if ui.frames == 1 then ui_note('Gui.rect drawn without an error') end
-    if config.ui_probe == 'text' and not ui.text_failed then
-        for _, font in ipairs(ui.fonts or {}) do
-            local drawn, reason = pcall(function()
-                S.Gui.text(ui.gui, 'BYOG', font, 32, font, S.Vector2(60, 55), S.Color(255, 0, 0, 0))
-            end)
-            if drawn then
-                if ui.font ~= font then ui_note('Gui.text drawn with font ' .. font) end
-                ui.font = font
-                break
-            else
-                ui_note('Gui.text with ' .. font .. ' failed: ' .. tostring(reason))
-            end
-        end
-        if not ui.font then ui.text_failed = true end
-        ui.fonts = ui.font and { ui.font } or {}
-    end
-end
-local function ui_report()
-    write_file('UIPROBE.txt', MOD.title .. ' v' .. MOD.version .. ' drawing probe\r\nstate: ' .. ui.state
-        .. '  frames drawn: ' .. ui.frames .. '\r\n' .. table.concat(ui.log, '\r\n') .. '\r\n')
-end
-
 -- ---------------------------------------------------------------- the worker
 local wake = { at = 0, reload = false, config_check_at = 0 }
 
@@ -3133,12 +3057,6 @@ local function worker_main()
             state.step = 'reading config.txt'
             load_config()
             backoff = 1
-        end
-        if config.ui_probe and ui.state == 'off' then
-            ui.fonts = { 'core/performance_hud/debug', 'core/editor_slave/gui/arial', 'gui/fonts/arial' }
-            local ok_ui, why_ui = pcall(ui_start)
-            if not ok_ui then ui_note('start failed: ' .. tostring(why_ui)) end
-            ui_report()
         end
         if config.dump_globals and not globals_dumped then
             local ok_globals, why_globals = pcall(dump_globals)
@@ -3261,6 +3179,17 @@ local menu = { open = false, state = 'closed', tab = 1, focus = 'items', item = 
 
 local function menu_key_of(item, stat) return item.category .. ':' .. item.name:lower() .. ':' .. stat end
 
+-- The engine's functions are native: a wrong argument can close the game instead of raising a Lua error
+-- (v0.15.0 in game: F9 closed the game, and nothing in the log said where). So the first time each
+-- engine call is about to be made, a line goes to the log file and is written out at once.
+local menu_trail = {}
+local function menu_step(name)
+    if menu_trail[name] then return end
+    menu_trail[name] = true
+    log('menu: about to use ' .. name)
+    flush_log()
+end
+
 -- menu.txt: the config format, written by the menu only
 local function menu_load()
     menu.loaded = true
@@ -3360,12 +3289,15 @@ local function menu_start()
     if type(S) ~= 'table' or type(S.Application) ~= 'table' or type(S.World) ~= 'table' or type(S.Gui) ~= 'table' then
         return nil, 'the engine has no Gui here'
     end
+    menu_step('Application.main_world()')
     local ok, world = pcall(S.Application.main_world)
     if not ok or world == nil then return nil, 'no world to draw in' end
+    menu_step('World.create_screen_gui(world, "immediate")')
     local made, gui = pcall(S.World.create_screen_gui, world, 'immediate')
     if not made or gui == nil then return nil, 'the screen gui could not be created: ' .. tostring(gui) end
     menu.S, menu.world, menu.gui = S, world, gui
     if not menu.font then
+        menu_step('Gui.text (font test)')
         for _, font in ipairs(MENU_FONTS) do
             if not menu.font and pcall(function()
                 S.Gui.text(gui, ' ', font, 16, font, S.Vector2(0, 0), S.Color(0, 0, 0, 0))
@@ -3377,8 +3309,11 @@ local function menu_start()
 end
 
 local function menu_close(now)
-    menu.open, menu.state = false, 'closed'
-    if menu.S and menu.gui then pcall(menu.S.World.destroy_gui, menu.world, menu.gui) end
+    menu.open, menu.state, menu.width = false, 'closed', nil
+    if menu.S and menu.gui then
+        menu_step('World.destroy_gui(world, gui)')
+        pcall(menu.S.World.destroy_gui, menu.world, menu.gui)
+    end
     menu.gui, menu.world = nil, nil
     if menu.dirty_at then
         menu.dirty_at = nil
@@ -3430,10 +3365,18 @@ end
 
 local function menu_draw()
     local S, gui = menu.S, menu.gui
-    local width, height = 1920, 1080
-    local ok, w, h = pcall(S.Gui.resolution, gui)
-    if ok and type(w) == 'number' and type(h) == 'number' and w > 0 and h > 0 then width, height = w, h end
+    if not menu.width then
+        menu.width, menu.height = 1920, 1080
+        menu_step('Application.back_buffer_size()')
+        local ok, w, h = pcall(S.Application.back_buffer_size)
+        if ok and type(w) == 'number' and type(h) == 'number' and w >= 640 and h >= 360 then
+            menu.width, menu.height = w, h
+        end
+        log('menu: screen ' .. tostring(menu.width) .. ' x ' .. tostring(menu.height))
+    end
+    local width, height = menu.width, menu.height
     local scale = height / 1080
+    menu_step('Gui.rect / Gui.text (first frame)')
     local PANEL_W, PANEL_H = 1180, 664
     local left, bottom = (width - PANEL_W * scale) / 2, (height - PANEL_H * scale) / 2
     -- panel coordinates: x from the left edge, y from the TOP edge of the panel (the Gui's origin is bottom left)
@@ -3514,6 +3457,11 @@ local function menu_draw()
         text(string.format('%d of %d', at, #item.stat_order), 444, 96 + MENU_ROWS * 26 + 4, 14, 255, 130, 130, 130)
     end
     text(tostring(state.verdict or ''):sub(1, 120), 20, PANEL_H - 26, 14, 255, 150, 150, 150)
+    if not menu_trail.drawn then
+        menu_trail.drawn = true
+        log('menu: first frame drawn')
+        flush_log()
+    end
 end
 
 -- once per frame
@@ -3554,13 +3502,6 @@ local function tick()
     state.frame = state.frame + 1
     if state.frame < START_FRAME then return end
     menu_tick()
-    if ui.state == 'drawing' then
-        ui_frame()                       -- an immediate-mode gui is drawn again every frame
-        if ui.dirty then
-            ui.dirty = false
-            pcall(ui_report)
-        end
-    end
     -- the reload key: one key-state read per frame; the window is only checked on a press
     local down = A.key_down(config.reload_vk)
     if down and not key_was_down and A.game_in_front() then

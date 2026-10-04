@@ -614,6 +614,12 @@ reads its page first, which brings it back.
 "immediate")` gives a Gui; `stingray.Gui.rect(gui, Vector2 position, Vector2 size, Color(a, r, g, b))` and
 `stingray.Gui.text(gui, text, font, size, material, Vector2 position, Color)` draw for one frame; the
 origin is the bottom left corner. The in-game menu of v0.15.0 is built on exactly these calls.
+**v0.15.0 closed the game when the menu was opened.** The menu made one engine call the probe had not
+made: `Gui.resolution(gui)`. In this engine that function takes a viewport and a window; handing it a gui
+is the most likely cause (a native call with a wrong argument does not raise a Lua error). v0.15.1 asks
+`Application.back_buffer_size()` without arguments instead, and writes a line to the log file, flushed,
+before the first use of every engine call, so that a crash leaves its place behind. Fonts: the probe
+drew text with `core/performance_hud/debug`.
 
 ### 6.3 Copies, reloads, drift
 Per the skill's case studies: several copies of a table can exist in memory, new copies appear on

@@ -1465,14 +1465,15 @@ def item_entity_of(name):
     return int(catalog_stat(name, "damage")[0]["entity"], 16)
 
 
-def check_drawing_probe_without_the_engine_does_nothing(mutate=None):
+def check_the_old_drawing_probe_setting_draws_nothing(mutate=None):
+    # seen in game: a config that still had `ui_probe = text` kept the probe's rectangle on the screen
     rig = Rig("[settings]\nui_probe = text\n[weapon: assault_rifle]\nrpm = 150%\n", mutate)
     try:
-        status = rig.settle()                                  # this fake game has no stingray table at all
-        assert first_line(status) == "OK - 1 values applied", first_line(status)
-        report = rig.game.read_out("UIPROBE.txt")
-        assert "state: failed" in report and "no stingray table" in report, report
-        assert rig.mem.peek(rig.rpm, "<f") == 960.0
+        rig.game.lua.execute(FAKE_ENGINE)
+        status = rig.settle()
+        rig.game.frames(50)
+        assert first_line(status) == "OK - 1 values applied" and "config problem" not in status, status[:600]
+        assert drawn(rig) == ("", 0) and rig.game.read_out("UIPROBE.txt") == ""
     finally:
         rig.close()
 
@@ -1493,13 +1494,16 @@ def check_globals_dump_is_read_only(mutate=None):
 # a stand-in for the engine's Gui: records what the menu draws
 FAKE_ENGINE = b"""
 stingray = { drawn = { rects = 0, texts = {} },
-  Application = { main_world = function() return 'world' end },
+  Application = { main_world = function() return 'world' end,
+                  back_buffer_size = function(...) if select('#', ...) > 0 then stingray.drawn.crashed = true end
+                                                   return 2560, 1440 end },
   World = { create_screen_gui = function(world, mode) return 'gui' end,
             destroy_gui = function(world, gui) stingray.drawn.destroyed = true end },
   Vector2 = function(x, y) return { x, y } end,
   Color = function(a, r, g, b) return { a, r, g, b } end }
 stingray.Gui = {
-  resolution = function(gui) return 1920, 1080 end,
+  -- the real one takes a viewport and a window: handed a gui it closed the game (v0.15.0)
+  resolution = function(gui) stingray.drawn.crashed = true return 1920, 1080 end,
   rect = function(gui, position, size, color)
     stingray.drawn.rects = stingray.drawn.rects + 1
     stingray.drawn.panel = stingray.drawn.panel or { position[1], position[2], size[1], size[2] }
@@ -1531,7 +1535,13 @@ def check_menu_changes_a_value_and_remembers_it(mutate=None):
         assert "BALANCE YOUR OWN GAME" in text and "assault_rifle" in text and rects > 0, text[:300]
         # in the middle of a 1920 x 1080 screen (the Gui's origin is the bottom left corner)
         panel = [rig.game.lua.eval(b"stingray.drawn.panel[%d]" % n) for n in (1, 2, 3, 4)]
-        assert panel == [370, 208, 1180, 664], panel
+        scale = 1440 / 1080                                            # the fake screen is 2560 x 1440
+        want = [(2560 - 1180 * scale) / 2, (1440 - 664 * scale) / 2, 1180 * scale, 664 * scale]
+        assert all(abs(a - b) < 0.01 for a, b in zip(panel, want)), (panel, want)
+        assert rig.game.lua.eval(b"stingray.drawn.crashed") is None    # no engine call with arguments it does not take
+        log = rig.game.read_out("tuner.log")
+        assert "menu: about to use World.create_screen_gui" in log and "menu: first frame drawn" in log
+        assert "menu: screen 2560 x 1440" in log
         # walk to the Liberator, then to its values
         names = sorted(it["path"].rsplit("/", 1)[-1] for it in _CATALOG.values()
                        if it["category"] in ("primary", "secondary", "support", "melee"))
@@ -1838,6 +1848,14 @@ MUTATIONS = [
     ("menu: the panel is not in the middle of the screen",
      "    local left, bottom = (width - PANEL_W * scale) / 2, (height - PANEL_H * scale) / 2",
      "    local left, bottom = 0, 0",
+     check_menu_changes_a_value_and_remembers_it),
+    ("menu: the gui is handed to a function that takes none",
+     "        local ok, w, h = pcall(S.Application.back_buffer_size)",
+     "        local ok, w, h = pcall(S.Application.back_buffer_size, gui)",
+     check_menu_changes_a_value_and_remembers_it),
+    ("menu: nothing in the log before an engine call",
+     "    log('menu: about to use ' .. name)\n    flush_log()",
+     "",
      check_menu_changes_a_value_and_remembers_it),
     ("menu: a change never reaches the engine",
      "        menu.dirty_at = nil\n        request_reload()\n        pcall(menu_save)",
