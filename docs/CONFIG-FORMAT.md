@@ -16,7 +16,7 @@ magazine = +15            # the game's value plus 15
 recoil_v = -20            # the game's value minus 20
 ```
 
-## The in-game menu (v0.15.2; v0.15.1 opened in game but its text was unreadable)
+## The in-game menu (works in game since v0.15.2)
 
 `[settings] menu_key = F9` (F1..F12) opens a panel in the middle of the screen: categories, items, and the
 values of the selected item. Up / Down and PageUp / PageDown move, Tab switches between the item list and
@@ -26,6 +26,10 @@ are kept in `menu.txt` next to config.txt, are read again at the next start, and
 for the same value. Deleting menu.txt forgets them. The menu shows the game's own names where they are known
 (`tools/display_names.txt`, written by hand: AR-23 Liberator, MG-43 Machine Gun...) and the internal name
 otherwise; config.txt and menu.txt always use the internal names, which catalog.txt lists side by side. While the menu is open the game still receives the keys.
+
+Search (v0.16.0, not yet tested in game): in the item list, typing letters or digits lists every item of
+every category whose name, the game's or the internal one, contains what was typed. Backspace removes a
+letter, Delete clears the search.
 
 ## Sections
 
@@ -40,6 +44,10 @@ uses, backpack charges, shield health, vehicle health; the stats added in v0.11.
 | `vehicle` | 14 (`combat_walker` = Patriot, `frv`, `tank`...) | `health`, `armor`, `durable_resistance`, `explosion_damage_multiplier`, `constitution`, `constitution_rate`; per part `part_<name>_health`, `_armor`, `_durable_resistance`, `_to_main`, `_overflow_cap`; `all_health` |
 
 | `stratagem_weapon` (v0.13.0) | 53: the guns of sentries, emplacements, drones, exosuits and the Eagle (`turret_machinegun_gpmg`, `gatling_turret`, `mortar_turret`, `combat_walker_autocannon_left`...), and the shells of orbital and Eagle strikes (`orbital_precision_strike`, `orbital_380mm_he_barrage_shell1`...) | the same stats as a hand weapon: damage, armor penetration, blast, fire rate... |
+
+`lifetime_seconds` (v0.16.0, not yet tested in game), on sentry guns, the Tesla tower and the shield
+relay: how long the deployed thing stays before it removes itself (sentries 150, mortar sentries 180,
+shield relay 40; 0 = stays).
 
 Each of the first four is one record per item: nothing is shared, nothing else changes. A stratagem's gun
 is treated like a hand weapon: when a projectile or damage stat is set it gets rows of its own, so the

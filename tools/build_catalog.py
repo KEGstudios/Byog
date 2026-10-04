@@ -567,7 +567,18 @@ def main():
             seen.add(ent)
             r = resolve_throwable(T, ent) if cat == "throwable" else resolve_weapon(T, ent)
             items.append({"category": cat, "entity": "%016X" % ent, "path": path, **r})
-    items += stratagem_weapons(T, seen) + resolve_equipment(T) + live_stratagems()
+    items += stratagem_weapons(T, seen) + resolve_equipment(T)
+    # How long a deployed thing stays before it removes itself: HellpodPayloadComponent.life_time, by the
+    # game's own field name. Sentries 150 s, mortar sentries 180 s, Tesla tower 150 s, shield relay 40 s;
+    # 0 on things that stay (emplacements, mine deployers).
+    payload = hd2db.table("HellpodPayloadComponentData")
+    for it in items:
+        rec = payload.record(int(it["entity"], 16))
+        if rec is not None and it["category"] in ("stratagem_weapon", "shield"):
+            if not any(s.get("id") == "lifetime_seconds" for s in it["stats"]):
+                stat(it["stats"], "lifetime_seconds", "HellpodPayloadComponentData", it["entity"],
+                     "HellpodPayloadComponent", "life_time", rec)
+    items += live_stratagems()
     unnamed = sorted("%016X" % e for e in T.weapon.index if hashnames.name(e) is None)
     cat = {"snapshot": {"source": "FileDiver datalibrary mirror", "projectile_rows": T.projectile.count,
                         "damage_rows": T.damage.count, "explosion_rows": T.explosion.count},

@@ -1639,6 +1639,54 @@ def check_menu_stays_inside_the_range(mutate=None):
         rig.close()
 
 
+def check_menu_search_finds_items_of_every_category(mutate=None):
+    rig = Rig("", mutate)
+    try:
+        rig.settle()
+        rig.game.lua.execute(FAKE_ENGINE)
+        rig.game.press(F9)
+        drawn(rig)
+        for key in b"SENTRY":                                          # typed on the keyboard
+            rig.game.press(key)
+        rig.game.frames(3)
+        drawn(rig)
+        rig.game.frames(2)
+        text, _rects = drawn(rig)
+        assert "search: sentry_" in text, text[:400]
+        assert "Machine Gun Sentry (gun)  [strat. weapon]" in text and "Gatling Sentry (gun)" in text, text[:900]
+        assert "AR-23 Liberator" not in text                           # the weapon tab is no longer what is listed
+        # the first hit is selected: its values are on the right, and can be changed
+        rig.game.press(TAB)
+        rig.game.frames(2)
+        assert "(name in config.txt)" in drawn(rig)[0]
+        rig.game.press(TAB)
+        for _ in range(6):
+            rig.game.press(0x08)                                       # Backspace
+        rig.game.frames(3)
+        drawn(rig)
+        rig.game.frames(2)
+        text, _rects = drawn(rig)
+        assert "type to search" in text and "AR-23 Liberator" in text
+    finally:
+        rig.close()
+
+
+def check_sentry_lifetime(mutate=None):
+    rig = Rig("[stratagem_weapon: turret_machinegun_gpmg]\nlifetime_seconds = 600\n"
+              "[shield: energy_shield]\nlifetime_seconds = 200%\n", mutate)
+    try:
+        sentry = rig.keyed_field("HellpodPayloadComponentData", SENTRY_GUN, 4)
+        relay = rig.keyed_field("HellpodPayloadComponentData",
+                                murmur64a(b"content/fac_helldivers/hellpod/energy_shield/energy_shield"), 4)
+        assert rig.mem.peek(sentry, "<f") == 150.0 and rig.mem.peek(relay, "<f") == 40.0
+        status = rig.settle()
+        assert first_line(status) == "OK - 2 values applied", status[:900]
+        assert rig.mem.peek(sentry, "<f") == 600.0 and rig.mem.peek(relay, "<f") == 80.0
+        assert sorted(a for a, _d in rig.mem.writes) == sorted([sentry, relay])
+    finally:
+        rig.close()
+
+
 CHECKS = [v for k, v in sorted(globals().items()) if k.startswith("check_")]
 
 
@@ -1869,6 +1917,14 @@ MUTATIONS = [
      "    local left, bottom = (width - PANEL_W * scale) / 2, (height - PANEL_H * scale) / 2",
      "    local left, bottom = 0, 0",
      check_menu_changes_a_value_and_remembers_it),
+    ("menu: what is typed does not filter the list",
+     "    if menu.filter == '' then\n        local category = MENU_CATEGORIES[menu.tab]",
+     "    if true then\n        local category = MENU_CATEGORIES[menu.tab]",
+     check_menu_search_finds_items_of_every_category),
+    ("menu: search looks at the internal names only",
+     "if (item.display or ''):lower():find(menu.filter, 1, true) or item.name:lower():find(menu.filter, 1, true) then",
+     "if item.name:lower():find(menu.filter, 1, true) then",
+     check_menu_search_finds_items_of_every_category),
     ("menu: text drawn without a layer, under the panel",
      "                   layers and S.Vector3(px, py, 902) or S.Vector2(px, py), S.Color(a, r, g, b))",
      "                   S.Vector2(px, py), S.Color(a, r, g, b))",

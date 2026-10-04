@@ -3171,12 +3171,18 @@ end
 -- config line, wins over config.txt for that value, and is kept in menu.txt.
 local MENU_FILE = 'menu.txt'
 local VK = { UP = 0x26, DOWN = 0x28, LEFT = 0x25, RIGHT = 0x27, TAB = 0x09, DELETE = 0x2E, PAGE_UP = 0x21,
-             PAGE_DOWN = 0x22, SHIFT = 0x10 }
+             PAGE_DOWN = 0x22, SHIFT = 0x10, BACKSPACE = 0x08, SPACE = 0x20, MINUS = 0xBD }
+-- what a key types into the search line: letters, digits, space, '-'
+local MENU_TYPED = { SPACE = ' ', MINUS = '-' }
+for code = 0x30, 0x39 do VK['D' .. string.char(code)], MENU_TYPED['D' .. string.char(code)] = code, string.char(code) end
+for code = 0x41, 0x5A do
+    VK['L' .. string.char(code)], MENU_TYPED['L' .. string.char(code)] = code, string.char(code):lower()
+end
 local MENU_CATEGORIES = { 'weapon', 'throwable', 'stratagem_weapon', 'stratagem', 'backpack', 'shield', 'vehicle' }
 local MENU_ROWS = 20
 local MENU_FONTS = { 'core/performance_hud/debug', 'core/editor_slave/gui/arial', 'gui/fonts/arial' }
 local menu = { open = false, state = 'closed', tab = 1, focus = 'items', item = {}, stat = {}, keys = {},
-               toggle_down = false, loaded = false }
+               toggle_down = false, loaded = false, filter = '' }
 
 local function menu_key_of(item, stat) return item.category .. ':' .. item.name:lower() .. ':' .. stat end
 
@@ -3269,6 +3275,27 @@ local function menu_change(item, stat, direction, big, now)
     menu.dirty_at = now
 end
 
+-- The list shown on the left: the items of the selected category, or, while something is typed, every
+-- item of every category whose name (the game's or the internal one) contains it.
+local function menu_current(lists)
+    if menu.filter == '' then
+        local category = MENU_CATEGORIES[menu.tab]
+        return lists[category], category
+    end
+    if not menu.found or menu.found.filter ~= menu.filter then
+        local found = { filter = menu.filter }
+        for _, category in ipairs(MENU_CATEGORIES) do
+            for _, item in ipairs(lists[category]) do
+                if (item.display or ''):lower():find(menu.filter, 1, true) or item.name:lower():find(menu.filter, 1, true) then
+                    found[#found + 1] = item
+                end
+            end
+        end
+        menu.found, menu.item.search = found, 1
+    end
+    return menu.found, 'search'
+end
+
 -- true when the key was just pressed, and again while it is held
 local function menu_pressed(name, now)
     local k = menu.keys[name]
@@ -3339,8 +3366,15 @@ end
 local function menu_input(now)
     local lists = menu_lists()
     if not lists or not A.game_in_front() then return end
-    local category = MENU_CATEGORIES[menu.tab]
-    local list = lists[category]
+    -- typing searches (in the item list only: in the value list the keys are left alone)
+    if menu.focus == 'items' then
+        for name, typed in pairs(MENU_TYPED) do
+            if menu_pressed(name, now) and #menu.filter < 24 then menu.filter = menu.filter .. typed end
+        end
+        if menu_pressed('BACKSPACE', now) then menu.filter = menu.filter:sub(1, -2) end
+        if menu_pressed('DELETE', now) then menu.filter = '' end
+    end
+    local list, category = menu_current(lists)
     local selected = math.min(menu.item[category] or 1, math.max(#list, 1))
     local item = list[selected]
     local big = A.key_down(VK.SHIFT)
@@ -3360,7 +3394,7 @@ local function menu_input(now)
     local side = (menu_pressed('RIGHT', now) and 1 or 0) - (menu_pressed('LEFT', now) and 1 or 0)
     if side ~= 0 then
         if menu.focus == 'items' then
-            menu.tab = (menu.tab - 1 + side) % #MENU_CATEGORIES + 1
+            if menu.filter == '' then menu.tab = (menu.tab - 1 + side) % #MENU_CATEGORIES + 1 end
         elseif item then
             menu_change(item, item.stat_order[menu.stat[item] or 1], side, big, now)
         end
@@ -3409,7 +3443,7 @@ local function menu_draw()
     rect(0, 0, PANEL_W, PANEL_H, 245, 8, 10, 14, 900)
     rect(0, 0, PANEL_W, 4, 255, 255, 214, 0)
     text('BALANCE YOUR OWN GAME   v' .. MOD.version, 20, 16, 24, 255, 255, 214, 0)
-    text(config.menu_key .. ' close    Tab switch list    Arrows move / change    Shift x10    Del reset', 520, 22, 16,
+    text(config.menu_key .. ' close   Tab list   Arrows move / change   Shift x10   Del reset   type: search', 470, 22, 16,
          255, 210, 210, 210)
     local lists = menu_lists()
     if not lists then
@@ -3421,14 +3455,15 @@ local function menu_draw()
     for n, category in ipairs(MENU_CATEGORIES) do
         local label = category .. ' ' .. #lists[category]
         local w_ = 18 + #label * 10
-        if n == menu.tab then rect(x, 56, w_, 26, 255, 255, 214, 0) end
-        if n ~= menu.tab then text(label, x + 9, 60, 17, 255, 255, 255, 255)
+        local active = n == menu.tab and menu.filter == ''
+        if active then rect(x, 56, w_, 26, 255, 255, 214, 0) end
+        if not active then text(label, x + 9, 60, 17, 255, menu.filter == '' and 255 or 120, menu.filter == '' and 255 or 120,
+                                 menu.filter == '' and 255 or 120)
         elseif layers then text(label, x + 9, 60, 17, 255, 0, 0, 0)
         else text(label, x + 9, 60, 17, 255, 255, 214, 0) end
         x = x + w_ + 6
     end
-    local category = MENU_CATEGORIES[menu.tab]
-    local list = lists[category]
+    local list, category = menu_current(lists)
     local selected = math.min(menu.item[category] or 1, math.max(#list, 1))
     local item = list[selected]
     -- items
@@ -3442,13 +3477,19 @@ local function menu_draw()
                 rect(16, y, 400, 24, 255, focused and 255 or 70, focused and 214 or 70, focused and 0 or 60)
             end
             local label = (entry.display or entry.name):sub(1, 38)
+            if category == 'search' then label = label:sub(1, 24) .. '  [' .. (entry.category == 'stratagem_weapon' and 'strat. weapon' or entry.category) .. ']' end
             if not layers and here then label = '> ' .. label end
             if focused and layers then text(label, 24, y + 3, 17, 255, 0, 0, 0)
             elseif here and not layers then text(label, 24, y + 3, 17, 255, 255, 214, 0)
             else text(label, 24, y + 3, 17, 255, 255, 255, 255) end
         end
     end
-    text(string.format('%d of %d', #list > 0 and selected or 0, #list), 24, 96 + MENU_ROWS * 26 + 4, 14, 255, 210, 210, 210)
+    text(string.format('%d of %d', #list > 0 and selected or 0, #list), 330, 96 + MENU_ROWS * 26 + 4, 14, 255, 210, 210, 210)
+    if menu.filter ~= '' then
+        text('search: ' .. menu.filter .. '_', 24, 96 + MENU_ROWS * 26 + 3, 16, 255, 255, 214, 0)
+    else
+        text('type to search', 24, 96 + MENU_ROWS * 26 + 4, 14, 255, 150, 150, 150)
+    end
     -- values of the selected item
     if item then
         text(item.display and (item.name .. '   (name in config.txt)') or '', 444, 96 - 22, 15, 255, 210, 210, 210)

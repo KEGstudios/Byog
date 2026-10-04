@@ -369,6 +369,11 @@ removed; the rows and their
 stock values come from that recon run (`tools/live_stratagems.txt`), not from the snapshot. The row id
 is at +4 and a row is in exactly one of the 11 group blocks.
 
+Lifetime of deployed stratagems: `HellpodPayloadComponentData` (keyed by the deployed entity),
+`HellpodPayloadComponent.life_time` +4, f32, by the game's own field name. Offline: sentries 150, mortar
+sentries 180, Tesla tower 150, shield generator relay 40, HMG emplacement 0. Tuner v0.16.0:
+`lifetime_seconds`; not yet tested in game.
+
 ### 4.10 Energy shields — `ShieldComponentData` (0x5154DB66), keyed, `ShieldComponent` (344 B)
 
 16 records offline: Shield Generator Pack (charge 150), directional shield (1000), Shield Generator Relay

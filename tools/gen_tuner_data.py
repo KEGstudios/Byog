@@ -134,6 +134,7 @@ RANGES = [
     (r"^call_in_time$", 0, 600, 0),
     (r"^health$", 1, 1000000, 1),
     (r"^cooldown$", 0, 7200, 0),
+    (r"^lifetime_seconds$", 0, 36000, 0),          # 0 = stays until destroyed
     (r"^uses$", 1, 4294967295, 1),                 # 4294967295 = unlimited
     (r"^mags_(start|supply|max)$", 0, 999, 1),
     (r"^rounds_(start|supply|max)$", 0, 9999, 1),
