@@ -70,10 +70,18 @@ The debug font the menu draws with has no Chinese glyphs, so the menu asks the e
 (`Application.can_get("font", name)`) for `content/fonts/runtime_font`, `fallback`, `core_sans` and
 `samples` (names from the community's list of resource names) and draws Chinese with the first one that
 is there; with several, the Language page can switch between them. `language = zh` is only written to
-settings.txt after a frame was drawn in Chinese. Whether those fonts draw Chinese is not known yet.
+settings.txt after a frame was drawn in Chinese. Seen in game: the engine has none of the first three
+loaded (research file of v1.1.2), and `samples` is a font of symbols (v1.1.7: the menu came out as icons),
+so it was taken off the list in v1.1.8. Chinese is therefore not available in the game as it is; it needs
+a way to draw text that does not depend on the fonts the game has loaded.
+What works (v1.1.10, seen in game): with the game set to Chinese the engine has a resource of type
+`runtime_font` named `content/fonts/fallback` and a material `content/fonts/runtime_font` (research file of
+v1.1.9); `Gui.text` takes that pair, and the menu was drawn in Chinese for the 60 frames of the guarded try
+and kept. With the game in another language the pair is not loaded and Chinese is not offered. The try
+is marked in settings.txt (`chinese_trying`), and a start that finds the mark sets `chinese_failed`.
 
-**Research file (v1.1.1 only).** Once per start the mod writes `RESEARCH.txt` next to STATUS.txt, reading
-only: every row of the game's status effect table (id, debug name, the three numbers at +32 / +36 / +40
+**Research file** (`[settings] research = true`; on by default in the test builds v1.1.1 .. v1.1.11, off
+since v1.1.12). Once per start the mod writes `RESEARCH.txt` next to STATUS.txt, reading only: every row of the game's status effect table (id, debug name, the three numbers at +32 / +36 / +40
 and the whole row), which engine functions for fonts and input are there, and which of the game's fonts
 the engine has loaded. It is what the next version needs to offer the duration of all 71 status effects
 and a font for Chinese. `[settings] research = false` switches it off.

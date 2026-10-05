@@ -1386,8 +1386,8 @@ local function build_desired(text)
     config.requests, config.problems = {}, {}
     config.enabled, config.reload_key, config.reload_vk = true, 'F10', 0x79
     config.menu_key, config.menu_vk = 'F9', 0x78
-    -- the research of this build is on, except under the tests' fake Windows (they ask for it by name)
-    config.research = type(rawget(_G, 'HD2ST_TEST_RESOLVER')) ~= 'function'
+    -- the research file is only written when config.txt asks for it (`[settings] research = true`)
+    config.research = false
     config.auto_reload, config.rescan, config.own_rows = 0, DEFAULT_RESCAN_SECONDS, true
     local section, line_number = nil, 0
     local by_stat = {}   -- 'category:item:stat' -> request (a later line replaces an earlier one)
@@ -2434,13 +2434,16 @@ end
 --     of v0.1.0 wrote out 8 of its 71 rows only, so the game's own duration of the others is not known;
 --   * what this build of the engine offers for fonts and input (names and yes / no, nothing is called
 --     but Application.can_get, which the menu uses as well).
--- `[settings] research = false` switches it off.
+-- Off unless config.txt says `[settings] research = true` (it was on by default in v1.1.1 .. v1.1.11,
+-- the test builds).
 local research = { pending = true, tries = 0 }
 research.fonts = { 'core/performance_hud/debug', 'core/editor_slave/gui/arial', 'gui/fonts/arial',
     'content/fonts/core_sans', 'content/fonts/core_sans_curved', 'content/fonts/cyborg_style',
     'content/fonts/cyborg_style_terminal_layer', 'content/fonts/fallback', 'content/fonts/runtime_font',
     'content/fonts/runtime_font_curved', 'content/fonts/runtime_font_terminal_layer', 'content/fonts/samples',
     'content/fonts/samples_curved', 'content/fonts/samples_terminal_layer' }
+research.types = { 'runtime_font', 'runtime_font_atlas', 'runtime_font_atlases', 'font_atlas', 'font_material',
+                   'material', 'texture' }
 research.engine = { Keyboard = { 'down_threshold', 'set_down_threshold', 'keystrokes', 'button', 'pressed' },
     Mouse = { 'down_threshold', 'set_down_threshold', 'axis', 'button' },
     Window = { 'set_show_cursor', 'show_cursor', 'set_clip_cursor', 'set_mouse_focus', 'has_focus' },
@@ -2523,6 +2526,33 @@ function research.run()
             end
         else
             L[#L + 1] = 'the engine cannot be asked'
+        end
+        -- The same names under the other resource types the name list has for fonts. Seen in game: with
+        -- the game set to Chinese no "font" for Chinese is loaded, so it is drawn with something else.
+        -- A type the engine does not know has not been asked for before: a file marks the try, and a
+        -- start that finds the mark (the game closed there) leaves this part out.
+        L[#L + 1] = ''
+        L[#L + 1] = '[resources] Application.can_get(type, name): only what is there is listed'
+        if type(S.Application) ~= 'table' or type(S.Application.can_get) ~= 'function' then
+            L[#L + 1] = 'the engine cannot be asked'
+        elseif read_file('RESEARCH-running.txt') then
+            L[#L + 1] = 'left out: the game closed the last time this was asked (' .. trim(read_file('RESEARCH-running.txt')) .. ')'
+        else
+            for _, kind in ipairs(research.types) do
+                write_file('RESEARCH-running.txt', kind .. '\r\n')
+                log('research: about to use Application.can_get("' .. kind .. '", name)')
+                flush_log()
+                local there_list = {}
+                for _, font in ipairs(research.fonts) do
+                    local asked, there = pcall(S.Application.can_get, kind, font)
+                    if not asked then there_list[#there_list + 1] = font .. ' (error ' .. tostring(there) .. ')'
+                    elseif there then there_list[#there_list + 1] = font end
+                end
+                L[#L + 1] = kind .. ': ' .. (#there_list > 0 and table.concat(there_list, ', ') or 'none')
+                pause()
+            end
+            local dir = ensure_out_dir()
+            if dir then os.remove(dir .. '\\RESEARCH-running.txt') end
         end
     else
         L[#L + 1] = '[engine] no stingray table here'
@@ -2696,9 +2726,14 @@ local MENU_CATEGORY_TAG = { weapon = 'weapon', throwable = 'throwable', stratage
 local MENU_ROWS = 18
 local MENU_FONTS = { 'core/performance_hud/debug', 'core/editor_slave/gui/arial', 'gui/fonts/arial' }
 -- fonts of the game that may hold Chinese glyphs (names from the community's list of resource names);
--- one is only used when the engine says the resource is there
-local MENU_FONTS_ZH = { 'content/fonts/runtime_font', 'content/fonts/fallback', 'content/fonts/core_sans',
-                        'content/fonts/samples' }
+-- one is only used when the engine says the resource is there. Seen in game (v1.1.2 .. v1.1.7): the
+-- engine has none of these three. It has `content/fonts/samples`, which was on this list until v1.1.7:
+-- a font of symbols, in which the whole menu came out as icons. So in the game as it is, the Language
+-- page says that no font can draw Chinese.
+-- What the research file of v1.1.9 found with the game set to Chinese: no resource of type "font" for it,
+-- but a "runtime_font" named content/fonts/fallback and a material named content/fonts/runtime_font.
+-- { resource type, font, material }
+local MENU_FONTS_ZH = { { 'runtime_font', 'content/fonts/fallback', 'content/fonts/runtime_font' } }
 local MENU_PRESET_ACTIONS = { 'Activate', 'Rename', 'Duplicate', 'Delete' }
 local menu = { open = false, state = 'closed', page = 1, tab = 1, focus = 'items', item = {}, stat = {}, keys = {},
                toggle_down = false, loaded = false, filter = '', mode = 'list', bind = {}, lang = 'en',
@@ -2765,6 +2800,7 @@ local MENU_ZH = {
     ['switched off: the game closed when this was tried'] = '已关闭：上次尝试时游戏退出了',
     ['English'] = 'English', ['Chinese (Simplified)'] = '简体中文', ['Font for Chinese'] = '中文字体',
     ['no font of the game can draw Chinese'] = '游戏中没有可显示中文的字体',
+    ['Chinese is switched off: the game stopped when it was drawn'] = '中文已关闭：上次显示中文时游戏停止响应',
     ['Open / close the menu'] = '打开 / 关闭菜单', ['Up'] = '上', ['Down'] = '下',
     ['Left / lower the value'] = '左 / 减小数值', ['Right / raise the value'] = '右 / 增大数值',
     ['Switch between the two lists'] = '在两个列表之间切换', ['Ten rows up'] = '上移十行', ['Ten rows down'] = '下移十行',
@@ -2881,7 +2917,8 @@ local function menu_settings_save()
                     'language = ' .. menu.lang_saved,
                     'block_input = ' .. tostring(menu.block_saved == true) }
     if menu.block_trying then lines[#lines + 1] = 'block_input_trying = true' end
-    if menu.zh_font then lines[#lines + 1] = 'chinese_font = ' .. menu.zh_font end
+    if menu.zh_trying then lines[#lines + 1] = 'chinese_trying = true' end
+    if menu.zh_failed then lines[#lines + 1] = 'chinese_failed = true' end
     for _, a in ipairs(MENU_ACTIONS) do
         if menu.bind[a[1]] then lines[#lines + 1] = 'key.' .. a[1] .. ' = ' .. menu.bind[a[1]] end
     end
@@ -2904,14 +2941,19 @@ local function menu_settings_load()
                 menu.block_saved = menu.block
             elseif key == 'block_input_trying' and value == 'true' then
                 tried = true
-            elseif key == 'chinese_font' and value ~= '' then
-                menu.zh_font = value
+            elseif (key == 'chinese_trying' or key == 'chinese_failed') and value == 'true' then
+                -- the game stopped while Chinese was drawn for the first time: not tried again
+                menu.zh_failed = true
             elseif action and KEY_VK[value:upper()] then
                 for _, a in ipairs(MENU_ACTIONS) do
                     if a[1] == action then menu.bind[action] = value:upper() end
                 end
             end
         end
+    end
+    if menu.zh_failed then
+        menu.lang, menu.lang_saved = 'en', 'en'
+        log('menu: drawing Chinese stopped the game the last time: switched off')
     end
     if tried then
         -- the game closed while its input was being blocked for the first time
@@ -3373,21 +3415,19 @@ local function menu_start()
     if not menu.zh_asked then
         menu.zh_asked = true
         if type(S.Application.can_get) == 'function' then
-            menu_step('Application.can_get("font", name)')
-            for _, font in ipairs(MENU_FONTS_ZH) do
-                local asked, there = pcall(S.Application.can_get, 'font', font)
-                log('menu: font ' .. font .. ': ' .. ((asked and there) and 'there' or 'not there'))
-                if asked and there then menu.zh_fonts[#menu.zh_fonts + 1] = font end
+            menu_step('Application.can_get(type, name) for the Chinese font')
+            for _, c in ipairs(MENU_FONTS_ZH) do
+                local asked, there = pcall(S.Application.can_get, c[1], c[2])
+                local asked_m, there_m = pcall(S.Application.can_get, 'material', c[3])
+                local usable = asked and there and asked_m and there_m
+                log('menu: font ' .. c[2] .. ' (' .. c[1] .. '): ' .. (usable and 'there' or 'not there'))
+                if usable then menu.zh_fonts[#menu.zh_fonts + 1] = { font = c[2], material = c[3] } end
             end
         else
             log('menu: the engine cannot be asked for fonts: no Chinese')
         end
-        local chosen = nil
-        for _, font in ipairs(menu.zh_fonts) do
-            if font == menu.zh_font then chosen = font end
-        end
-        menu.zh_font = chosen or menu.zh_fonts[1]
-        if menu.lang == 'zh' and not menu.zh_font then menu.lang, menu.lang_saved = 'en', 'en' end
+        menu.zh_font = menu.zh_fonts[1]
+        if menu.lang == 'zh' and (not menu.zh_font or menu.zh_failed) then menu.lang, menu.lang_saved = 'en', 'en' end
     end
     -- Draw order. In game (v0.15.1) the panel and the selection bars covered the text: the Gui does not
     -- draw in call order. A Vector3 position carries a layer in z; whether this build takes one is
@@ -3417,6 +3457,12 @@ end
 local function menu_close(now)
     menu.open, menu.state, menu.width = false, 'closed', nil
     menu.mode, menu.box, menu.capture, menu.ask = 'list', nil, nil, nil
+    if menu.zh_trying then
+        -- closed before the try was over: frames were drawn and the game is still here
+        menu.zh_trying = nil
+        if (menu.zh_frames or 0) >= 2 then menu.lang_saved = 'zh' else menu.lang = 'en' end
+        pcall(menu_settings_save)
+    end
     pcall(menu_block_game, false)
     if menu.S and menu.gui then
         menu_step('World.destroy_gui(world, gui)')
@@ -3435,6 +3481,11 @@ end
 local function menu_box_open(kind, text, done)
     menu.mode = 'text'
     menu.box = { kind = kind, text = text or '', done = done }
+    -- (v1.1.10 in game: opening the value box made the game stop answering, and nothing said where)
+    if not menu_trail['box ' .. kind] then
+        log('menu: the ' .. kind .. ' box opens')
+        flush_log()
+    end
     -- keys held right now belong to what was done before the box opened
     for _, typed in ipairs(MENU_TYPED) do
         if A.key_down(KEY_VK[typed[1]]) then menu.keys[typed[1]] = { since = 1e18, last = 1e18 } end
@@ -3657,30 +3708,27 @@ local function menu_capture_input(now)
 end
 
 local function menu_language_input(now)
-    local rows = #menu.zh_fonts > 1 and 3 or 2
+    local rows = 2
     if menu_act('up', now) then menu.lang_row = math.max(1, menu.lang_row - 1) end
     if menu_act('down', now) then menu.lang_row = math.min(rows, menu.lang_row + 1) end
     if not menu_act('accept', now, true) then return end
     if menu.lang_row == 1 then
-        menu.lang, menu.lang_saved = 'en', 'en'
+        menu.lang, menu.lang_saved, menu.zh_trying = 'en', 'en', nil
         pcall(menu_settings_save)
-    elseif menu.lang_row == 2 then
-        if menu.zh_font then
-            -- kept as English in the file until a frame has been drawn in Chinese: a font the engine
-            -- cannot draw with must not come back at the next start
-            menu.lang, menu.lang_drawn = 'zh', false
-        else
-            menu_say(L('no font of the game can draw Chinese'), now)
+    elseif menu.zh_failed then
+        menu_say(L('Chinese is switched off: the game stopped when it was drawn'), now)
+    elseif not menu.zh_font then
+        menu_say(L('no font of the game can draw Chinese'), now)
+    elseif menu.lang ~= 'zh' then
+        -- Seen in game (v1.1.7): drawing with a font the engine has can still make the game stop
+        -- answering. So the file says "being tried" before the first frame in Chinese, and "Chinese"
+        -- only after a second's worth of frames; a start that finds "being tried" never tries again.
+        menu.lang, menu.zh_frames = 'zh', 0
+        if menu.lang_saved ~= 'zh' then
+            menu.zh_trying = true
+            menu_settings_save()
+            flush_log()
         end
-    else
-        for n, font in ipairs(menu.zh_fonts) do
-            if font == menu.zh_font then
-                menu.zh_font = menu.zh_fonts[n % #menu.zh_fonts + 1]
-                break
-            end
-        end
-        menu.lang_drawn = false
-        if menu.lang ~= 'zh' then pcall(menu_settings_save) end
     end
 end
 
@@ -3734,10 +3782,10 @@ local function menu_draw(now)
     local left, bottom = (width - PANEL_W * scale) / 2, (height - PANEL_H * scale) / 2
     -- panel coordinates: x from the left edge, y from the TOP edge of the panel (the Gui's origin is bottom left)
     local layers = menu.layers
-    local font = menu.font
+    local font, material = menu.font, menu.font
     if menu.lang == 'zh' and menu.zh_font then
-        font = menu.zh_font
-        menu_step('Gui.text with the font ' .. font)
+        font, material = menu.zh_font.font, menu.zh_font.material
+        menu_step('Gui.text with the font ' .. font .. ' and the material ' .. material)
     end
     -- layer 900: the panel, 901: bars on it, 902: text
     local function rect(x, y, w_, h_, a, r, g, b, layer)
@@ -3747,7 +3795,7 @@ local function menu_draw(now)
     end
     local function text(str, x, y, size, a, r, g, b)
         local px, py = left + x * scale, bottom + (PANEL_H - y - size) * scale
-        S.Gui.text(gui, str, font, size * scale, font,
+        S.Gui.text(gui, str, font, size * scale, material,
                    layers and S.Vector3(px, py, 902) or S.Vector2(px, py), S.Color(a, r, g, b))
     end
     local function gray(str, x, y, size) text(str, x, y, size or 14, 255, 210, 210, 210) end
@@ -3870,7 +3918,9 @@ local function menu_draw(now)
                     local shown = show(value, field.storage)
                     if stat:find('status%d_type$') and MENU_STATUS[value] then shown = shown .. '  ' .. MENU_STATUS[value] end
                     if here and menu.box and menu.box.kind == 'value' then
-                        text(menu.box.text .. '_', 800, y + 3, 17, 255, c, c, c)
+                        -- never a text that is nothing but "_": the one thing the frame did in which the
+                        -- game stopped answering (v1.1.10) and no other frame does
+                        text('= ' .. menu.box.text .. '_', 800, y + 3, 17, 255, c, c, c)
                     elseif changed and not dark then
                         text(menu_clip(shown, 17), 800, y + 3, 17, 255, 255, 214, 0)
                     else
@@ -3977,11 +4027,8 @@ local function menu_draw(now)
             local chosen = (n == 1) == (menu.lang == 'en')
             row(name .. (chosen and '   *' or ''), 24, TOP + (n - 1) * 26, 620, here, here, 58)
         end
-        if not menu.zh_font then gray(L('no font of the game can draw Chinese'), 660, TOP + 26 + 5) end
-        if #menu.zh_fonts > 1 then
-            row(L('Font for Chinese') .. ': ' .. tostring(menu.zh_font), 24, TOP + 52, 620, menu.lang_row == 3,
-                menu.lang_row == 3, 58)
-        end
+        if menu.zh_failed then gray(L('Chinese is switched off: the game stopped when it was drawn'), 660, TOP + 26 + 5)
+        elseif not menu.zh_font then gray(L('no font of the game can draw Chinese'), 660, TOP + 26 + 5) end
         hint(key('up') .. '/' .. key('down'), 'move'); hint(key('accept'), 'select')
     end
     hint(key('toggle'), 'close')
@@ -3998,9 +4045,18 @@ local function menu_draw(now)
         log('menu: first frame drawn')
         flush_log()
     end
-    if menu.lang == 'zh' and menu.lang_drawn == false then
-        menu.lang_drawn, menu.lang_saved = true, 'zh'
-        pcall(menu_settings_save)
+    if menu.box and not menu_trail['box ' .. menu.box.kind] then
+        menu_trail['box ' .. menu.box.kind] = true
+        log('menu: the ' .. menu.box.kind .. ' box: first frame drawn')
+        flush_log()
+    end
+    if menu.lang == 'zh' and menu.zh_trying then
+        menu.zh_frames = (menu.zh_frames or 0) + 1
+        if menu.zh_frames >= 60 then
+            menu.zh_trying, menu.lang_saved = nil, 'zh'
+            pcall(menu_settings_save)
+            log('menu: Chinese drawn for 60 frames: kept')
+        end
     end
 end
 

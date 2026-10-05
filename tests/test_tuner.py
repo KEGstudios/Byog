@@ -1268,7 +1268,7 @@ stingray.Gui = {
   end,
   text = function(gui, str, font, size, material, position, color)
     stingray.drawn.texts[#stingray.drawn.texts + 1] = str
-    if str ~= ' ' then stingray.drawn.font = font end
+    if str ~= ' ' then stingray.drawn.font, stingray.drawn.material = font, material end
     if str ~= ' ' then          -- (a single blank is the menu trying out a font)
       stingray.drawn.low_text = math.min(stingray.drawn.low_text or 1e9, position[3] or 0)
     end
@@ -1545,8 +1545,12 @@ def check_a_value_can_be_typed(mutate=None):
             rig.game.press(DOWN)
         rig.game.press(TAB)                                            # the first value of the Liberator: ap_bonus
         rig.game.press(INSERT)
+        text = shown(rig)
+        assert "\n= _\n" in text and "\n_\n" not in text              # seen in game: a text of "_" alone, and a hang
         typed(rig, b"3")
-        assert "3_" in shown(rig)
+        assert "= 3_" in shown(rig)
+        log = rig.game.read_out("byog.log")
+        assert "menu: the value box opens" in log and "menu: the value box: first frame drawn" in log
         rig.game.press(INSERT)
         rig.game.frames(40)
         assert "ap_bonus = 3" in rig.game.read_out("presets/Default.txt")
@@ -1739,7 +1743,9 @@ def check_keys_are_blocked_when_the_window_belongs_to_another_thread(mutate=None
 
 FAKE_FONTS = b"""
 stingray.Application.can_get = function(kind, name)
-  return kind == 'font' and name == 'content/fonts/fallback'
+  -- as the game answers when it is set to Chinese (research file of v1.1.9)
+  return (kind == 'runtime_font' and name == 'content/fonts/fallback')
+      or (kind == 'material' and name == 'content/fonts/runtime_font')
 end
 """
 
@@ -1759,7 +1765,13 @@ def check_chinese(mutate=None):
         text = shown(rig)
         assert "物品" in text and "预设" in text and "Items" not in text, text[:600]
         assert rig.game.lua.eval(b"stingray.drawn.font") == b"content/fonts/fallback"
-        assert "language = zh" in rig.game.read_out("settings.txt")
+        assert rig.game.lua.eval(b"stingray.drawn.material") == b"content/fonts/runtime_font"
+        # while it is being tried the file says so, and not yet "Chinese"
+        settings = rig.game.read_out("settings.txt")
+        assert "chinese_trying = true" in settings and "language = en" in settings, settings
+        rig.game.frames(70)
+        settings = rig.game.read_out("settings.txt")
+        assert "language = zh" in settings and "chinese_trying" not in settings, settings
         rig.game.press(F7)                                             # Items: headings and values in Chinese
         catalog_stat("assault_rifle", "rpm")
         for _ in range(menu_order("primary", "secondary", "support", "melee").index("assault_rifle")):
@@ -1790,7 +1802,30 @@ def check_chinese_needs_a_font_of_the_game(mutate=None):
         text = shown(rig)
         assert "no font of the game can draw Chinese" in text and "Items" in text, text[:600]
         assert "language = en" in rig.game.read_out("settings.txt")
-        assert "menu: font content/fonts/fallback: not there" in rig.game.read_out("byog.log")
+        assert "menu: font content/fonts/fallback (runtime_font): not there" in rig.game.read_out("byog.log")
+    finally:
+        rig.close()
+
+
+def check_chinese_is_not_tried_again_after_the_game_stopped(mutate=None):
+    # seen in game (v1.1.7, with a font of symbols): the game stopped answering, and the file still said "Chinese"
+    rig = Rig("", mutate)
+    try:
+        os.makedirs(os.path.dirname(rig.game.out_path("settings.txt")), exist_ok=True)
+        with open(rig.game.out_path("settings.txt"), "wb") as f:
+            f.write(b"preset = Default\r\nlanguage = en\r\nchinese_trying = true\r\n")
+        rig.settle()
+        rig.game.lua.execute(FAKE_ENGINE)
+        rig.game.lua.execute(FAKE_FONTS)
+        rig.game.press(F9)
+        rig.game.press(F6)
+        rig.game.press(DOWN)
+        rig.game.press(INSERT)
+        text = shown(rig)
+        assert "Chinese is switched off: the game stopped when it was drawn" in text and "Items" in text, text[:600]
+        assert rig.game.lua.eval(b"stingray.drawn.font") != b"content/fonts/fallback"
+        settings = rig.game.read_out("settings.txt")
+        assert "chinese_failed = true" in settings and "language = en" in settings, settings
     finally:
         rig.close()
 
@@ -1831,6 +1866,40 @@ def check_research_file(mutate=None):
         assert "[engine] no stingray table here" in text               # (this fake game has no engine)
         assert "research: RESEARCH.txt written" in rig.game.read_out("byog.log")
         assert first_line(rig.game.status()) == "OK - no changes configured"   # reading is not a change
+    finally:
+        rig.close()
+
+
+def check_research_asks_for_fonts_of_other_kinds(mutate=None):
+    rig = Rig("[settings]\nresearch = true\n", mutate)
+    try:
+        rig.game.lua.execute(b"""
+            stingray = { Application = { can_get = function(kind, name)
+                return kind == 'runtime_font' and name == 'content/fonts/runtime_font' end } }""")
+        rig.settle()
+        rig.game.frames(400)
+        text = rig.game.read_out("RESEARCH.txt")
+        assert "runtime_font: content/fonts/runtime_font\r\n" in text, text[-700:]
+        assert "runtime_font_atlas: none" in text and "texture: none" in text
+        assert not os.path.exists(rig.game.out_path("RESEARCH-running.txt"))   # the mark is gone when it went well
+    finally:
+        rig.close()
+
+
+def check_research_does_not_ask_again_after_the_game_closed_there(mutate=None):
+    rig = Rig("[settings]\nresearch = true\n", mutate)
+    try:
+        os.makedirs(os.path.dirname(rig.game.out_path("RESEARCH-running.txt")), exist_ok=True)
+        with open(rig.game.out_path("RESEARCH-running.txt"), "wb") as f:
+            f.write(b"font_material\r\n")
+        rig.game.lua.execute(b"""
+            ASKED = {}
+            stingray = { Application = { can_get = function(kind, name) ASKED[kind] = true return false end } }""")
+        rig.settle()
+        rig.game.frames(400)
+        text = rig.game.read_out("RESEARCH.txt")
+        assert "left out: the game closed the last time this was asked (font_material)" in text, text[-700:]
+        assert rig.game.lua.eval(b"ASKED.font") is True and rig.game.lua.eval(b"ASKED.runtime_font") is None
     finally:
         rig.close()
 
@@ -2107,6 +2176,10 @@ MUTATIONS = [
      "    if menu_act('search', now, true) then\n",
      "    if menu_act('search', now, true) or A.key_down(0x53) then\n",
      check_keys_go_to_the_box_only),
+    ("menu: the value box is drawn as a bare underscore",
+     "                        text('= ' .. menu.box.text .. '_', 800, y + 3, 17, 255, c, c, c)\n",
+     "                        text(menu.box.text .. '_', 800, y + 3, 17, 255, c, c, c)\n",
+     check_a_value_can_be_typed),
     ("menu: a typed value may leave the range",
      "    value = math.max(range.min, math.min(range.max, value))\n",
      "",
@@ -2180,17 +2253,37 @@ MUTATIONS = [
      "",
      check_a_block_that_closed_the_game_is_not_tried_again),
     ("chinese: a font the engine does not have is used",
-     "                if asked and there then menu.zh_fonts[#menu.zh_fonts + 1] = font end\n",
-     "                menu.zh_fonts[#menu.zh_fonts + 1] = font\n",
+     "                if usable then menu.zh_fonts[#menu.zh_fonts + 1] = { font = c[2], material = c[3] } end\n",
+     "                menu.zh_fonts[#menu.zh_fonts + 1] = { font = c[2], material = c[3] }\n",
      check_chinese_needs_a_font_of_the_game),
     ("chinese: drawn with the font that has no Chinese",
-     "    if menu.lang == 'zh' and menu.zh_font then\n        font = menu.zh_font\n",
-     "    if false then\n        font = menu.zh_font\n",
+     "    if menu.lang == 'zh' and menu.zh_font then\n        font, material = menu.zh_font.font",
+     "    if false then\n        font, material = menu.zh_font.font",
+     check_chinese),
+    ("chinese: tried again although the game stopped there",
+     "            elseif (key == 'chinese_trying' or key == 'chinese_failed') and value == 'true' then\n",
+     "            elseif false then\n",
+     check_chinese_is_not_tried_again_after_the_game_stopped),
+    ("chinese: the file says Chinese before it has been drawn for a while",
+     "        if menu.lang_saved ~= 'zh' then\n            menu.zh_trying = true\n",
+     "        if menu.lang_saved ~= 'zh' then\n            menu.lang_saved = 'zh'\n",
+     check_chinese),
+    ("chinese: drawn with the debug font's material",
+     "        S.Gui.text(gui, str, font, size * scale, material,\n",
+     "        S.Gui.text(gui, str, font, size * scale, menu.font,\n",
      check_chinese),
     ("chinese: the values keep their English names",
      "    local label = MENU_LABEL[rest]\n    return label and L(label) or stat\n",
      "    local label = MENU_LABEL[rest]\n    return label or stat\n",
      check_chinese),
+    ("research: asked again although the game closed there the last time",
+     "        elseif read_file('RESEARCH-running.txt') then\n",
+     "        elseif false then\n",
+     check_research_does_not_ask_again_after_the_game_closed_there),
+    ("research: the mark of a try stays behind",
+     "            if dir then os.remove(dir .. '\\\\RESEARCH-running.txt') end\n",
+     "",
+     check_research_asks_for_fonts_of_other_kinds),
     ("research: the names of the status rows are not read",
      "                if pointer and pointer > 0x10000 and A.read(pointer, 64) then\n",
      "                if false then\n",

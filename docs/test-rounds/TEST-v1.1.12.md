@@ -1,4 +1,4 @@
-# TEST v1.1.7 — yeni menü
+# TEST v1.1.12 — yeni menü
 
 Menü baştan yazıldı: dört sayfa (Items, Presets, Keys, Language), atanabilir tuşlar, presetler, Çince,
 status effect süresi. Çevrimdışı testlerin hepsi geçiyor, ama bu sürüm oyunda hiç çalıştırılmadı.
@@ -11,7 +11,7 @@ status effect süresi. Çevrimdışı testlerin hepsi geçiyor, ama bu sürüm o
 
 ## Kurulum
 
-1. Arsenal'da eski BYOG'u sil, `BYOG-v1.1.7.zip` dosyasını ekle, etkinleştir, **Deploy** et.
+1. Arsenal'da eski BYOG'u sil, `BYOG-v1.1.12.zip` dosyasını ekle, etkinleştir, **Deploy** et.
 2. `%LOCALAPPDATA%\BYOG` klasörüne dokunma: eski `menu.txt` içindeki ayarlar "Default" presetine taşınmalı.
 
 ## 0. Silah adları
@@ -23,7 +23,7 @@ iç adlarıyla birlikte görünür: `SG-8 Punisher (pump_shotgun)`, `SMG-37 Defe
 
 ## A. Menü ve eski ayarlar
 
-1. F9 menüyü açıyor mu, başlıkta `v1.1.7` yazıyor mu? Üstte dört sayfa, sağ üstte `Preset: Default` var mı?
+1. F9 menüyü açıyor mu, başlıkta `v1.1.12` yazıyor mu? Üstte dört sayfa, sağ üstte `Preset: Default` var mı?
 2. 1.0'da yaptığın değişiklikler duruyor mu (değerler sarı)? `presets\Default.txt` oluşmuş mu?
 3. Stat adları okunur mu ("Armor penetration, direct hit", "Magazine size")? Listenin altında seçili
    değerin config.txt adı (`ap_direct`) yazıyor mu?
@@ -67,13 +67,15 @@ Menü açıkken oyun klavyeyi ve fare tuşlarını almamalı; yalnızca menü ç
 5. F9 ile kapat: oyun tuşları ve fareyi **yeniden** alıyor mu? (Almıyorsa oyunu yeniden başlat ve bunu yaz.)
 6. Keys sayfasında "Block game input" satırında Insert: kapatınca tuşlar yine oyuna gidiyor mu?
 
-## F. Çince
+## F. Çince (deneme — oyun donabilir)
 
-1. Language sayfasında "Chinese (Simplified)" → Insert. Sağında "no font of the game can draw Chinese"
-   yazıyorsa bunu yaz ve `byog.log` içindeki `menu: font ...` satırlarını gönder.
-2. Seçilebildiyse: metinler Çince mi, yoksa kutu/boşluk mu çıkıyor? İngilizce silah adları okunuyor mu?
-   "Font for Chinese" satırı varsa Insert ile diğer yazı tiplerini de dene; hangisi düzgün?
-3. English'e dön: her şey eski haline geldi mi?
+Oyunun dili Çince olmalı (oyun içi ayarlardan). Language sayfasında "Chinese (Simplified)" → Insert.
+
+1. Oyun dondu ya da kapandı mı? Öyleyse oyunu kapatıp yeniden aç: mod Çinceyi kendisi kapatmış olmalı
+   (Language sayfasında "Chinese is switched off..." yazar). Bunu yaz.
+2. Donmadıysa: metinler Çince mi, okunuyor mu? Kutu, soru işareti ya da boşluk çıkıyor mu?
+   İngilizce silah adları ve rakamlar düzgün mü? Yazılar sütunlara sığıyor mu?
+3. Oyunun dili İngilizceyken "Chinese (Simplified)" seçilince ne oluyor? ("no font..." yazmalı.)
 
 ## G. Status süresi
 
@@ -82,15 +84,6 @@ Menü açıkken oyun klavyeyi ve fare tuşlarını almamalı; yalnızca menü ç
 3. **Acid Storm** → Duration = 10; bir silaha `Status effect 1: type` = 55 ver (yorumcunun yaptığı gibi):
    etki daha uzun sürüyor mu? Zırh azaltma da uzuyor mu, yoksa yalnızca ekran efekti mi?
 
-## H. Araştırma dosyası
-
-Bu sürüm her açılışta, hiçbir şey yazmadan, `RESEARCH.txt` dosyasını üretir: oyunun status tablosunun
-bütün satırları, motorun yazı tipi ve girdi işlevlerinden hangilerinin var olduğu, hangi yazı tiplerinin
-yüklü olduğu. Yapman gereken tek şey bir göreve inip çıkmak ve dosyayı göndermek.
-
-1. `RESEARCH.txt` oluştu mu? `[status effects] 71 rows` gibi bir satırla başlıyor mu?
-   "the table was not found" yazıyorsa bir göreve in, sonra oyunu kapat-aç ve tekrar bak.
-
 ## Gönderilecekler
 
-`%LOCALAPPDATA%\BYOG` içinden: `RESEARCH.txt`, `STATUS.txt`, `byog.log`, `settings.txt`, `presets` klasörü.
+`%LOCALAPPDATA%\BYOG` içinden: `STATUS.txt`, `byog.log`, `settings.txt`, `presets` klasörü.

@@ -4,3 +4,4 @@
 weapon|grenade_launcher_tactical|marked for removal by the testers
 weapon|laser_rifle_charge|the testers could not find what it is in the game
 weapon|marksman_rifle_justice|has the Diligence's values but changing them does nothing; the real one is marksman_rifle_vigilance
+weapon|pump_shotgun_flm|a second "SG-8 Punisher" in the list; the testers asked for one of the two to go (pump_shotgun stays)

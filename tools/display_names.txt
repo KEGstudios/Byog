@@ -110,17 +110,31 @@ weapon|stun_baton|CQC-30 Stun Baton
 weapon|stun_spear|CQC-19 Stun Lance
 weapon|survival_shovel|CQC-72 Entrenchment Tool
 weapon|survival_shovel_trench|Trench Shovel
-weapon|triple_barrel_breakshotgun|SG-8 Punisher
+weapon|triple_barrel_breakshotgun|SG-22 Bushwhacker
 weapon|volley_gun|VG-70 Variable
-throwable|frag_grenade|G-6 Frag
-throwable|he_grenade|G-12 High Explosive
-throwable|incendiary_grenade|G-10 Incendiary
-throwable|impact_grenade|G-16 Impact
-throwable|incendiary_impact_grenade|G-13 Incendiary Impact
-throwable|smoke_grenade|G-3 Smoke
-throwable|gas_grenade|G-4 Gas
+throwable|arc_grenade|G-31 Arc
+throwable|at_explosive_grenade|G-48 Giga Grenade
+throwable|at_self_destruct_drone|G-60 Anti-Tank Seeker
+throwable|cluster_frag_grenade|G-7 Pineapple
+throwable|dynamite|TED-63 Dynamite
+throwable|energy_shield_grenade|G/SH-39 Shield
 throwable|flashbang|G-23 Stun
+throwable|frag_grenade|G-6 Frag
+throwable|gas_grenade|G-4 Gas
+throwable|he_grenade|G-12 High Explosive
+throwable|impact_grenade|G-16 Impact
+throwable|impact_smoke_grenade|G-3 Smoke
+throwable|incendiary_grenade|G-10 Incendiary
+throwable|incendiary_impact_grenade|G-13 Incendiary Impact
+throwable|luring_mine|TM-1 Lure Mine
+throwable|mine_shark|G/40-K Melta Mine
+throwable|molotov_grenade|G-8 Immolation
+throwable|self_destruct_drone|G-50 Seeker
+throwable|smoke_grenade|G-3 Smoke
+throwable|sticky_grenade|G-123 Thermite
+throwable|sticky_stun_grenade|G-109 Urchin
 throwable|throwing_knife|K-2 Throwing Knife
+throwable|zipper_grenade|G-142 Pyrotech
 stratagem_weapon|turret_machinegun_gpmg|Machine Gun Sentry (gun)
 stratagem_weapon|gatling_turret|Gatling Sentry (gun)
 stratagem_weapon|mortar_turret|Mortar Sentry (gun)
