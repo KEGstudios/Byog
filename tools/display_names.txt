@@ -2,51 +2,116 @@
 # Written by hand from the names the game shows; config.txt keeps using the internal names.
 # An item that is not listed is shown by its internal name. Corrections and additions are welcome:
 # one line per item, category|internal name|name in the game
+weapon|air_burst_rocket_launcher|RL-77 Airburst Rocket Launcher
+weapon|arc_shotgun|ARC-12 Blitzer
+weapon|arc_thrower|ARC-3 Arc Thrower
 weapon|assault_rifle|AR-23 Liberator
 weapon|assault_rifle_ap|AR-23P Liberator Penetrator
 weapon|assault_rifle_exp|AR-23C Liberator Concussive
-weapon|assault_rifle_karbin|AR-23A Liberator Carbine
-weapon|assault_rifle_patriot|AR-61 Tenderizer
-weapon|lmg_stalwart|M-105 Stalwart
-weapon|machinegun|MG-43 Machine Gun
-weapon|heavy_mg|MG-206 Heavy Machine Gun
-weapon|standard_pistol|P-2 Peacemaker
-weapon|automatic_pistol|P-19 Redeemer
-weapon|revolver_pistol|P-4 Senator
-weapon|grenade_pistol|GP-31 Grenade Pistol
-weapon|laser_pistol|LAS-7 Dagger
-weapon|plasma_pistol|PLAS-15 Loyalist
-weapon|stim_pistol|P-11 Stim Pistol
-weapon|smg_defender|SMG-37 Defender
-weapon|pump_shotgun|SG-8 Punisher
-weapon|pump_shotgun_slug|SG-8S Slugger
-weapon|pump_shotgun_plasma|SG-8P Punisher Plasma
+weapon|assault_rifle_grenadier|AR/GL-21 One-Two
+weapon|assault_rifle_helghast|StA-52 Assault Rifle
+weapon|assault_rifle_karbin|AR-32 Pacifier
+weapon|assault_rifle_large_calibre_01|AR-2 Coyote
+weapon|assault_rifle_nacho|MA5C Assault Rifle
+weapon|assault_rifle_patriot|AR-23A Liberator Carbine
+weapon|assault_rifle_rico|AR-61 Tenderizer
+weapon|assault_rifle_risk|AR-11 Arbitrator
+weapon|assault_rifle_whisper|AR-59 Suppressor
 weapon|assault_shotgun|SG-225 Breaker
 weapon|assault_shotgun_bir|SG-225SP Breaker Spray & Pray
 weapon|assault_shotgun_incendiary|SG-225IE Breaker Incendiary
-weapon|arc_shotgun|ARC-12 Blitzer
-weapon|laser_rifle|LAS-5 Scythe
-weapon|laser_rifle_charge|LAS-16 Sickle
-weapon|plasma_rifle|PLAS-1 Scorcher
-weapon|plasma_rifle_charge|PLAS-101 Purifier
-weapon|marksman_rifle_vigilance|R-63 Diligence
-weapon|marksman_rifle_justice|R-63CS Diligence Counter Sniper
-weapon|jet_rifle|JAR-5 Dominator
-weapon|crossbow_greyfax|CB-9 Exploding Crossbow
-weapon|grenade_launcher|GL-21 Grenade Launcher
-weapon|recoilless_rifle|GR-8 Recoilless Rifle
 weapon|automatic_cannon|AC-8 Autocannon
-weapon|railgun|RS-422 Railgun
-weapon|arc_thrower|ARC-3 Arc Thrower
-weapon|flamethrower|FLAM-40 Flamethrower
-weapon|laser_cannon|LAS-98 Laser Cannon
+weapon|automatic_pistol|P-19 Redeemer
+weapon|battle_rifle|BR-14 Adjudicator
+weapon|battle_rifle_ceremonial|R-2 Amendment
+weapon|belt_fed_grenade_launcher|GL-28 Belt-Fed Grenade Launcher
+weapon|bolt_action_rifle|R-2124 Constitution
+weapon|caustic_dart_gun|P-35 Re-Educator
+weapon|ceremonial_saber|CQC-2 Saber
+weapon|chainsaw_greatsword|CQC-9 Defoliation Tool
+weapon|crossbow_greyfax|CB-9 Exploding Crossbow
+weapon|energy_revolver|LAS-58 Talon
+weapon|energy_weapon_shark|40-K Meltagun
+weapon|expendable_machinegun|MGX-42 Bullet Storm
+weapon|expendable_massive_rocket_launcher|EAT-411 Leveller
+weapon|expendable_napalm_launcher|EAT-700 Expendable Napalm
 weapon|faf_missile_launcher|FAF-14 Spear
-weapon|air_burst_rocket_launcher|RL-77 Airburst Rocket Launcher
+weapon|faf_missile_launcher_helghast|StA-X3 W.A.S.P. Launcher
+weapon|flamer_pistol|P-72 Crisper
+weapon|flamethrower|FLAM-40 Flamethrower
+weapon|flamethrower_ripley|FLAM-66 Torcher
+weapon|grenade_launcher|GL-21 Grenade Launcher
+weapon|grenade_pistol|GP-31 Grenade Pistol
+weapon|hand_axe|CQC-5 Combat Hatchet
+weapon|harpoon_gun|S-11 Speargun
+weapon|heavy_flamethrower|B/FLAM-80 Cremator
+weapon|heavy_mg|MG-206 Heavy Machine Gun
+weapon|hornet_pistol|P-34 Breacher
+weapon|jet_rifle|JAR-5 Dominator
+weapon|jet_rifle_phoenix|R-36 Eruptor
+weapon|laser_cannon|LAS-98 Laser Cannon
+weapon|laser_guided_missile_launcher|MLS-4X Commando
+weapon|laser_pistol|LAS-7 Dagger
+weapon|laser_pulse_cannon|LAS-99 Quasar Cannon
+weapon|laser_rifle|LAS-5 Scythe
+weapon|laser_rifle_long|LAS-16 Sickle
+weapon|laser_rifle_long_hotshot|LAS-17 Double-Edge Sickle
+weapon|laser_shotgun|LAS-13 Trident
+weapon|laser_smg_blaster|LAS-12 Sai
 weapon|lat_oneshot|EAT-17 Expendable Anti-Tank
+weapon|lever_action_rifle_01|R-6 Deadeye
+weapon|lmg_stalwart|M-105 Stalwart
+weapon|machete|CQC-42 Machete
+weapon|machinegun|MG-43 Machine Gun
+weapon|magnum_pistol|P-113 Verdict
+weapon|marksman_rifle_drake|R-4 Hyena
+weapon|marksman_rifle_shark|R/40-K Hot-Shot Marksman Rifle
+weapon|marksman_rifle_vigilance|R-63 Diligence
+weapon|marksman_rifle_vigilance_burst|R-63CS Diligence Counter Sniper
+weapon|melee_flag|CQC-1 One True Flag
+weapon|minigun|M-1000 Maxigun
+weapon|personal_defense_weapon|SMG-37 Defender
+weapon|personal_defense_weapon_pepper|SMG-72 Pummeler
+weapon|pistol_broomhandle|P-69 Veto
+weapon|pistol_cricket|GP-20 Ultimatum
+weapon|pistol_nacho|M6C/SOCOM Pistol
+weapon|pistol_shark|P/40-K Bolt Pistol
+weapon|plasma_blaster|PLAS-45 Epoch
+weapon|plasma_pistol|PLAS-15 Loyalist
+weapon|plasma_rifle|PLAS-45 Epoch
+weapon|plasma_rifle_charge|PLAS-101 Purifier
+weapon|pump_grenade_launcher|GL-15 Evictor
+weapon|pump_shotgun|SG-8 Punisher
+weapon|pump_shotgun_dragon|SG-451 Cookout
+weapon|pump_shotgun_flm|SG-8 Punisher
+weapon|pump_shotgun_plasma|SG-8P Punisher Plasma
+weapon|pump_shotgun_slug|SG-8S Slugger
+weapon|pump_shotgun_stun|SG-20 Halt
+weapon|pump_shotgun_trench|SG-97 Sweeper
+weapon|railgun|RS-422 Railgun
+weapon|recoilless_rifle|GR-8 Recoilless Rifle
+weapon|revolver_pistol|P-4 Senator
+weapon|shotgun_double_freedom|DBS-2 Double Freedom
+weapon|shotgun_nacho|M90A Shotgun
+weapon|sledge_hammer|CQC-20 Breaching Hammer
+weapon|smart_pistol|P-92 Warrant
+weapon|smart_pistol_missile|P-33 Missile Pistol
+weapon|smg_defender|SMG-37 Defender
+weapon|smg_flamer|SMG/FLAM-34 Stoker
+weapon|smg_helghast|StA-11 SMG
+weapon|smg_nacho|M7S SMG
+weapon|smg_rhino|SMG-32 Reprimand
+weapon|smg_solvent|SMG-203 Gallant
 weapon|sniper_rifle|APW-1 Anti-Materiel Rifle
+weapon|sniper_rifle_helghast|PLAS-39 Accelerator Rifle
+weapon|standard_pistol|P-2 Peacemaker
+weapon|stim_pistol|P-11 Stim Pistol
 weapon|stun_baton|CQC-30 Stun Baton
 weapon|stun_spear|CQC-19 Stun Lance
-weapon|hand_axe|CQC-5 Combat Hatchet
+weapon|survival_shovel|CQC-72 Entrenchment Tool
+weapon|survival_shovel_trench|Trench Shovel
+weapon|triple_barrel_breakshotgun|SG-8 Punisher
+weapon|volley_gun|VG-70 Variable
 throwable|frag_grenade|G-6 Frag
 throwable|he_grenade|G-12 High Explosive
 throwable|incendiary_grenade|G-10 Incendiary

@@ -2595,7 +2595,7 @@ local MENU_ACTIONS = {
     { 'fast', 'SHIFT', 'Hold: ten times the step' },
     { 'reset', 'DELETE', "Back to the game's value" },
     { 'search', 'F3', 'Search' },
-    { 'accept', 'INSERT', 'Select / type a value / confirm' },
+    { 'accept', 'INSERT', 'Select / search / type a value / confirm' },
     { 'back', 'END', 'Cancel / clear the search' },
 }
 local MENU_PAGES = { 'Items', 'Presets', 'Keys', 'Language' }
@@ -2683,7 +2683,7 @@ local MENU_ZH = {
     ['Left / lower the value'] = '左 / 减小数值', ['Right / raise the value'] = '右 / 增大数值',
     ['Switch between the two lists'] = '在两个列表之间切换', ['Ten rows up'] = '上移十行', ['Ten rows down'] = '下移十行',
     ['Previous page'] = '上一页', ['Next page'] = '下一页', ['Hold: ten times the step'] = '按住：十倍步长',
-    ["Back to the game's value"] = '还原为游戏原值', ['Select / type a value / confirm'] = '选择 / 输入数值 / 确认',
+    ["Back to the game's value"] = '还原为游戏原值', ['Select / search / type a value / confirm'] = '选择 / 搜索 / 输入数值 / 确认',
     ['Cancel / clear the search'] = '取消 / 清除搜索',
     ['A status effect has one length: it is the same for every weapon and enemy that applies it'] =
         '状态效果只有一个时长：对所有施加它的武器和敌人都相同',
@@ -3353,8 +3353,10 @@ local function menu_items_input(now, lists)
                 if value then menu_set(item, stat, value, at) end
             end)
         end
-    elseif menu.focus == 'items' and item and menu_act('accept', now, true) then
-        menu.focus = 'stats'
+    elseif menu.focus == 'items' and menu_act('accept', now, true) then
+        -- seen in game (v1.1.1): testers pressed the select key to get into the search and landed in the
+        -- value list. In the item list it opens the search box; the lists are switched with their own key.
+        menu_box_open('search', menu.filter)
     end
 end
 
@@ -3564,7 +3566,7 @@ local function menu_draw(now)
     local width, height = menu.width, menu.height
     local scale = height / 1080
     menu_step('Gui.rect / Gui.text (first frame)')
-    local PANEL_W, PANEL_H = 1180, 700
+    local PANEL_W, PANEL_H = 1180, 726
     local left, bottom = (width - PANEL_W * scale) / 2, (height - PANEL_H * scale) / 2
     -- panel coordinates: x from the left edge, y from the TOP edge of the panel (the Gui's origin is bottom left)
     local layers = menu.layers
@@ -3618,7 +3620,7 @@ local function menu_draw(now)
 
     local hints = {}
     local function hint(keys, what) hints[#hints + 1] = keys .. ' ' .. L(what) end
-    local TOP = 124
+    local TOP = 150
     local lists = menu_lists()
     if not lists then
         text(L('reading the built-in data ...'), 20, TOP, 18, 255, 220, 220, 220)
@@ -3658,14 +3660,19 @@ local function menu_draw(now)
         end
         local under = TOP + MENU_ROWS * 26 + 6
         gray(string.format('%d %s %d', #list > 0 and selected or 0, L('of'), #list), 330, under)
+        -- the search box, above the item list
+        local box_y = TOP - 26
         if menu.box and menu.box.kind == 'search' then
-            rect(16, under - 3, 300, 22, 255, 255, 214, 0)
-            if layers then text(L('search') .. ': ' .. menu.box.text .. '_', 24, under, 16, 255, 0, 0, 0)
-            else yellow(L('search') .. ': ' .. menu.box.text .. '_', 24, under, 16) end
+            rect(16, box_y - 3, 400, 22, 255, 255, 214, 0)
+            if layers then text(L('search') .. ': ' .. menu.box.text .. '_', 24, box_y, 16, 255, 0, 0, 0)
+            else yellow(L('search') .. ': ' .. menu.box.text .. '_', 24, box_y, 16) end
         elseif menu.filter ~= '' then
-            yellow(L('search') .. ': ' .. menu.filter, 24, under, 16)
+            rect(16, box_y - 3, 400, 22, 255, 70, 70, 60)
+            yellow(L('search') .. ': ' .. menu.filter, 24, box_y, 16)
         else
-            text(L('press %s to search'):format(key('search')), 24, under, 14, 255, 150, 150, 150)
+            rect(16, box_y - 3, 400, 22, 255, 40, 42, 46)
+            local keys = menu.focus == 'items' and (key('accept') .. ' / ' .. key('search')) or key('search')
+            text(L('press %s to search'):format(keys), 24, box_y + 1, 14, 255, 170, 170, 170)
         end
         -- values of the selected item
         if item then
@@ -3726,7 +3733,9 @@ local function menu_draw(now)
         else
             hint(key('up') .. '/' .. key('down'), 'move'); hint(key('column'), 'lists')
             hint(key('left') .. '/' .. key('right'), 'change'); hint(key('fast'), 'x10')
-            hint(key('reset'), 'reset'); hint(key('accept'), 'type'); hint(key('search'), 'search')
+            hint(key('reset'), 'reset')
+            if menu.focus == 'items' then hint(key('accept') .. '/' .. key('search'), 'search')
+            else hint(key('accept'), 'type'); hint(key('search'), 'search') end
         end
     elseif menu.page == 2 then
         for n, name in ipairs(menu.presets) do

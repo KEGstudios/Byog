@@ -50,6 +50,7 @@ Line format ('|' separated):
     python tools/gen_tuner_data.py        # -> build/tuner_data.txt
 """
 import json
+import collections
 import os
 import re
 import struct
@@ -202,6 +203,18 @@ def generate(builds=None, indexes=None):
             if not line.startswith("#") and line.count("|") == 2:
                 c, n, shown = line.rstrip("\n").split("|")
                 display[(c, n)] = shown
+    hidden = set()
+    with open(os.path.join(HERE, "hidden_items.txt"), encoding="utf-8") as f:
+        for line in f:
+            if not line.startswith("#") and line.count("|") == 2:
+                c, n, _why = line.rstrip("\n").split("|")
+                hidden.add((c, n))
+    # two items of a category under one name (the testers found two "SG-8 Punisher"): the internal name
+    # is added, so that they can be told apart
+    shown_count = collections.Counter((c, shown) for (c, n), shown in display.items() if (c, n) not in hidden)
+    for (c, n), shown in list(display.items()):
+        if shown_count[(c, shown)] > 1:
+            display[(c, n)] = "%s (%s)" % (shown, n)
     data_start = deltas._load()["xo"]
     magazines = {}          # item index -> (catalog item, {stat: (stat entry, attachment entry)})
     for it in cat["items"]:
@@ -210,6 +223,8 @@ def generate(builds=None, indexes=None):
             continue
         index = len(items)
         short = it["path"].rsplit("/", 1)[-1]
+        if (category, short) in hidden:
+            continue
         items.append("I|%d|%s|%s|%s|%s" % (index, category, short, it["entity"], display.get((category, short), "")))
         cat_of[index] = it
         for s in it["stats"]:

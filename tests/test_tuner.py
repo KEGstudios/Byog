@@ -1285,7 +1285,13 @@ def menu_order(*categories):
             if not line.startswith("#") and line.count("|") == 2:
                 _c, name, label = line.rstrip("\n").split("|")
                 shown[name] = label
+    hidden = set()
+    with open(os.path.join(ROOT, "tools", "hidden_items.txt"), encoding="utf-8") as f:
+        for line in f:
+            if not line.startswith("#") and line.count("|") == 2:
+                hidden.add(line.split("|")[1])
     names = [it["path"].rsplit("/", 1)[-1] for it in _CATALOG.values() if it["category"] in categories]
+    names = [n for n in names if n not in hidden]
     return sorted(names, key=lambda n: shown.get(n, n).lower())
 
 
@@ -1312,7 +1318,7 @@ def check_menu_changes_a_value_and_remembers_it(mutate=None):
         # in the middle of a 1920 x 1080 screen (the Gui's origin is the bottom left corner)
         panel = [rig.game.lua.eval(b"stingray.drawn.panel[%d]" % n) for n in (1, 2, 3, 4)]
         scale = 1440 / 1080                                            # the fake screen is 2560 x 1440
-        want = [(2560 - 1180 * scale) / 2, (1440 - 700 * scale) / 2, 1180 * scale, 700 * scale]
+        want = [(2560 - 1180 * scale) / 2, (1440 - 726 * scale) / 2, 1180 * scale, 726 * scale]
         assert all(abs(a - b) < 0.01 for a, b in zip(panel, want)), (panel, want)
         assert rig.game.lua.eval(b"stingray.drawn.crashed") is None    # no engine call with arguments it does not take
         log = rig.game.read_out("byog.log")
@@ -1449,7 +1455,7 @@ def check_menu_search_finds_items_of_every_category(mutate=None):
         rig.game.press(TAB)
         rig.game.press(END)                                            # drops the search
         text = shown(rig)
-        assert "press F3 to search" in text and "AR-23 Liberator" in text
+        assert "press INSERT / F3 to search" in text and "AR-23 Liberator" in text
     finally:
         rig.close()
 
@@ -1504,8 +1510,13 @@ def check_keys_go_to_the_box_only(mutate=None):
         rig.game.press(F9)
         typed(rig, b"S")                                               # a letter alone does nothing any more
         text = shown(rig)
-        assert "search: " not in text and "press F3 to search" in text, text[:400]
-        rig.game.press(F3)
+        assert "search: " not in text and "press INSERT / F3 to search" in text, text[:400]
+        rig.game.press(INSERT)                                         # seen in game: this is what testers press
+        typed(rig, b"S")
+        assert "search: s_" in shown(rig)
+        rig.game.press(END)
+        assert "search: " not in shown(rig)
+        rig.game.press(F3)                                             # and the search key itself
         typed(rig, b"S")
         assert "search: s_" in shown(rig)
         rig.game.press(TAB)                                            # in the box these are not the menu's keys
@@ -1715,6 +1726,9 @@ def check_chinese(mutate=None):
         assert rig.game.lua.eval(b"stingray.drawn.font") == b"content/fonts/fallback"
         assert "language = zh" in rig.game.read_out("settings.txt")
         rig.game.press(F7)                                             # Items: headings and values in Chinese
+        catalog_stat("assault_rifle", "rpm")
+        for _ in range(menu_order("primary", "secondary", "support", "melee").index("assault_rifle")):
+            rig.game.press(DOWN)
         rig.game.press(TAB)
         text = shown(rig)
         assert "伤害" in text and "穿甲加成" in text and "AR-23 Liberator" in text, text[:900]
@@ -1868,7 +1882,7 @@ class Startup(unittest.TestCase):
     def test_attachment_values_point_into_the_delta_storage(self):
         blob, _stats = gen_tuner_data.generate()
         flagged = [x.split("|") for x in blob.splitlines() if x.startswith("F|") and x.endswith("|A")]
-        self.assertEqual(len(flagged), 79)
+        self.assertEqual(len(flagged), 73)
         self.assertTrue(all(f[3] == "ComponentEntityDeltaStorage" and f[4] == "data" for f in flagged))
         data_start = __import__("deltas")._load()["xo"]
         _it, s = catalog_stat("assault_rifle", "capacity")
@@ -1878,8 +1892,8 @@ class Startup(unittest.TestCase):
     def test_magazine_and_census_data(self):
         blob, stats = gen_tuner_data.generate()
         lines = blob.splitlines()
-        self.assertEqual(stats["own_magazines"], 18)
-        self.assertEqual(len([x for x in lines if x.startswith("H|")]), 72)
+        self.assertEqual(stats["own_magazines"], 17)
+        self.assertEqual(len([x for x in lines if x.startswith("H|")]), 68)
         # one magazine is the default of three rifles: the same run for all three
         self.assertEqual(len([x for x in lines if x.startswith("G|") and x.endswith("|7BE1E04A7738E673")]), 3)
         self.assertFalse([x for x in lines if x[:2] in ("C|", "Q|", "Y|")])      # research lines: gone
@@ -1893,7 +1907,7 @@ class Startup(unittest.TestCase):
         self.assertIn("P|ExplosionSettings|40,44,48,52", lines)
         own = [x for x in lines if x.startswith("B|") and x.split("|")[5] == "1"]
         borrow = [x for x in lines if x.startswith("B|") and x.split("|")[5] == "0"]
-        self.assertEqual((len(own), len(borrow)), (57, 43))       # hand weapons, throwables, stratagem weapons
+        self.assertEqual((len(own), len(borrow)), (56, 43))       # hand weapons, throwables, stratagem weapons
         # every row that may be borrowed, and every row copied into one, ships with its stock bytes
         for row in [x for x in lines if x.startswith("S|")][0].split("|")[2].split(","):
             self.assertTrue([x for x in lines if x.startswith("W|ExplosionSettings|%s|" % row)], row)
@@ -2049,6 +2063,10 @@ MUTATIONS = [
     ("menu: the menu's keys also work while a box is typed into",
      "    if menu.mode == 'text' then\n        menu_box_input(now)\n    elseif menu.mode == 'capture' then",
      "    if menu.mode == 'text' then\n        menu_box_input(now)\n    end\n    if menu.mode == 'capture' then",
+     check_keys_go_to_the_box_only),
+    ("menu: the select key does not open the search from the item list",
+     "    elseif menu.focus == 'items' and menu_act('accept', now, true) then\n",
+     "    elseif false then\n",
      check_keys_go_to_the_box_only),
     ("menu: a letter searches without the search key",
      "    if menu_act('search', now, true) then\n",

@@ -1,4 +1,4 @@
-# TEST v1.1.1 — yeni menü + araştırma
+# TEST v1.1.2 — yeni menü + araştırma
 
 Menü baştan yazıldı: dört sayfa (Items, Presets, Keys, Language), atanabilir tuşlar, presetler, Çince,
 status effect süresi. Çevrimdışı testlerin hepsi geçiyor, ama bu sürüm oyunda hiç çalıştırılmadı.
@@ -11,12 +11,19 @@ status effect süresi. Çevrimdışı testlerin hepsi geçiyor, ama bu sürüm o
 
 ## Kurulum
 
-1. Arsenal'da eski BYOG'u sil, `BYOG-v1.1.1.zip` dosyasını ekle, etkinleştir, **Deploy** et.
+1. Arsenal'da eski BYOG'u sil, `BYOG-v1.1.2.zip` dosyasını ekle, etkinleştir, **Deploy** et.
 2. `%LOCALAPPDATA%\BYOG` klasörüne dokunma: eski `menu.txt` içindeki ayarlar "Default" presetine taşınmalı.
+
+## 0. Silah adları
+
+Silahlar sayfasındaki adlar tablodan işlendi. Menüde silah adları doğru mu? Aynı adı taşıyan çiftler
+iç adlarıyla birlikte görünür: `SG-8 Punisher (pump_shotgun)`, `SMG-37 Defender (smg_defender)`,
+`PLAS-45 Epoch (plasma_rifle)`. Hangisi hangisi, tabloya yazarsan düzeltirim.
+Çıkarılanlar: `grenade_launcher_tactical`, `laser_rifle_charge`, `marksman_rifle_justice`.
 
 ## A. Menü ve eski ayarlar
 
-1. F9 menüyü açıyor mu, başlıkta `v1.1.1` yazıyor mu? Üstte dört sayfa, sağ üstte `Preset: Default` var mı?
+1. F9 menüyü açıyor mu, başlıkta `v1.1.2` yazıyor mu? Üstte dört sayfa, sağ üstte `Preset: Default` var mı?
 2. 1.0'da yaptığın değişiklikler duruyor mu (değerler sarı)? `presets\Default.txt` oluşmuş mu?
 3. Stat adları okunur mu ("Armor penetration, direct hit", "Magazine size")? Listenin altında seçili
    değerin config.txt adı (`ap_direct`) yazıyor mu?
@@ -26,8 +33,9 @@ status effect süresi. Çevrimdışı testlerin hepsi geçiyor, ama bu sürüm o
 
 ## B. Yazı yazma
 
-1. Items sayfasında F3'e basmadan bir harfe bas: arama **başlamamalı**.
-2. F3, `sentry` yaz: liste süzülüyor mu? Kutudayken ok tuşları ve Tab menüde bir şeyi oynatmamalı.
+1. Items sayfasında hiçbir tuşa basmadan bir harfe bas: arama **başlamamalı**.
+2. Arama kutusu artık listenin **üstünde**. Öğe listesindeyken **Insert** (ya da F3) kutuya giriyor mu?
+   `sentry` yaz: liste süzülüyor mu? Kutudayken ok tuşları ve Tab menüde bir şeyi oynatmamalı.
    Backspace harf siliyor mu? Insert kutudan çıkıp sonuçları koruyor, End aramayı temizliyor mu?
 
 ## C. Presetler
