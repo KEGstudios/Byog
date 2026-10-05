@@ -146,11 +146,74 @@ backpack|automatic_cannon_backpack|Autocannon backpack
 backpack|faf_missile_launcher_backpack|Spear backpack
 backpack|air_burst_rocket_backpack|Airburst Rocket Launcher backpack
 backpack|ammo_backpack|B-1 Supply Pack
+status|blind|Blind
+status|bleed|Bleed
+status|deaf|Deaf
+status|confusion|Confusion
+status|fire|Fire
+status|fire_panic|Fire Panic
+status|lava|Lava
+status|slowed|Slowed
+status|rooted|Rooted
 status|acid_splash|Acid Splash
 status|acid_stream|Acid Stream
+status|thermite|Thermite
+status|cyborg_fire|Cyborg Fire
+status|choked|Choked
+status|sand|Sand
+status|mud|Mud
+status|snow|Snow
+status|submerged|Submerged
+status|thornbush|Thornbush
+status|cactus|Cactus
+status|barbwire|Barbwire
+status|bushsmall|BushSmall
+status|bushlarge|BushLarge
+status|pure_damage|Pure Damage
+status|stim_fx|Stim Fx
+status|stim_stamina|Stim Stamina
+status|stim_heal|Stim Heal
+status|stim_pistol_heal|Stim Pistol Heal
+status|stim_combat_drugs|Stim Combat Drugs
+status|stim_cooldown|Stim Cooldown
+status|burninglight|BurningLight
+status|burningheavy|BurningHeavy
+status|radiationlight|RadiationLight
+status|radiationheavy|RadiationHeavy
+status|electric|Electric
+status|hidden|Hidden
+status|stun_small|Stun Small
+status|stun_medium|Stun Medium
+status|stun_large|Stun Large
+status|stun_massive|Stun Massive
+status|stun_illuminate|Stun Illuminate
 status|gas|Gas (6 s)
 status|gas_2|Gas (10 s)
 status|gas_confusion|Gas Confusion (5 s)
 status|gas_confusion_2|Gas Confusion (9 s)
+status|inverted_aim_assist|Inverted Aim Assist
+status|flashlighted|Flashlighted
+status|smoke_covered|Smoke Covered
+status|backpack_chemicals|Backpack Chemicals
+status|intense_heat|Intense Heat
+status|extreme_cold|Extreme Cold
+status|tremor|Tremor
 status|sandstorm|Sandstorm
+status|blizzard|Blizzard
 status|acid_storm|Acid Storm
+status|weather_insulated|Weather Insulated
+status|tornadostun|TornadoStun
+status|dark_fluid|Dark Fluid
+status|death_march|Death March
+status|hotshot_laser_rifle|Hotshot Laser Rifle
+status|hotshot_laser_rifle_2|Hotshot Laser Rifle
+status|hotshot_laser_rifle_3|Hotshot Laser Rifle
+status|illuminate_scrambler|Illuminate Scrambler
+status|constitution|Constitution
+status|constitution_booster_armor_resistance|Constitution Booster Armor Resistance
+status|post_mortem_explosion|Post Mortem Explosion
+status|flamerslowed|FlamerSlowed
+status|gloom|Gloom
+status|dark_fluid_2|Dark Fluid
+status|poison|Poison
+status|poisonvulnerability|PoisonVulnerability

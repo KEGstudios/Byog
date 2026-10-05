@@ -1,4 +1,4 @@
-# TEST v1.1.2 — yeni menü + araştırma
+# TEST v1.1.3 — yeni menü
 
 Menü baştan yazıldı: dört sayfa (Items, Presets, Keys, Language), atanabilir tuşlar, presetler, Çince,
 status effect süresi. Çevrimdışı testlerin hepsi geçiyor, ama bu sürüm oyunda hiç çalıştırılmadı.
@@ -11,7 +11,7 @@ status effect süresi. Çevrimdışı testlerin hepsi geçiyor, ama bu sürüm o
 
 ## Kurulum
 
-1. Arsenal'da eski BYOG'u sil, `BYOG-v1.1.2.zip` dosyasını ekle, etkinleştir, **Deploy** et.
+1. Arsenal'da eski BYOG'u sil, `BYOG-v1.1.3.zip` dosyasını ekle, etkinleştir, **Deploy** et.
 2. `%LOCALAPPDATA%\BYOG` klasörüne dokunma: eski `menu.txt` içindeki ayarlar "Default" presetine taşınmalı.
 
 ## 0. Silah adları
@@ -23,7 +23,7 @@ iç adlarıyla birlikte görünür: `SG-8 Punisher (pump_shotgun)`, `SMG-37 Defe
 
 ## A. Menü ve eski ayarlar
 
-1. F9 menüyü açıyor mu, başlıkta `v1.1.2` yazıyor mu? Üstte dört sayfa, sağ üstte `Preset: Default` var mı?
+1. F9 menüyü açıyor mu, başlıkta `v1.1.3` yazıyor mu? Üstte dört sayfa, sağ üstte `Preset: Default` var mı?
 2. 1.0'da yaptığın değişiklikler duruyor mu (değerler sarı)? `presets\Default.txt` oluşmuş mu?
 3. Stat adları okunur mu ("Armor penetration, direct hit", "Magazine size")? Listenin altında seçili
    değerin config.txt adı (`ap_direct`) yazıyor mu?
@@ -54,15 +54,18 @@ iç adlarıyla birlikte görünür: `SG-8 Punisher (pump_shotgun)`, `SMG-37 Defe
 2. İki eyleme aynı tuşu ver: uyarı çıkıyor mu?
 3. "Reset the keys" varsayılanlara döndürüyor mu? Oyunu kapat-aç: atadığın tuşlar duruyor mu?
 
-## E. Tuş engelleme (deneysel — en önemli kontrol)
+## E. Tuş engelleme (artık varsayılan olarak açık — en önemli kontrol)
 
-Önce gemide dene. Keys sayfasında "Block game input while the menu is open" → Insert (`on`).
+Menü açıkken oyun klavyeyi ve fare tuşlarını almamalı; yalnızca menü çalışmalı. Önce gemide dene.
 
-1. Oyun çöktü mü? Çöktüyse `byog.log` dosyasının son satırlarını gönder.
-2. Menü açıkken W/A/S/D'ye bas: karakter **duruyor mu**? Esc, Enter, Tab oyunda bir şey açıyor mu?
-3. Menü yine tuşlara tepki veriyor mu?
-4. F9 ile kapat: oyun tuşları **yeniden** alıyor mu? (Almıyorsa oyunu yeniden başlat ve bunu yaz.)
-5. Fare: menü açıkken fareyle bakmak ve ateş etmek hâlâ oyuna gidiyor olmalı; bu beklenen durum.
+1. F9'a bastığında oyun çöktü mü? Çöktüyse oyunu yeniden aç: mod engellemeyi kendisi kapatmış olmalı
+   (Keys sayfasında "switched off: the game closed when this was tried" yazar). `byog.log` dosyasını gönder.
+2. Menü açıkken W/A/S/D: karakter **duruyor mu**? Esc, Enter, Tab, M oyunda bir şey açıyor mu?
+3. Fare tuşları: sol tık ateş ediyor mu, sağ tık nişan alıyor mu? (İkisi de **olmamalı**.)
+   Fareyi oynatınca bakış hâlâ dönüyor olmalı; bu beklenen durum.
+4. Menü tuşlara tepki veriyor mu, yazı yazılabiliyor mu?
+5. F9 ile kapat: oyun tuşları ve fareyi **yeniden** alıyor mu? (Almıyorsa oyunu yeniden başlat ve bunu yaz.)
+6. Keys sayfasında "Block game input" satırında Insert: kapatınca tuşlar yine oyuna gidiyor mu?
 
 ## F. Çince
 
@@ -74,7 +77,7 @@ iç adlarıyla birlikte görünür: `SG-8 Punisher (pump_shotgun)`, `SMG-37 Defe
 
 ## G. Status süresi
 
-1. Status effects kategorisi (Items sayfasında sola bas: son kategori). 8 etki var mı?
+1. Status effects kategorisi (Items sayfasında sola bas: son kategori). 71 etki var mı?
 2. **Gas (6 s)** → Duration = 30. Gaz bombası at: düşmandaki gaz etkisi belirgin şekilde uzun sürüyor mu?
 3. **Acid Storm** → Duration = 10; bir silaha `Status effect 1: type` = 55 ver (yorumcunun yaptığı gibi):
    etki daha uzun sürüyor mu? Zırh azaltma da uzuyor mu, yoksa yalnızca ekran efekti mi?

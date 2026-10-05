@@ -2617,7 +2617,7 @@ local MENU_FONTS_ZH = { 'content/fonts/runtime_font', 'content/fonts/fallback', 
 local MENU_PRESET_ACTIONS = { 'Activate', 'Rename', 'Duplicate', 'Delete' }
 local menu = { open = false, state = 'closed', page = 1, tab = 1, focus = 'items', item = {}, stat = {}, keys = {},
                toggle_down = false, loaded = false, filter = '', mode = 'list', bind = {}, lang = 'en',
-               lang_saved = 'en', block = false, presets = {}, preset_row = 1, preset_action = 1, key_row = 1,
+               lang_saved = 'en', block = true, block_saved = true, presets = {}, preset_row = 1, preset_action = 1, key_row = 1,
                lang_row = 1, zh_fonts = {}, zh_font = nil }
 
 local function menu_key_of(item, stat) return item.category .. ':' .. item.name:lower() .. ':' .. stat end
@@ -2676,7 +2676,8 @@ local MENU_ZH = {
     ['Two actions share the key %s'] = '有两个操作使用了同一个按键 %s',
     ['Block game input while the menu is open'] = '菜单打开时屏蔽游戏输入', ['on'] = '开', ['off'] = '关',
     ['not available in this game'] = '此游戏中不可用', ['Reset the keys'] = '恢复默认按键',
-    ['experimental: the game stops seeing the keyboard'] = '实验功能：游戏将不再接收键盘输入',
+    ['the game gets no keys and no mouse buttons'] = '游戏不再接收按键和鼠标按键',
+    ['switched off: the game closed when this was tried'] = '已关闭：上次尝试时游戏退出了',
     ['English'] = 'English', ['Chinese (Simplified)'] = '简体中文', ['Font for Chinese'] = '中文字体',
     ['no font of the game can draw Chinese'] = '游戏中没有可显示中文的字体',
     ['Open / close the menu'] = '打开 / 关闭菜单', ['Up'] = '上', ['Down'] = '下',
@@ -2794,6 +2795,7 @@ local function menu_settings_save()
                     'preset = ' .. tostring(preset_name or 'Default'),
                     'language = ' .. menu.lang_saved,
                     'block_game_input = ' .. tostring(menu.block_saved == true) }
+    if menu.block_trying then lines[#lines + 1] = 'block_game_input_trying = true' end
     if menu.zh_font then lines[#lines + 1] = 'chinese_font = ' .. menu.zh_font end
     for _, a in ipairs(MENU_ACTIONS) do
         if menu.bind[a[1]] then lines[#lines + 1] = 'key.' .. a[1] .. ' = ' .. menu.bind[a[1]] end
@@ -2801,7 +2803,7 @@ local function menu_settings_save()
     write_file(SETTINGS_FILE, table.concat(lines, '\r\n') .. '\r\n')
 end
 local function menu_settings_load()
-    local wanted = nil
+    local wanted, tried = nil, false
     for raw in ((read_file(SETTINGS_FILE) or '') .. '\n'):gmatch('([^\n]*)\n') do
         local key, value = trim((raw:gsub('#.*$', ''):gsub('\r', ''))):match('^([^=]+)=(.*)$')
         if key then
@@ -2814,6 +2816,8 @@ local function menu_settings_load()
             elseif key == 'block_game_input' then
                 menu.block = value == 'true'
                 menu.block_saved = menu.block
+            elseif key == 'block_game_input_trying' and value == 'true' then
+                tried = true
             elseif key == 'chinese_font' and value ~= '' then
                 menu.zh_font = value
             elseif action and KEY_VK[value:upper()] then
@@ -2822,6 +2826,11 @@ local function menu_settings_load()
                 end
             end
         end
+    end
+    if tried then
+        -- the game closed while its input was being blocked for the first time
+        menu.block, menu.block_saved, menu.block_failed = false, false, true
+        log('menu: blocking the game input closed the game the last time: switched off')
     end
     return wanted
 end
@@ -3159,37 +3168,47 @@ local function menu_say(text, now)
     menu.note, menu.note_until = text, (now or A.now()) + 4
 end
 
--- ---- the game's own view of the keyboard
--- While the menu is open the game still reads every key. The engine has no switch for that; what it has
--- is the level at which a key counts as down. Raised above what a key can reach, the game sees no key
--- pressed, and the menu, which asks Windows, still does. Untested in game when written: it is off until
--- it is switched on in the Keys page, and every engine call leaves a line in the log first.
+-- ---- the game's own view of the keyboard and the mouse buttons
+-- While the menu is open the game must not act on a key. The engine has no switch for that; what it has
+-- is the level at which a button counts as down, for the keyboard and for the mouse. Raised above what a
+-- button can reach, the game sees nothing pressed, and the menu, which asks Windows, still does. Moving
+-- the mouse is not a button: the view still turns.
+-- On by default since v1.1.3. Every engine call leaves a line in the log first, and settings.txt carries
+-- a mark while the first try runs: when the game closed during it, the next start leaves it off.
 local function menu_block_game(on)
-    local K = menu.S and menu.S.Keyboard
-    if type(K) ~= 'table' or type(K.set_down_threshold) ~= 'function' then
+    local S = menu.S
+    local any = false
+    for _, device in ipairs({ 'Keyboard', 'Mouse' }) do
+        local D = S and S[device]
+        if type(D) == 'table' and type(D.set_down_threshold) == 'function' then
+            any = true
+            menu.thresholds = menu.thresholds or {}
+            if on and not menu.blocked then
+                local old = 0.5
+                if type(D.down_threshold) == 'function' then
+                    menu_step(device .. '.down_threshold()')
+                    local ok, level = pcall(D.down_threshold)
+                    if ok and type(level) == 'number' and level > 0 and level <= 1 then old = level end
+                end
+                menu.thresholds[device] = old
+                menu_step(device .. '.set_down_threshold(2)')
+                local ok, why = pcall(D.set_down_threshold, 2)
+                if not ok then log('menu: ' .. device .. ' could not be blocked: ' .. tostring(why)) end
+            elseif not on and menu.blocked then
+                pcall(D.set_down_threshold, menu.thresholds[device] or 0.5)
+            end
+        end
+    end
+    if not any then
         menu.block_missing = true
         return false
     end
     if on and not menu.blocked then
-        menu.threshold = 0.5
-        if type(K.down_threshold) == 'function' then
-            menu_step('Keyboard.down_threshold()')
-            local ok, old = pcall(K.down_threshold)
-            if ok and type(old) == 'number' and old > 0 and old <= 1 then menu.threshold = old end
-        end
-        menu_step('Keyboard.set_down_threshold(2)')
-        local ok, why = pcall(K.set_down_threshold, 2)
-        if not ok then
-            log('menu: the game input could not be blocked: ' .. tostring(why))
-            menu.block_missing = true
-            return false
-        end
         menu.blocked = true
-        log('menu: game input blocked (threshold ' .. tostring(menu.threshold) .. ' -> 2)')
+        log('menu: game input blocked')
     elseif not on and menu.blocked then
         menu.blocked = false
-        pcall(K.set_down_threshold, menu.threshold or 0.5)
-        log('menu: game input given back (threshold ' .. tostring(menu.threshold or 0.5) .. ')')
+        log('menu: game input given back')
     end
     return true
 end
@@ -3246,7 +3265,17 @@ local function menu_start()
         end)
         log('menu: layers ' .. (menu.layers and 'available' or 'not available: drawn without panel and bars'))
     end
-    if menu.block then menu_block_game(true) end
+    if menu.block then
+        if not menu.block_tried then
+            menu.block_trying = true
+            pcall(menu_settings_save)
+        end
+        menu_block_game(true)
+        if not menu.block_tried then
+            menu.block_tried, menu.block_trying = true, nil
+            pcall(menu_settings_save)
+        end
+    end
     return true
 end
 
@@ -3799,7 +3828,8 @@ local function menu_draw(now)
             and menu.mode == 'list', 44)
         if n == menu.key_row and menu.mode == 'list' and layers then text(state_text, 520, y + 3, 17, 255, 0, 0, 0)
         else gray(state_text, 520, y + 3, 17) end
-        gray(L('experimental: the game stops seeing the keyboard'), 800, y + 5)
+        gray(L(menu.block_failed and 'switched off: the game closed when this was tried'
+               or 'the game gets no keys and no mouse buttons'), 800, y + 5)
         row(L('Reset the keys'), 24, y + 26, 760, n + 1 == menu.key_row, n + 1 == menu.key_row and menu.mode == 'list', 44)
         if menu.capture then
             yellow(L('Press the key for: %s   (%s cancels)'):format(L(menu.capture.label), key('back')), 24, PANEL_H - 101, 17)

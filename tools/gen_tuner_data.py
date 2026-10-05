@@ -128,7 +128,7 @@ RANGES = [
     (r"^call_in_time$", 0, 600, 0),
     (r"^health$", 1, 1000000, 1),
     (r"^cooldown$", 0, 7200, 0),
-    (r"^duration$", 0, 3600, 0),                   # a status effect's own length, seconds
+    (r"^duration$", 0, 1000000, 0),                # a status effect's own length, seconds (the game: up to 999999)
     (r"^lifetime_seconds$", 0, 36000, 0),          # 0 = stays until destroyed
     (r"^(sight|proximity)_range$", 0, 2000, 0),
     (r"^uses$", 1, 4294967295, 1),                 # 4294967295 = unlimited

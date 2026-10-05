@@ -1649,12 +1649,15 @@ def check_keys_can_be_changed(mutate=None):
 
 
 FAKE_KEYBOARD = b"""
-stingray.Keyboard = { level = 0.5, calls = {},
-  down_threshold = function() return stingray.Keyboard.level end,
-  set_down_threshold = function(level)
-    stingray.Keyboard.level = level
-    stingray.Keyboard.calls[#stingray.Keyboard.calls + 1] = level
-  end }
+for _, device in ipairs({ 'Keyboard', 'Mouse' }) do
+  local d = { level = 0.5 }
+  d.down_threshold = function() return d.level end
+  d.set_down_threshold = function(level)
+    if stingray.crash_on_block then os.exit(3) end
+    d.level = level
+  end
+  stingray[device] = d
+end
 """
 
 
@@ -1664,24 +1667,48 @@ def check_the_game_input_can_be_blocked(mutate=None):
         rig.settle()
         rig.game.lua.execute(FAKE_ENGINE)
         rig.game.lua.execute(FAKE_KEYBOARD)
-        level = lambda: rig.game.lua.eval(b"stingray.Keyboard.level")
+        level = lambda: (rig.game.lua.eval(b"stingray.Keyboard.level"), rig.game.lua.eval(b"stingray.Mouse.level"))
+        assert level() == (0.5, 0.5)
         rig.game.press(F9)
-        assert level() == 0.5                                          # off until it is switched on
+        assert level() == (2, 2)                                       # open: no key, no mouse button for the game
+        log = rig.game.read_out("byog.log")
+        assert "menu: about to use Keyboard.set_down_threshold(2)" in log
+        assert "menu: about to use Mouse.set_down_threshold(2)" in log
+        settings = rig.game.read_out("settings.txt")
+        assert "block_game_input = true" in settings and "trying" not in settings
+        rig.game.press(F9)                                             # closed: the game has them back
+        assert level() == (0.5, 0.5)
+        rig.game.press(F9)
         rig.game.press(F7); rig.game.press(F7)
         for _ in range(15):
             rig.game.press(DOWN)
-        text = shown(rig)
-        assert "Block game input while the menu is open" in text and "off" in text
-        rig.game.press(INSERT)
-        assert level() == 2
-        assert "block_game_input = true" in rig.game.read_out("settings.txt")
-        assert "menu: about to use Keyboard.set_down_threshold(2)" in rig.game.read_out("byog.log")
-        rig.game.press(F9)                                             # closed: the game has its keyboard back
-        assert level() == 0.5
+        assert "Block game input while the menu is open" in shown(rig)
+        rig.game.press(INSERT)                                         # switched off, at once
+        assert level() == (0.5, 0.5)
+        assert "block_game_input = false" in rig.game.read_out("settings.txt")
         rig.game.press(F9)
-        assert level() == 2                                            # and it is remembered
         rig.game.press(F9)
-        assert level() == 0.5
+        assert level() == (0.5, 0.5)                                   # and it stays off
+    finally:
+        rig.close()
+
+
+def check_a_block_that_closed_the_game_is_not_tried_again(mutate=None):
+    rig = Rig("", mutate)
+    try:
+        # what the file looks like when the game closed inside the first try
+        os.makedirs(os.path.dirname(rig.game.out_path("settings.txt")), exist_ok=True)
+        with open(rig.game.out_path("settings.txt"), "wb") as f:
+            f.write(b"preset = Default\r\nblock_game_input = true\r\nblock_game_input_trying = true\r\n")
+        rig.settle()
+        rig.game.lua.execute(FAKE_ENGINE)
+        rig.game.lua.execute(FAKE_KEYBOARD)
+        rig.game.press(F9)
+        assert rig.game.lua.eval(b"stingray.Keyboard.level") == 0.5
+        assert "block_game_input = false" in rig.game.read_out("settings.txt")
+        assert "switched off" in rig.game.read_out("byog.log")
+        rig.game.press(F7); rig.game.press(F7)
+        assert "switched off: the game closed when this was tried" in shown(rig)
     finally:
         rig.close()
 
@@ -1695,9 +1722,7 @@ def check_the_game_input_switch_without_the_engine_function(mutate=None):
         rig.game.press(F7); rig.game.press(F7)
         for _ in range(15):
             rig.game.press(DOWN)
-        rig.game.press(INSERT)
         assert "not available in this game" in shown(rig)
-        assert "block_game_input = false" in rig.game.read_out("settings.txt")
     finally:
         rig.close()
 
@@ -1773,7 +1798,7 @@ def check_status_effects_have_a_length(mutate=None):
         rig.game.press(F9)
         rig.game.press(LEFT)                                           # the last category
         text = shown(rig)
-        assert "Status effects 8" in text and "Acid Storm" in text, text[:900]
+        assert "Status effects 71" in text and "Acid Storm" in text, text[:900]
         rig.game.press(TAB)
         text = shown(rig)
         assert "Duration (s)" in text and "A status effect has one length" in text, text[:900]
@@ -2108,14 +2133,18 @@ MUTATIONS = [
      "    pcall(menu_block_game, false)\n",
      "",
      check_the_game_input_can_be_blocked),
-    ("game input: blocked without being switched on",
-     "    if menu.block then menu_block_game(true) end\n",
-     "    menu_block_game(true)\n",
+    ("game input: blocked although it is switched off",
+     "    if menu.block then\n        if not menu.block_tried then",
+     "    if true then\n        if not menu.block_tried then",
      check_the_game_input_can_be_blocked),
-    ("game input: the switch is on although the engine cannot do it",
-     "        if menu.block and not worked then menu.block = false end\n",
+    ("game input: the mouse buttons are left to the game",
+     "    for _, device in ipairs({ 'Keyboard', 'Mouse' }) do\n        local D = S and S[device]",
+     "    for _, device in ipairs({ 'Keyboard' }) do\n        local D = S and S[device]",
+     check_the_game_input_can_be_blocked),
+    ("game input: a try that closed the game is tried again",
+     "            elseif key == 'block_game_input_trying' and value == 'true' then\n                tried = true\n",
      "",
-     check_the_game_input_switch_without_the_engine_function),
+     check_a_block_that_closed_the_game_is_not_tried_again),
     ("chinese: a font the engine does not have is used",
      "                if asked and there then menu.zh_fonts[#menu.zh_fonts + 1] = font end\n",
      "                menu.zh_fonts[#menu.zh_fonts + 1] = font\n",

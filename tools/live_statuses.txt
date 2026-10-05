@@ -1,13 +1,76 @@
 # StatusEffectSettings rows as they are in the game's memory (record: StatusEffectInfo, 152 bytes).
-# Read in game by recon v0.1.0 (2026-10-01) on build release/01.007.101/19155; the table is not in the
-# offline data, and that run wrote out these rows only. Columns: row id (+0) | debug name | +32 | +36 |
+# Read in game by the research step of v1.1.2 (2026-10-05) on build release/01.007.101/19155: all 71
+# rows (reports/v1.1.2-local/RESEARCH.txt). Columns: row id (+0) | debug name | +32 | +36 |
 # duration (+40, seconds). The duration offset: the two Gas rows hold 6 and 10 there, the lengths the
 # game's gas effects are known by; +32 and +36 are kept for reference, their meaning is not settled.
+1|Blind|0|1|8
+2|Bleed|0|5|9999
+3|Deaf|0|1|8
+4|Confusion|0|0|12
+5|Fire|0|5|3
+6|Fire_Panic|0|0.25|1
+7|Lava|0|0.15|1
+8|Slowed|0|0.4|4
+9|Rooted|0|0|4
 10|Acid Splash|0|0.3|4
 11|Acid Stream|0|1|0.5
+12|Thermite|0|1|1
+13|Cyborg Fire|0|1|5
+14|Choked|0|50|3
+15|Sand|0|0.25|0.5
+16|Mud|0|0.25|0.5
+17|Snow|0|0.2|0.5
+18|Submerged|0|0|0.5
+19|Thornbush|0|0.45|0.1
+20|Cactus|1|0.2|0.1
+21|Barbwire|0|0.3|0.1
+22|BushSmall|0|0.375|0.1
+23|BushLarge|0|0.45|0.1
+24|Pure Damage|0|1.33|1
+25|Stim Fx|1.5|2|4
+26|Stim Stamina|0|8|4
+27|Stim Heal|1.5|2|4
+28|Stim Pistol Heal|0|0.25|0
+29|Stim Combat Drugs|3.5|1.1|10
+30|Stim Cooldown|0|1|60
+31|BurningLight|0|1|1
+32|BurningHeavy|0|1|1
+33|RadiationLight|0|1|10
+34|RadiationHeavy|0|0.5|10
+35|Electric|0|1.33|5
+36|Hidden|1|0.9|0.5
+37|Stun Small|0|1|1.5
+38|Stun Medium|0|1|3
+39|Stun Large|0|1|5
+40|Stun Massive|0|1|10
+41|Stun Illuminate|0|1|15
 42|Gas|1.5|0.25|6
 43|Gas|1.5|0.25|10
 44|Gas_Confusion|0|0.25|5
 45|Gas_Confusion|0|0.25|9
+46|Inverted_Aim_Assist|0|50|12
+47|Flashlighted|0|1|10
+48|Smoke_Covered|0|1|0.4
+49|Backpack Chemicals|1.5|2|8
+50|Intense Heat|0|1|1
+51|Extreme Cold|0|1|1
+52|Tremor|0|1|10
 53|Sandstorm|0|0.25|1
+54|Blizzard|0|0.25|1
 55|Acid Storm|1.5|1|1
+56|Weather Insulated|0|1|1
+57|TornadoStun|0|1|1
+58|Dark Fluid|3.5|1|3
+59|Death March|0|0|0.15
+60|Hotshot Laser Rifle|0|0|0.15
+61|Hotshot Laser Rifle|0|2|0.15
+62|Hotshot Laser Rifle|0|2|0.15
+63|Illuminate Scrambler|1|1|1
+64|Constitution|0.2|1|999999
+65|Constitution Booster Armor Resistance|0|0|3
+66|Post Mortem Explosion|0|1|1.5
+67|FlamerSlowed|0|0.5|0.5
+68|Gloom|1.5|4|6
+69|Dark Fluid|3.5|1|3
+70|Poison|1.5|5|6
+71|PoisonVulnerability|0|10|2400

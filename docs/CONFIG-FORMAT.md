@@ -41,10 +41,13 @@ own come back) and applies the new ones. New (empty or a copy of the active one)
 delete (asked first). A name is letters, digits, spaces, `-` and `_`, 24 at most. A file put into the
 folder by hand is listed. `menu.txt` of v1.0 is read once, when there is no preset yet, into "Default".
 
-**Block game input** (`block_game_input = true`, Keys page; off by default). On open the menu reads
-`stingray.Keyboard.down_threshold()` and sets it to 2 with `set_down_threshold`, on close it puts the old
-value back: no key can count as down for the game, while the menu reads the keys from Windows. Untested
-in game when written; every engine call leaves a line in byog.log first. The mouse is not covered.
+**Block game input** (`block_game_input`, Keys page; on by default since v1.1.3, not yet tested in game).
+On open the menu reads `down_threshold()` of `stingray.Keyboard` and `stingray.Mouse` and sets both to 2
+with `set_down_threshold` (the research file of v1.1.2 says the functions are there); on close it puts
+the old values back. No key and no mouse button can count as down for the game, while the menu reads the
+keys from Windows. Mouse movement is not a button: the view still turns. Every engine call leaves a line
+in byog.log first, and settings.txt carries `block_game_input_trying = true` while the first try of a
+session runs: a start that finds the mark knows the game closed there, and leaves the blocking off.
 
 **Language** (`language = en | zh`). Simplified Chinese for the menu's texts, headings and value names.
 The debug font the menu draws with has no Chinese glyphs, so the menu asks the engine
@@ -69,7 +72,7 @@ uses, backpack charges, shield health, vehicle health; the stats added in v0.11.
 
 | Category | Items | Stats |
 |---|---|---|
-| `status` (v1.1.0, not yet tested in game) | 8 status effects: `acid_splash`, `acid_stream`, `gas` (6 s), `gas_2` (10 s), `gas_confusion` (5 s), `gas_confusion_2` (9 s), `sandstorm`, `acid_storm`. Only the rows the recon build wrote out in full; the other 63 need their game values read first | `duration` (seconds; +40 of the status record). One value per status: it holds for every weapon and enemy that applies it. For Acid Storm the armor loss is done by game code, not by this record: a longer duration may or may not lengthen it |
+| `status` (v1.1.0; all 71 since v1.1.3; not yet tested in game) | the 71 rows of the game's status table, read in game by the research step of v1.1.2 (`tools/live_statuses.txt`): `fire`, `bleed`, `stun_small` .. `stun_massive`, `gas` (6 s), `gas_2` (10 s), `acid_storm`... | `duration` (seconds; +40 of the status record). One value per status: it holds for every weapon and enemy that applies it. For Acid Storm the armor loss is done by game code, not by this record: a longer duration may or may not lengthen it |
 | `stratagem` | 149 rows of the game's stratagem table, named after the game's own debug names (`eagle_500kg_bomb`, `orbital_laser`, `sentrys_machinegun`...) | `cooldown` (seconds), `uses` (4294967295 = unlimited) |
 | `backpack` | 18 backpacks (`recoilless_rifle_backpack`, `ammo_backpack`...) | `charges`, `charges_start` (-1 = start full), `charges_refill` |
 | `shield` | 4 (`energy_shield_backpack`, `directional_energy_shield`, `energy_shield` = the relay, `energy_shield_grenade`) | `shield_health`, `shield_radius`, `shield_recharge_delay` (before an unbroken shield refills), `shield_broken_delay` (after it broke), `shield_recharge_rate` (per second) - settled in game |

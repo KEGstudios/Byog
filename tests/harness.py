@@ -334,7 +334,7 @@ def build_world(cooldown_at=104, second_copy=True, corrupt=None, corrupt_copy=No
         rows.append(({0: ("<I", i), 40: ("<f", duration)}, name.encode("ascii", "replace"), 8))
     payload, fix = synth_rows(152, rows, None)
     c.add("StatusEffectSettings", payload, fix=fix)
-    info["status_names"] = [str(it.get("debug_name", "")) for it in status]
+    info["status_names"] = [row[1].decode("ascii") for row in rows]
     groups = load_json("generated_stratagem_settings.json")
     info["stratagems"] = 0
     for g in groups:
