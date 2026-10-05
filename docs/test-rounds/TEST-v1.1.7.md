@@ -1,4 +1,4 @@
-# TEST v1.1.3 — yeni menü
+# TEST v1.1.7 — yeni menü
 
 Menü baştan yazıldı: dört sayfa (Items, Presets, Keys, Language), atanabilir tuşlar, presetler, Çince,
 status effect süresi. Çevrimdışı testlerin hepsi geçiyor, ama bu sürüm oyunda hiç çalıştırılmadı.
@@ -11,7 +11,7 @@ status effect süresi. Çevrimdışı testlerin hepsi geçiyor, ama bu sürüm o
 
 ## Kurulum
 
-1. Arsenal'da eski BYOG'u sil, `BYOG-v1.1.3.zip` dosyasını ekle, etkinleştir, **Deploy** et.
+1. Arsenal'da eski BYOG'u sil, `BYOG-v1.1.7.zip` dosyasını ekle, etkinleştir, **Deploy** et.
 2. `%LOCALAPPDATA%\BYOG` klasörüne dokunma: eski `menu.txt` içindeki ayarlar "Default" presetine taşınmalı.
 
 ## 0. Silah adları
@@ -23,7 +23,7 @@ iç adlarıyla birlikte görünür: `SG-8 Punisher (pump_shotgun)`, `SMG-37 Defe
 
 ## A. Menü ve eski ayarlar
 
-1. F9 menüyü açıyor mu, başlıkta `v1.1.3` yazıyor mu? Üstte dört sayfa, sağ üstte `Preset: Default` var mı?
+1. F9 menüyü açıyor mu, başlıkta `v1.1.7` yazıyor mu? Üstte dört sayfa, sağ üstte `Preset: Default` var mı?
 2. 1.0'da yaptığın değişiklikler duruyor mu (değerler sarı)? `presets\Default.txt` oluşmuş mu?
 3. Stat adları okunur mu ("Armor penetration, direct hit", "Magazine size")? Listenin altında seçili
    değerin config.txt adı (`ap_direct`) yazıyor mu?
@@ -61,8 +61,8 @@ Menü açıkken oyun klavyeyi ve fare tuşlarını almamalı; yalnızca menü ç
 1. F9'a bastığında oyun çöktü mü? Çöktüyse oyunu yeniden aç: mod engellemeyi kendisi kapatmış olmalı
    (Keys sayfasında "switched off: the game closed when this was tried" yazar). `byog.log` dosyasını gönder.
 2. Menü açıkken W/A/S/D: karakter **duruyor mu**? Esc, Enter, Tab, M oyunda bir şey açıyor mu?
-3. Fare tuşları: sol tık ateş ediyor mu, sağ tık nişan alıyor mu? (İkisi de **olmamalı**.)
-   Fareyi oynatınca bakış hâlâ dönüyor olmalı; bu beklenen durum.
+3. Fare: sol tık ateş ediyor mu, sağ tık nişan alıyor mu, fareyi oynatınca bakış dönüyor mu?
+   (Üçü de **olmamalı**.) İmleç ekranda garip davranıyorsa (görünüyor, pencereden çıkıyor) yaz.
 4. Menü tuşlara tepki veriyor mu, yazı yazılabiliyor mu?
 5. F9 ile kapat: oyun tuşları ve fareyi **yeniden** alıyor mu? (Almıyorsa oyunu yeniden başlat ve bunu yaz.)
 6. Keys sayfasında "Block game input" satırında Insert: kapatınca tuşlar yine oyuna gidiyor mu?

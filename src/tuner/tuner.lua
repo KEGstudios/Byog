@@ -394,6 +394,91 @@ local function build_api()
         return window_owner[0] == own_process
     end
 
+    -- Raw input: what the process registered for (RAWINPUTDEVICE: u16 usage page, u16 usage, u32 flags,
+    -- window handle; 16 bytes), and registering a list of such entries (flags 1 = remove).
+    local raw_get = resolve(U, 'GetRegisteredRawInputDevices', 'uint32_t (*)(void *, uint32_t *, uint32_t)')
+    local raw_set = resolve(U, 'RegisterRawInputDevices', 'int (*)(const void *, uint32_t, uint32_t)')
+    local raw_buffer, raw_count = ffi.new('uint8_t[512]'), ffi.new('uint32_t[1]')
+    function a.raw_devices()
+        raw_count[0] = 32
+        local n = raw_get(raw_buffer, raw_count, 16)
+        if n == 0xFFFFFFFF or n > 32 then return nil end
+        local words, list = ffi.cast('uint16_t *', raw_buffer), {}
+        for i = 0, n - 1 do
+            list[i + 1] = { page = words[i * 8], usage = words[i * 8 + 1],
+                            flags = tonumber(ffi.cast('uint32_t *', raw_buffer)[i * 4 + 1]),
+                            window = tonumber(ffi.cast('uint64_t *', raw_buffer)[i * 2 + 1]) }
+        end
+        return list
+    end
+    function a.raw_register(list)
+        if #list == 0 or #list > 32 then return false end
+        ffi.fill(raw_buffer, 512)
+        for i, d in ipairs(list) do
+            ffi.cast('uint16_t *', raw_buffer)[(i - 1) * 8] = d.page
+            ffi.cast('uint16_t *', raw_buffer)[(i - 1) * 8 + 1] = d.usage
+            ffi.cast('uint32_t *', raw_buffer)[(i - 1) * 4 + 1] = d.flags
+            ffi.cast('uint64_t *', raw_buffer)[(i - 1) * 2 + 1] = d.window
+        end
+        return raw_set(raw_buffer, #list, 16) ~= 0
+    end
+
+    -- The game's window (the one in front, when it is ours), and whether this thread owns it.
+    local current_thread = resolve(K, 'GetCurrentThreadId', 'uint32_t (*)(void)')
+    local get_focus = resolve(U, 'GetFocus', 'void *(*)(void)')
+    local set_focus = resolve(U, 'SetFocus', 'void *(*)(void *)')
+    local create_window = resolve(U, 'CreateWindowExA',
+        'void *(*)(uint32_t, const char *, const char *, uint32_t, int, int, int, int, void *, void *, void *, void *)')
+    local destroy_window = resolve(U, 'DestroyWindow', 'int (*)(void *)')
+    local is_window = resolve(U, 'IsWindow', 'int (*)(void *)')
+    local function handle(p) return tonumber(ffi.cast('uintptr_t', p)) end
+    function a.game_window()
+        local window = foreground_window()
+        if window == nil then return nil end
+        window_owner[0] = 0
+        local thread = window_process(window, window_owner)
+        if window_owner[0] ~= own_process then return nil end
+        return handle(window), thread == current_thread()
+    end
+    -- Keyboard focus to a child window of our own (class STATIC, no size): key messages go to it, and it
+    -- does nothing with them. Only on the thread that owns the game's window.
+    local focus_child = nil
+    function a.focus_take(window)
+        if focus_child == nil or is_window(focus_child) == 0 then
+            -- WS_CHILD | WS_VISIBLE: a window has to be visible to hold the focus; it has no size
+            focus_child = create_window(0, 'STATIC', '', 0x50000000, 0, 0, 0, 0, ffi.cast(void, window), nil, nil, nil)
+            if focus_child == nil then return false end
+        end
+        set_focus(focus_child)
+        return get_focus() == focus_child
+    end
+    -- true while the focus is where focus_take put it; puts it back there when it is not
+    function a.focus_keep()
+        if focus_child == nil then return false end
+        if get_focus() == focus_child then return true end
+        set_focus(focus_child)
+        return false
+    end
+    function a.focus_give_back(window)
+        set_focus(ffi.cast(void, window))
+        if focus_child ~= nil then destroy_window(focus_child) end
+        focus_child = nil
+    end
+    -- The messages Windows puts on this thread's queue for our window (the keys typed while it has the
+    -- focus, and what its parent's thread sends it): taken off and handed to the window, a few a frame.
+    local peek_message = resolve(U, 'PeekMessageA', 'int (*)(void *, void *, uint32_t, uint32_t, uint32_t)')
+    local dispatch_message = resolve(U, 'DispatchMessageA', 'intptr_t (*)(const void *)')
+    local message = ffi.new('uint8_t[64]')                 -- MSG is 48 bytes
+    function a.focus_pump()
+        if focus_child == nil then return 0 end
+        local n = 0
+        while n < 64 and peek_message(message, focus_child, 0, 0, 1) ~= 0 do   -- PM_REMOVE
+            dispatch_message(message)
+            n = n + 1
+        end
+        return n
+    end
+
     return a
 end
 
@@ -2676,7 +2761,7 @@ local MENU_ZH = {
     ['Two actions share the key %s'] = '有两个操作使用了同一个按键 %s',
     ['Block game input while the menu is open'] = '菜单打开时屏蔽游戏输入', ['on'] = '开', ['off'] = '关',
     ['not available in this game'] = '此游戏中不可用', ['Reset the keys'] = '恢复默认按键',
-    ['the game gets no keys and no mouse buttons'] = '游戏不再接收按键和鼠标按键',
+    ['the game gets no keys and no mouse'] = '游戏不再接收键盘和鼠标输入',
     ['switched off: the game closed when this was tried'] = '已关闭：上次尝试时游戏退出了',
     ['English'] = 'English', ['Chinese (Simplified)'] = '简体中文', ['Font for Chinese'] = '中文字体',
     ['no font of the game can draw Chinese'] = '游戏中没有可显示中文的字体',
@@ -2794,8 +2879,8 @@ local function menu_settings_save()
     local lines = { '# Written by the in-game menu: the active preset, the language and the keys.',
                     'preset = ' .. tostring(preset_name or 'Default'),
                     'language = ' .. menu.lang_saved,
-                    'block_game_input = ' .. tostring(menu.block_saved == true) }
-    if menu.block_trying then lines[#lines + 1] = 'block_game_input_trying = true' end
+                    'block_input = ' .. tostring(menu.block_saved == true) }
+    if menu.block_trying then lines[#lines + 1] = 'block_input_trying = true' end
     if menu.zh_font then lines[#lines + 1] = 'chinese_font = ' .. menu.zh_font end
     for _, a in ipairs(MENU_ACTIONS) do
         if menu.bind[a[1]] then lines[#lines + 1] = 'key.' .. a[1] .. ' = ' .. menu.bind[a[1]] end
@@ -2813,10 +2898,11 @@ local function menu_settings_load()
                 wanted = value
             elseif key == 'language' and (value == 'en' or value == 'zh') then
                 menu.lang, menu.lang_saved = value, value
-            elseif key == 'block_game_input' then
+            elseif key == 'block_input' then
+                -- (`block_game_input` of v1.1.2 is not read: that version wrote "false" without being asked)
                 menu.block = value == 'true'
                 menu.block_saved = menu.block
-            elseif key == 'block_game_input_trying' and value == 'true' then
+            elseif key == 'block_input_trying' and value == 'true' then
                 tried = true
             elseif key == 'chinese_font' and value ~= '' then
                 menu.zh_font = value
@@ -3168,46 +3254,95 @@ local function menu_say(text, now)
     menu.note, menu.note_until = text, (now or A.now()) + 4
 end
 
--- ---- the game's own view of the keyboard and the mouse buttons
--- While the menu is open the game must not act on a key. The engine has no switch for that; what it has
--- is the level at which a button counts as down, for the keyboard and for the mouse. Raised above what a
--- button can reach, the game sees nothing pressed, and the menu, which asks Windows, still does. Moving
--- the mouse is not a button: the view still turns.
--- On by default since v1.1.3. Every engine call leaves a line in the log first, and settings.txt carries
--- a mark while the first try runs: when the game closed during it, the next start leaves it off.
-local function menu_block_game(on)
-    local S = menu.S
-    local any = false
-    for _, device in ipairs({ 'Keyboard', 'Mouse' }) do
-        local D = S and S[device]
-        if type(D) == 'table' and type(D.set_down_threshold) == 'function' then
-            any = true
-            menu.thresholds = menu.thresholds or {}
-            if on and not menu.blocked then
-                local old = 0.5
-                if type(D.down_threshold) == 'function' then
-                    menu_step(device .. '.down_threshold()')
-                    local ok, level = pcall(D.down_threshold)
-                    if ok and type(level) == 'number' and level > 0 and level <= 1 then old = level end
-                end
-                menu.thresholds[device] = old
-                menu_step(device .. '.set_down_threshold(2)')
-                local ok, why = pcall(D.set_down_threshold, 2)
-                if not ok then log('menu: ' .. device .. ' could not be blocked: ' .. tostring(why)) end
-            elseif not on and menu.blocked then
-                pcall(D.set_down_threshold, menu.thresholds[device] or 0.5)
-            end
+-- ---- the game's own view of the keyboard and the mouse
+-- While the menu is open the game must not act on a key or on the mouse.
+-- What was tried, and what the game showed:
+--   v1.1.4  the engine's level at which a button counts as down, raised above what a button can reach:
+--           the calls went through and nothing changed. The game does not read its input through that.
+--   v1.1.5  the process's raw input registration taken away: the log showed that the game registers raw
+--           input for the mouse only (usage 1/2). So that is the mouse, and the keys come another way.
+--   v1.1.6  the keys come to the game's window as ordinary key messages, which Windows sends to the
+--           window that has the keyboard focus. While the menu is open the focus is on a window of our
+--           own (no size, inside the game's window); when it closes the game's window has it back.
+-- The menu asks Windows for the state of a key, which depends on neither.
+--   v1.1.7  the game's window belongs to another thread than the one this runs on (seen in the log of
+--           v1.1.6); the focus is moved from here all the same, see menu.block_keys.
+-- settings.txt carries a mark while the first try of a session runs: when the game closed during it,
+-- the next start leaves the blocking off.
+function menu.block_mouse(on)
+    if on then
+        local ok, devices = pcall(A.raw_devices)
+        if not ok or type(devices) ~= 'table' then
+            log('menu: the raw input registration cannot be read: ' .. tostring(devices))
+            return false
         end
+        local mine, seen = {}, {}
+        for _, d in ipairs(devices) do
+            seen[#seen + 1] = string.format('%d/%d flags %X window %s', d.page, d.usage, d.flags,
+                                            d.window ~= 0 and hex(d.window) or '-')
+            -- usage page 1: generic desktop; usage 2: mouse, 6: keyboard
+            if d.page == 1 and (d.usage == 2 or d.usage == 6) then mine[#mine + 1] = d end
+        end
+        if not menu.raw_logged then
+            menu.raw_logged = true
+            log('menu: raw input registered by the game: ' .. (#seen > 0 and table.concat(seen, ', ') or 'none'))
+        end
+        if #mine == 0 then return false end
+        menu_step('RegisterRawInputDevices (remove keyboard and mouse)')
+        local removal = {}
+        for _, d in ipairs(mine) do removal[#removal + 1] = { page = d.page, usage = d.usage, flags = 1, window = 0 } end
+        if not A.raw_register(removal) then
+            log('menu: the raw input registration could not be taken away')
+            return false
+        end
+        menu.raw_saved = mine
+        return true
+    elseif menu.raw_saved then
+        if not A.raw_register(menu.raw_saved) then log('menu: FAILED: the raw input registration could not be put back') end
+        menu.raw_saved = nil
     end
-    if not any then
-        menu.block_missing = true
-        return false
+end
+function menu.block_keys(on)
+    if on then
+        local window, same_thread = A.game_window()
+        if not window then return false end
+        if not menu.window_logged then
+            menu.window_logged = true
+            log('menu: the game window ' .. hex(window) .. ' belongs to ' .. (same_thread and 'this thread' or 'another thread'))
+        end
+        -- v1.1.6 switched the window to "disabled" when it belonged to another thread. Seen in game: the
+        -- keys still came through (a window keeps the focus it has when it is disabled). A child window
+        -- made from this thread shares the input state with its parent's thread, so the focus can be
+        -- given to it from here; its messages are taken off this thread's queue every frame.
+        menu_step('CreateWindowExA / SetFocus (keyboard focus to a window of our own)')
+        if not A.focus_take(window) then
+            log('menu: the keyboard focus could not be moved')
+            A.focus_give_back(window)
+            return false
+        end
+        menu.keys_blocked = { window = window, how = same_thread and 'focus' or 'focus, from another thread' }
+        return true
+    elseif menu.keys_blocked then
+        local blocked = menu.keys_blocked
+        menu.keys_blocked = nil
+        A.focus_give_back(blocked.window)
     end
+end
+local function menu_block_game(on)
     if on and not menu.blocked then
+        local mouse = menu.block_mouse(true)
+        local keys = menu.block_keys(true)
+        if not mouse and not keys then
+            menu.block_missing = true
+            return false
+        end
         menu.blocked = true
-        log('menu: game input blocked')
+        log('menu: game input blocked (keyboard: ' .. (keys and menu.keys_blocked.how or 'no') .. ', mouse: '
+            .. (mouse and 'raw input' or 'no') .. ')')
     elseif not on and menu.blocked then
         menu.blocked = false
+        menu.block_keys(false)
+        menu.block_mouse(false)
         log('menu: game input given back')
     end
     return true
@@ -3829,7 +3964,7 @@ local function menu_draw(now)
         if n == menu.key_row and menu.mode == 'list' and layers then text(state_text, 520, y + 3, 17, 255, 0, 0, 0)
         else gray(state_text, 520, y + 3, 17) end
         gray(L(menu.block_failed and 'switched off: the game closed when this was tried'
-               or 'the game gets no keys and no mouse buttons'), 800, y + 5)
+               or 'the game gets no keys and no mouse'), 800, y + 5)
         row(L('Reset the keys'), 24, y + 26, 760, n + 1 == menu.key_row, n + 1 == menu.key_row and menu.mode == 'list', 44)
         if menu.capture then
             yellow(L('Press the key for: %s   (%s cancels)'):format(L(menu.capture.label), key('back')), 24, PANEL_H - 101, 17)
@@ -3891,6 +4026,11 @@ local function menu_tick()
                 log('menu: ' .. menu.state)
             end
         end
+    end
+    -- (only ever set while the menu is open)
+    if menu.keys_blocked then
+        A.focus_pump()
+        if A.game_in_front() then A.focus_keep() end
     end
     if not menu.open then return end
     local ok, why = pcall(function()

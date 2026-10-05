@@ -41,13 +41,29 @@ own come back) and applies the new ones. New (empty or a copy of the active one)
 delete (asked first). A name is letters, digits, spaces, `-` and `_`, 24 at most. A file put into the
 folder by hand is listed. `menu.txt` of v1.0 is read once, when there is no preset yet, into "Default".
 
-**Block game input** (`block_game_input`, Keys page; on by default since v1.1.3, not yet tested in game).
-On open the menu reads `down_threshold()` of `stingray.Keyboard` and `stingray.Mouse` and sets both to 2
-with `set_down_threshold` (the research file of v1.1.2 says the functions are there); on close it puts
-the old values back. No key and no mouse button can count as down for the game, while the menu reads the
-keys from Windows. Mouse movement is not a button: the view still turns. Every engine call leaves a line
-in byog.log first, and settings.txt carries `block_game_input_trying = true` while the first try of a
-session runs: a start that finds the mark knows the game closed there, and leaves the blocking off.
+**Block game input** (`block_input`, Keys page; on by default since v1.1.3).
+First way (v1.1.3, v1.1.4): `set_down_threshold(2)` on `stingray.Keyboard` and `stingray.Mouse`. Seen in
+game with v1.1.4: the calls went through, the log says so, and the game still acted on every key; it does
+not read its input through that level.
+Third way, for the keys (v1.1.6, not yet tested in game): the game's log of v1.1.5 showed raw input
+registered for the mouse only, so its keys are ordinary key messages, which Windows sends to the window
+with the keyboard focus. On open the menu creates a child window of its own inside the game's window
+(class STATIC, no size) and gives it the focus; every frame it puts the focus back there when the game's
+window took it (Alt+Tab); on close the game's window gets the focus back and the child is destroyed. This
+worked on a test window (`build/an_focus.py`: with the focus on a child made from another thread the
+parent's window procedure saw no key message, its loop kept running, and it saw keys again afterwards).
+v1.1.6 only moved the focus on the thread that owns the game's window and "disabled" the window from
+another thread; seen in game: the window does belong to another thread, and a disabled window that has
+the focus keeps getting the keys. Since v1.1.7 the focus is moved from the mod's thread too, and the
+child's messages are taken off that thread's queue every frame (`PeekMessageA` for that window only).
+Second way, now for the mouse only (v1.1.5): Windows hands a game its mouse as raw input, for
+which the process registers. On open the menu reads the registration (`GetRegisteredRawInputDevices`),
+writes it to byog.log, and removes the entries for keyboard (usage 1/6) and mouse (1/2) with
+`RegisterRawInputDevices` (RIDEV_REMOVE); on close it registers them again with the flags and window
+they had. A pad is left alone. The menu reads keys with `GetAsyncKeyState`, which does not depend on the
+registration. When the game has no such registration the switch says "not available in this game".
+settings.txt carries `block_input_trying = true` while the first try of a session runs: a start that
+finds the mark knows the game closed there, and leaves the blocking off.
 
 **Language** (`language = en | zh`). Simplified Chinese for the menu's texts, headings and value names.
 The debug font the menu draws with has no Chinese glyphs, so the menu asks the engine

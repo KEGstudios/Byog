@@ -467,6 +467,7 @@ F['kernel32.dll'] = {
         return 1
     end,
     GetCurrentProcessId = function() return 4242 end,
+    GetCurrentThreadId = function() return 77 end,
     VirtualProtect = function(address, size, protection, old)
         pointer(address, 'address'); pointer(old, 'old')
         local previous = py.protect(address_of(address), tonumber(size), protection)
@@ -551,10 +552,43 @@ F['ntdll.dll'] = {
 F['user32.dll'] = {
     GetAsyncKeyState = function(vk) return py.key(vk) and -32768 or 0 end,
     GetForegroundWindow = function() return ffi.cast('void *', py.foreground() and 0x777 or 0x888) end,
+    -- raw input: the registration lives in Python, 16 bytes an entry
+    GetRegisteredRawInputDevices = function(devices, count, size)
+        pointer(devices, 'devices'); pointer(count, 'count')
+        if tonumber(size) ~= 16 then return 0xFFFFFFFF end
+        local data = tostring(py.raw_get())
+        if #data / 16 > count[0] then count[0] = #data / 16; return 0xFFFFFFFF end
+        ffi.copy(devices, data, #data)
+        return #data / 16
+    end,
+    RegisterRawInputDevices = function(devices, n, size)
+        pointer(devices, 'devices')
+        if tonumber(size) ~= 16 then return 0 end
+        return py.raw_set(ffi.string(devices, tonumber(n) * 16)) and 1 or 0
+    end,
+    -- windows: the game's is 0x777; which window has the keyboard focus lives in Python
+    GetFocus = function() return ffi.cast('void *', py.focus()) end,
+    SetFocus = function(window) pointer(window, 'window'); return ffi.cast('void *', py.set_focus(address_of(window))) end,
+    CreateWindowExA = function(ex, class, title, style, x, y, w, h, parent, menu, instance, param)
+        pointer(parent, 'parent')
+        if text(class, 'class') ~= 'STATIC' or tonumber(style) ~= 0x50000000 or address_of(parent) ~= 0x777 then
+            return ffi.cast('void *', 0)
+        end
+        return ffi.cast('void *', py.new_window())
+    end,
+    DestroyWindow = function(window) pointer(window, 'window'); py.destroy_window(address_of(window)); return 1 end,
+    IsWindow = function(window) pointer(window, 'window'); return py.is_window(address_of(window)) and 1 or 0 end,
+    -- the messages waiting for our window: counted in Python
+    PeekMessageA = function(message, window, first, last, remove)
+        pointer(message, 'message'); pointer(window, 'window')
+        if tonumber(remove) ~= 1 or not py.is_window(address_of(window)) then return 0 end
+        return py.take_message() and 1 or 0
+    end,
+    DispatchMessageA = function(message) pointer(message, 'message'); return 0 end,
     GetWindowThreadProcessId = function(window, id)
         pointer(window, 'window'); pointer(id, 'id')
         id[0] = address_of(window) == 0x777 and 4242 or 1
-        return 1
+        return py.window_thread()
     end,
 }
 F['bcrypt.dll'] = {
@@ -618,6 +652,9 @@ class Game:
         with open(self.dll_path, "wb") as f:
             f.write(info.get("dll_bytes", b""))
         self.config_suffix = config_suffix
+        self.raw, self.raw_fails, self.raw_calls = list(self.RAW_AT_START), False, 0
+        self.focus, self.windows, self.window_enabled, self.window_thread = 0x777, set(), True, 77
+        self.queued = 0                                   # messages waiting for a window of ours
         if config is not None:
             self.write_config(config)
         self.working_set_fails = working_set_fails
@@ -631,7 +668,9 @@ class Game:
             b"foreground": lambda: self.in_front,
             b"region_info_unsupported": lambda: not self.region_info,
             b"working_set_fails": lambda: self.working_set_fails,
-            b"mkdir": self._mkdir, b"find": self._find, b"clock": self._clock, b"module": self._module,
+            b"mkdir": self._mkdir, b"find": self._find, b"raw_get": self._raw_get, b"raw_set": self._raw_set, b"focus": self._focus,
+            b"set_focus": self._set_focus, b"new_window": self._new_window, b"destroy_window": self._destroy_window,
+            b"is_window": self._is_window, b"take_message": self._take_message, b"window_thread": lambda: self.window_thread, b"clock": self._clock, b"module": self._module,
             b"module_path": self._module_path, b"file_open": self._file_open,
             b"file_size": self._file_size, b"file_read": self._file_read, b"file_close": self._file_close,
             b"sha_new": self._sha_new, b"sha_update": self._sha_update, b"sha_digest": self._sha_digest,
@@ -692,6 +731,56 @@ class Game:
 
     def _mkdir(self, path):
         os.makedirs(path.decode(), exist_ok=True)
+
+    # raw input as the game registers it (seen with v1.1.5): the mouse (1/2, flags 100) only; a pad for the tests
+    RAW_AT_START = [(1, 2, 0x100, 0x777), (1, 5, 0x0, 0x777)]
+
+    def _raw_get(self):
+        import struct as _s
+        return b"".join(_s.pack("<HHIQ", *d) for d in self.raw)
+
+    def _raw_set(self, data):
+        import struct as _s
+        if self.raw_fails:
+            return False
+        for at in range(0, len(data), 16):
+            page, usage, flags, window = _s.unpack_from("<HHIQ", data, at)
+            self.raw = [d for d in self.raw if (d[0], d[1]) != (page, usage)]
+            if not flags & 1:
+                self.raw.append((page, usage, flags, window))
+            elif window != 0:
+                return False                                     # the real call refuses a window with "remove"
+        self.raw_calls += 1
+        return True
+
+    # the keyboard focus: the game acts on a key when its window (0x777) has it and is enabled
+    def _focus(self):
+        return self.focus
+
+    def _set_focus(self, window):
+        old, self.focus = self.focus, int(window)
+        return old
+
+    def _new_window(self):
+        self.windows.add(0x900 + len(self.windows))
+        return max(self.windows)
+
+    def _destroy_window(self, window):
+        self.windows.discard(int(window))
+        if self.focus == int(window):
+            self.focus = 0
+
+    def _is_window(self, window):
+        return int(window) in self.windows
+
+    def _take_message(self):
+        if self.queued <= 0:
+            return False
+        self.queued -= 1
+        return True
+
+    def game_gets_keys(self):
+        return self.focus == 0x777 and self.window_enabled
 
     def _find(self, pattern):
         import glob

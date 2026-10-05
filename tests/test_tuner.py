@@ -1648,47 +1648,48 @@ def check_keys_can_be_changed(mutate=None):
         rig.close()
 
 
-FAKE_KEYBOARD = b"""
-for _, device in ipairs({ 'Keyboard', 'Mouse' }) do
-  local d = { level = 0.5 }
-  d.down_threshold = function() return d.level end
-  d.set_down_threshold = function(level)
-    if stingray.crash_on_block then os.exit(3) end
-    d.level = level
-  end
-  stingray[device] = d
-end
-"""
-
-
 def check_the_game_input_can_be_blocked(mutate=None):
     rig = Rig("", mutate)
     try:
+        # seen in game (v1.1.3): the file v1.1.2 left behind said "off", and nobody had chosen that
+        os.makedirs(os.path.dirname(rig.game.out_path("settings.txt")), exist_ok=True)
+        with open(rig.game.out_path("settings.txt"), "wb") as f:
+            f.write(b"preset = Default\r\nlanguage = en\r\nblock_game_input = false\r\n")
         rig.settle()
         rig.game.lua.execute(FAKE_ENGINE)
-        rig.game.lua.execute(FAKE_KEYBOARD)
-        level = lambda: (rig.game.lua.eval(b"stingray.Keyboard.level"), rig.game.lua.eval(b"stingray.Mouse.level"))
-        assert level() == (0.5, 0.5)
+        start = list(rig.game.raw)
+        assert rig.game.game_gets_keys()
         rig.game.press(F9)
-        assert level() == (2, 2)                                       # open: no key, no mouse button for the game
+        assert rig.game.raw == [(1, 5, 0x0, 0x777)]                    # open: the pad is left, the mouse is gone
+        assert not rig.game.game_gets_keys() and rig.game.focus in rig.game.windows   # and the keys go to our window
         log = rig.game.read_out("byog.log")
-        assert "menu: about to use Keyboard.set_down_threshold(2)" in log
-        assert "menu: about to use Mouse.set_down_threshold(2)" in log
+        assert "menu: raw input registered by the game: 1/2 flags 100 window 0x777" in log
+        assert "menu: about to use RegisterRawInputDevices" in log
+        assert "menu: the game window 0x777 belongs to this thread" in log
+        assert "menu: game input blocked (keyboard: focus, mouse: raw input)" in log
+        # the game's window takes the focus back when it is activated again (Alt+Tab): put right at once
+        rig.game.focus = 0x777
+        rig.game.frames(2)
+        assert not rig.game.game_gets_keys()
         settings = rig.game.read_out("settings.txt")
-        assert "block_game_input = true" in settings and "trying" not in settings
-        rig.game.press(F9)                                             # closed: the game has them back
-        assert level() == (0.5, 0.5)
+        assert "block_input = true" in settings and "trying" not in settings
+        typed(rig, b"S")                                               # the menu still sees the keys
+        rig.game.press(F9)                                             # closed: registered again, as it was
+        assert sorted(rig.game.raw) == sorted(start)
+        assert rig.game.game_gets_keys() and not rig.game.windows      # the focus is back, our window is gone
+        assert "menu: game input given back" in rig.game.read_out("byog.log")
         rig.game.press(F9)
         rig.game.press(F7); rig.game.press(F7)
         for _ in range(15):
             rig.game.press(DOWN)
         assert "Block game input while the menu is open" in shown(rig)
+        assert not rig.game.game_gets_keys()
         rig.game.press(INSERT)                                         # switched off, at once
-        assert level() == (0.5, 0.5)
-        assert "block_game_input = false" in rig.game.read_out("settings.txt")
+        assert sorted(rig.game.raw) == sorted(start) and rig.game.game_gets_keys()
+        assert "block_input = false" in rig.game.read_out("settings.txt")
         rig.game.press(F9)
         rig.game.press(F9)
-        assert level() == (0.5, 0.5)                                   # and it stays off
+        assert sorted(rig.game.raw) == sorted(start) and rig.game.game_gets_keys()   # and it stays off
     finally:
         rig.close()
 
@@ -1699,13 +1700,12 @@ def check_a_block_that_closed_the_game_is_not_tried_again(mutate=None):
         # what the file looks like when the game closed inside the first try
         os.makedirs(os.path.dirname(rig.game.out_path("settings.txt")), exist_ok=True)
         with open(rig.game.out_path("settings.txt"), "wb") as f:
-            f.write(b"preset = Default\r\nblock_game_input = true\r\nblock_game_input_trying = true\r\n")
+            f.write(b"preset = Default\r\nblock_input = true\r\nblock_input_trying = true\r\n")
         rig.settle()
         rig.game.lua.execute(FAKE_ENGINE)
-        rig.game.lua.execute(FAKE_KEYBOARD)
         rig.game.press(F9)
-        assert rig.game.lua.eval(b"stingray.Keyboard.level") == 0.5
-        assert "block_game_input = false" in rig.game.read_out("settings.txt")
+        assert len(rig.game.raw) == 2 and rig.game.raw_calls == 0 and rig.game.game_gets_keys()
+        assert "block_input = false" in rig.game.read_out("settings.txt")
         assert "switched off" in rig.game.read_out("byog.log")
         rig.game.press(F7); rig.game.press(F7)
         assert "switched off: the game closed when this was tried" in shown(rig)
@@ -1713,16 +1713,26 @@ def check_a_block_that_closed_the_game_is_not_tried_again(mutate=None):
         rig.close()
 
 
-def check_the_game_input_switch_without_the_engine_function(mutate=None):
+def check_keys_are_blocked_when_the_window_belongs_to_another_thread(mutate=None):
+    # seen in game (v1.1.6): it does, and "disabling" the window instead left the keys with the game
     rig = Rig("", mutate)
     try:
+        rig.game.window_thread = 5
         rig.settle()
-        rig.game.lua.execute(FAKE_ENGINE)                              # no stingray.Keyboard at all
+        rig.game.lua.execute(FAKE_ENGINE)
         rig.game.press(F9)
-        rig.game.press(F7); rig.game.press(F7)
-        for _ in range(15):
-            rig.game.press(DOWN)
-        assert "not available in this game" in shown(rig)
+        assert not rig.game.game_gets_keys() and rig.game.focus in rig.game.windows and rig.game.window_enabled
+        log = rig.game.read_out("byog.log")
+        assert "menu: the game window 0x777 belongs to another thread" in log
+        assert "menu: game input blocked (keyboard: focus, from another thread, mouse: raw input)" in log
+        # what Windows queues for our window on this thread is taken off, frame by frame
+        rig.game.queued = 100
+        rig.game.frames(1)
+        assert rig.game.queued == 36
+        rig.game.frames(1)
+        assert rig.game.queued == 0
+        rig.game.press(F9)
+        assert rig.game.game_gets_keys() and not rig.game.windows
     finally:
         rig.close()
 
@@ -2131,18 +2141,42 @@ MUTATIONS = [
      check_keys_can_be_changed),
     ("game input: not given back when the menu closes",
      "    pcall(menu_block_game, false)\n",
-     "",
+     "    if menu.mode == 'x' then pcall(menu_block_game, false) end\n",
      check_the_game_input_can_be_blocked),
     ("game input: blocked although it is switched off",
      "    if menu.block then\n        if not menu.block_tried then",
      "    if true then\n        if not menu.block_tried then",
      check_the_game_input_can_be_blocked),
-    ("game input: the mouse buttons are left to the game",
-     "    for _, device in ipairs({ 'Keyboard', 'Mouse' }) do\n        local D = S and S[device]",
-     "    for _, device in ipairs({ 'Keyboard' }) do\n        local D = S and S[device]",
+    ("game input: the default of an older version switches it off",
+     "            elseif key == 'block_input' then\n",
+     "            elseif key == 'block_input' or key == 'block_game_input' then\n",
+     check_the_game_input_can_be_blocked),
+    ("game input: the keys still go to the game's window",
+     "        local keys = menu.block_keys(true)\n",
+     "        local keys = false\n",
+     check_the_game_input_can_be_blocked),
+    ("game input: the focus is not looked at again while the menu is open",
+     "        if A.game_in_front() then A.focus_keep() end\n",
+     "",
+     check_the_game_input_can_be_blocked),
+    ("game input: the focus is not given back",
+     "        menu.keys_blocked = nil\n        A.focus_give_back(blocked.window)\n",
+     "        menu.keys_blocked = nil\n",
+     check_the_game_input_can_be_blocked),
+    ("game input: the messages for our window are left on the queue",
+     "        A.focus_pump()\n",
+     "",
+     check_keys_are_blocked_when_the_window_belongs_to_another_thread),
+    ("game input: the pad is taken away as well",
+     "            if d.page == 1 and (d.usage == 2 or d.usage == 6) then mine[#mine + 1] = d end\n",
+     "            if d.page == 1 then mine[#mine + 1] = d end\n",
+     check_the_game_input_can_be_blocked),
+    ("game input: put back with other flags than it had",
+     "        if not A.raw_register(menu.raw_saved) then log(",
+     "        for _, d in ipairs(menu.raw_saved) do d.flags = 0 end\n        if not A.raw_register(menu.raw_saved) then log(",
      check_the_game_input_can_be_blocked),
     ("game input: a try that closed the game is tried again",
-     "            elseif key == 'block_game_input_trying' and value == 'true' then\n                tried = true\n",
+     "            elseif key == 'block_input_trying' and value == 'true' then\n                tried = true\n",
      "",
      check_a_block_that_closed_the_game_is_not_tried_again),
     ("chinese: a font the engine does not have is used",
