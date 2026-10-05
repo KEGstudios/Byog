@@ -1,0 +1,13 @@
+# StatusEffectSettings rows as they are in the game's memory (record: StatusEffectInfo, 152 bytes).
+# Read in game by recon v0.1.0 (2026-10-01) on build release/01.007.101/19155; the table is not in the
+# offline data, and that run wrote out these rows only. Columns: row id (+0) | debug name | +32 | +36 |
+# duration (+40, seconds). The duration offset: the two Gas rows hold 6 and 10 there, the lengths the
+# game's gas effects are known by; +32 and +36 are kept for reference, their meaning is not settled.
+10|Acid Splash|0|0.3|4
+11|Acid Stream|0|1|0.5
+42|Gas|1.5|0.25|6
+43|Gas|1.5|0.25|10
+44|Gas_Confusion|0|0.25|5
+45|Gas_Confusion|0|0.25|9
+53|Sandstorm|0|0.25|1
+55|Acid Storm|1.5|1|1

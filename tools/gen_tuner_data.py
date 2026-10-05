@@ -83,7 +83,7 @@ INDEXES = {
 
 CATEGORY = {"primary": "weapon", "secondary": "weapon", "support": "weapon", "melee": "weapon",
             "throwable": "throwable", "backpack": "backpack", "shield": "shield", "vehicle": "vehicle",
-            "stratagem": "stratagem", "stratagem_weapon": "stratagem_weapon"}
+            "stratagem": "stratagem", "stratagem_weapon": "stratagem_weapon", "status": "status"}
 ID_AT = {"StratagemSettings": 4}       # where a row keeps its id (0 unless listed)
 SKIP_STATS = {"mode"}          # enum fields are not numbers; id-type stats come in Stage 3
 
@@ -127,6 +127,7 @@ RANGES = [
     (r"^call_in_time$", 0, 600, 0),
     (r"^health$", 1, 1000000, 1),
     (r"^cooldown$", 0, 7200, 0),
+    (r"^duration$", 0, 3600, 0),                   # a status effect's own length, seconds
     (r"^lifetime_seconds$", 0, 36000, 0),          # 0 = stays until destroyed
     (r"^(sight|proximity)_range$", 0, 2000, 0),
     (r"^uses$", 1, 4294967295, 1),                 # 4294967295 = unlimited

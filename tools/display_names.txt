@@ -81,3 +81,11 @@ backpack|automatic_cannon_backpack|Autocannon backpack
 backpack|faf_missile_launcher_backpack|Spear backpack
 backpack|air_burst_rocket_backpack|Airburst Rocket Launcher backpack
 backpack|ammo_backpack|B-1 Supply Pack
+status|acid_splash|Acid Splash
+status|acid_stream|Acid Stream
+status|gas|Gas (6 s)
+status|gas_2|Gas (10 s)
+status|gas_confusion|Gas Confusion (5 s)
+status|gas_confusion_2|Gas Confusion (9 s)
+status|sandstorm|Sandstorm
+status|acid_storm|Acid Storm

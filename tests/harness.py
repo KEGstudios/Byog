@@ -321,8 +321,17 @@ def build_world(cooldown_at=104, second_copy=True, corrupt=None, corrupt_copy=No
     c.add("ComponentEntityDeltaStorage", P["ComponentEntityDeltaStorage"], fix=absolute_deltas)
     # synthetic tables that are not in the plaintext mirror
     status = load_json("generated_status_effect_settings.json")[0]["StatusEffectSettings"]["items"]
-    rows = [({0: ("<I", i), 40: ("<f", float(it.get("duration", 0)))},
-             str(it.get("debug_name", "")).encode("ascii", "replace"), 8) for i, it in enumerate(status)]
+    live = {}
+    with open(os.path.join(ROOT, "tools", "live_statuses.txt"), encoding="utf-8") as f:
+        for line in f:
+            if not line.startswith("#") and line.strip():
+                row_id, name, _a, _b, duration = line.rstrip("\n").split("|")
+                live[int(row_id)] = (name, float(duration))
+    rows = []
+    for i in range(max(len(status), max(live) + 1)):
+        it = status[i] if i < len(status) else {}
+        name, duration = live.get(i, (str(it.get("debug_name", "")), float(it.get("duration", 0))))
+        rows.append(({0: ("<I", i), 40: ("<f", duration)}, name.encode("ascii", "replace"), 8))
     payload, fix = synth_rows(152, rows, None)
     c.add("StatusEffectSettings", payload, fix=fix)
     info["status_names"] = [str(it.get("debug_name", "")) for it in status]
@@ -477,6 +486,26 @@ F['kernel32.dll'] = {
         return 1
     end,
     CreateDirectoryA = function(path, security) py.mkdir(text(path, 'path')); return 1 end,
+    -- files of a folder: the names come from Python, one a line; WIN32_FIND_DATAA has the name at +44
+    FindFirstFileA = function(pattern, data)
+        pointer(data, 'data')
+        local names = {}
+        for name in tostring(py.find(text(pattern, 'pattern'))):gmatch('[^\n]+') do names[#names + 1] = name end
+        if #names == 0 then return ffi.cast('void *', -1) end
+        FOUND = { names = names, at = 1 }
+        ffi.fill(data, 320)
+        ffi.copy(ffi.cast('char *', data) + 44, names[1])
+        return ffi.cast('void *', 0xF1D0)
+    end,
+    FindNextFileA = function(handle, data)
+        pointer(handle, 'handle'); pointer(data, 'data')
+        FOUND.at = FOUND.at + 1
+        if not FOUND.names[FOUND.at] then return 0 end
+        ffi.fill(data, 320)
+        ffi.copy(ffi.cast('char *', data) + 44, FOUND.names[FOUND.at])
+        return 1
+    end,
+    FindClose = function(handle) pointer(handle, 'handle'); FOUND = nil; return 1 end,
     GetLastError = function() return 0 end,
     QueryPerformanceCounter = function(ticks) pointer(ticks, 'ticks'); ticks[0] = py.clock(); return 1 end,
     QueryPerformanceFrequency = function(f) pointer(f, 'frequency'); f[0] = 1000000; return 1 end,
@@ -602,7 +631,7 @@ class Game:
             b"foreground": lambda: self.in_front,
             b"region_info_unsupported": lambda: not self.region_info,
             b"working_set_fails": lambda: self.working_set_fails,
-            b"mkdir": self._mkdir, b"clock": self._clock, b"module": self._module,
+            b"mkdir": self._mkdir, b"find": self._find, b"clock": self._clock, b"module": self._module,
             b"module_path": self._module_path, b"file_open": self._file_open,
             b"file_size": self._file_size, b"file_read": self._file_read, b"file_close": self._file_close,
             b"sha_new": self._sha_new, b"sha_update": self._sha_update, b"sha_digest": self._sha_digest,
@@ -663,6 +692,11 @@ class Game:
 
     def _mkdir(self, path):
         os.makedirs(path.decode(), exist_ok=True)
+
+    def _find(self, pattern):
+        import glob
+        return "\n".join(sorted(os.path.basename(p) for p in glob.glob(pattern.decode())
+                                if os.path.isfile(p))).encode()
 
     def _module(self, name):
         if name is None:

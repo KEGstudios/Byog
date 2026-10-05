@@ -447,7 +447,7 @@ def check_api(mutate=None):
     try:
         rig.settle()
         api = rig.game.state()[b"api"]
-        assert sorted(x for x in api[b"categories"]().values()) == [b"backpack", b"shield", b"stratagem", b"stratagem_weapon", b"throwable", b"vehicle", b"weapon"]
+        assert sorted(x for x in api[b"categories"]().values()) == [b"backpack", b"shield", b"status", b"stratagem", b"stratagem_weapon", b"throwable", b"vehicle", b"weapon"]
         stats = {s[b"id"]: s for s in api[b"stats"](b"weapon", b"assault_rifle").values()}
         assert stats[b"damage"][b"game"] == 90 and stats[b"damage"][b"shared_with"] == 3
         assert stats[b"capacity"][b"editable"] is False
@@ -1268,6 +1268,7 @@ stingray.Gui = {
   end,
   text = function(gui, str, font, size, material, position, color)
     stingray.drawn.texts[#stingray.drawn.texts + 1] = str
+    if str ~= ' ' then stingray.drawn.font = font end
     if str ~= ' ' then          -- (a single blank is the menu trying out a font)
       stingray.drawn.low_text = math.min(stingray.drawn.low_text or 1e9, position[3] or 0)
     end
@@ -1311,7 +1312,7 @@ def check_menu_changes_a_value_and_remembers_it(mutate=None):
         # in the middle of a 1920 x 1080 screen (the Gui's origin is the bottom left corner)
         panel = [rig.game.lua.eval(b"stingray.drawn.panel[%d]" % n) for n in (1, 2, 3, 4)]
         scale = 1440 / 1080                                            # the fake screen is 2560 x 1440
-        want = [(2560 - 1180 * scale) / 2, (1440 - 664 * scale) / 2, 1180 * scale, 664 * scale]
+        want = [(2560 - 1180 * scale) / 2, (1440 - 700 * scale) / 2, 1180 * scale, 700 * scale]
         assert all(abs(a - b) < 0.01 for a, b in zip(panel, want)), (panel, want)
         assert rig.game.lua.eval(b"stingray.drawn.crashed") is None    # no engine call with arguments it does not take
         log = rig.game.read_out("byog.log")
@@ -1325,8 +1326,10 @@ def check_menu_changes_a_value_and_remembers_it(mutate=None):
         # the values come in groups under headings: damage first, then what the hit applies, then the round ...
         text, _rects = drawn(rig)
         order = [text.index("\n" + heading + "\n") for heading in ("DAMAGE", "STATUS EFFECTS")]
-        assert order == sorted(order) and text.index("\ndamage\n") < text.index("\nstatus1_type\n"), text[:900]
-        assert "\nrpm\n" not in text                                  # further down: the list scrolls
+        assert order == sorted(order) and text.index("\nDamage\n") < text.index("\nStatus effect 1: type\n"), text[:900]
+        assert "\nArmor penetration, direct hit\n" in text and "\nap_direct\n" not in text   # by a readable name
+        assert "ap_bonus   (name in config.txt)" in text               # and the name config.txt takes, under the list
+        assert "\nFire rate (rpm)\n" not in text                      # further down: the list scrolls
         stats = [s["id"] for s in catalog_stat("assault_rifle", "rpm")[0]["stats"] if s["id"] != "mode"]
         ahead = [s for s in stats if s in ("damage", "durable_damage", "ap_direct", "ap_slight", "ap_large", "ap_extreme",
                                            "demolition", "stagger", "push", "ap_bonus", "durable_ap_bonus", "bonus2",
@@ -1338,23 +1341,25 @@ def check_menu_changes_a_value_and_remembers_it(mutate=None):
         drawn(rig)
         rig.game.frames(2)
         text, _rects = drawn(rig)
-        assert "\nFIRE\n" in text and "\nrpm\n" in text and "\nAMMO\n" in text, text[:900]
+        assert "\nFIRE\n" in text and "\nFire rate (rpm)\n" in text and "\nAMMO\n" in text, text[:900]
+        assert "rpm   (name in config.txt)" in text
         rig.game.press(RIGHT)
         rig.game.frames(40)                                            # quiet for a moment: handed to the engine
         assert rig.mem.peek(rig.rpm, "<f") == 650.0
-        saved = rig.game.read_out("menu.txt")
+        saved = rig.game.read_out("presets/Default.txt")
         assert "[weapon: assault_rifle]" in saved and "rpm = 650" in saved, saved
-        assert "menu.txt: 1 values set through the in-game menu" in rig.game.status()
-        text, _rects = drawn(rig)
+        assert 'preset "Default": 1 values set through the in-game menu' in rig.game.status()
+        text = shown(rig)
+        assert 'Saved to "Default"' in text
         assert "650" in text and "640" in text                        # the new value and the game's
         assert "assault_rifle   (name in config.txt)" in text
         rig.game.press(DELETE)
         rig.game.frames(40)
-        assert rig.mem.peek(rig.rpm, "<f") == 640.0 and "rpm" not in rig.game.read_out("menu.txt")
+        assert rig.mem.peek(rig.rpm, "<f") == 640.0 and "rpm" not in rig.game.read_out("presets/Default.txt")
         # another category, and closing
         rig.game.press(TAB)
         rig.game.press(RIGHT)
-        assert "G-6 Frag" in drawn(rig)[0]
+        assert "G-4 Gas" in drawn(rig)[0]
         rig.game.press(F9)
         rig.game.frames(5)
         drawn(rig)
@@ -1424,6 +1429,7 @@ def check_menu_search_finds_items_of_every_category(mutate=None):
         rig.game.lua.execute(FAKE_ENGINE)
         rig.game.press(F9)
         drawn(rig)
+        rig.game.press(F3)
         for key in b"SENTRY":                                          # typed on the keyboard
             rig.game.press(key)
         rig.game.frames(3)
@@ -1433,18 +1439,17 @@ def check_menu_search_finds_items_of_every_category(mutate=None):
         assert "search: sentry_" in text, text[:400]
         assert "Machine Gun Sentry (gun)  [strat. weapon]" in text and "Gatling Sentry (gun)" in text, text[:900]
         assert "AR-23 Liberator" not in text                           # the weapon tab is no longer what is listed
+        rig.game.press(BACKSPACE)
+        assert "search: sentr_" in shown(rig)
+        rig.game.press(INSERT)                                         # out of the box, the hits stay
         # the first hit is selected: its values are on the right, and can be changed
         rig.game.press(TAB)
         rig.game.frames(2)
         assert "(name in config.txt)" in drawn(rig)[0]
         rig.game.press(TAB)
-        for _ in range(6):
-            rig.game.press(0x08)                                       # Backspace
-        rig.game.frames(3)
-        drawn(rig)
-        rig.game.frames(2)
-        text, _rects = drawn(rig)
-        assert "type to search" in text and "AR-23 Liberator" in text
+        rig.game.press(END)                                            # drops the search
+        text = shown(rig)
+        assert "press F3 to search" in text and "AR-23 Liberator" in text
     finally:
         rig.close()
 
@@ -1464,12 +1469,329 @@ def check_more_ammunition_than_a_resupply_fills_is_said(mutate=None):
         # and the menu says it where the value is
         rig.game.lua.execute(FAKE_ENGINE)
         rig.game.press(F9)
+        rig.game.press(F3)
         for key in b"MINIGUN B":                                       # a space where the internal name has '_'
             rig.game.press(key)
+        rig.game.press(INSERT)
         rig.game.press(TAB)
         drawn(rig)
         rig.game.frames(2)
         assert "! charges 1500 is above 1023" in drawn(rig)[0]
+    finally:
+        rig.close()
+
+
+F3, F6, F7, INSERT, END, BACKSPACE = 0x72, 0x75, 0x76, 0x2D, 0x23, 0x08
+
+
+def typed(rig, keys):
+    for key in keys:
+        rig.game.press(key)
+
+
+def shown(rig):
+    """What the menu draws now (the frames before are dropped)."""
+    drawn(rig)
+    rig.game.frames(2)
+    return drawn(rig)[0]
+
+
+def check_keys_go_to_the_box_only(mutate=None):
+    rig = Rig("", mutate)
+    try:
+        rig.settle()
+        rig.game.lua.execute(FAKE_ENGINE)
+        rig.game.press(F9)
+        typed(rig, b"S")                                               # a letter alone does nothing any more
+        text = shown(rig)
+        assert "search: " not in text and "press F3 to search" in text, text[:400]
+        rig.game.press(F3)
+        typed(rig, b"S")
+        assert "search: s_" in shown(rig)
+        rig.game.press(TAB)                                            # in the box these are not the menu's keys
+        rig.game.press(DOWN)
+        rig.game.press(END)                                            # leaves the box and drops the search
+        text = shown(rig)
+        assert "search: " not in text and "AR-23 Liberator" in text
+        rig.game.press(RIGHT)                                          # still in the item list: the next category
+        text = shown(rig)
+        assert "G-4 Gas" in text, text[:1500]
+        assert not os.path.exists(rig.game.out_path("presets/Default.txt")) or \
+            "=" not in rig.game.read_out("presets/Default.txt")        # and no value was changed on the way
+    finally:
+        rig.close()
+
+
+def check_a_value_can_be_typed(mutate=None):
+    rig = Rig("", mutate)
+    try:
+        rig.settle()
+        rig.game.lua.execute(FAKE_ENGINE)
+        rig.game.press(F9)
+        catalog_stat("assault_rifle", "rpm")                           # (reads the catalog the order comes from)
+        names = menu_order("primary", "secondary", "support", "melee")
+        for _ in range(names.index("assault_rifle")):
+            rig.game.press(DOWN)
+        rig.game.press(TAB)                                            # the first value of the Liberator: ap_bonus
+        rig.game.press(INSERT)
+        typed(rig, b"3")
+        assert "3_" in shown(rig)
+        rig.game.press(INSERT)
+        rig.game.frames(40)
+        assert "ap_bonus = 3" in rig.game.read_out("presets/Default.txt")
+        rig.game.press(INSERT)
+        typed(rig, b"99")                                              # the range is -10 .. 10
+        rig.game.press(INSERT)
+        rig.game.frames(40)
+        assert "ap_bonus = 10" in rig.game.read_out("presets/Default.txt") and "REJECTED" not in rig.game.status()
+        rig.game.press(INSERT)
+        typed(rig, b"5")
+        rig.game.press(END)                                            # given up: nothing changes
+        rig.game.frames(40)
+        assert "ap_bonus = 10" in rig.game.read_out("presets/Default.txt")
+    finally:
+        rig.close()
+
+
+def check_presets(mutate=None):
+    rig = Rig("", mutate)
+    try:
+        with open(rig.game.out_path("menu.txt"), "wb") as f:           # what v1.0 kept: it becomes "Default"
+            f.write(b"[weapon: assault_rifle]\r\nrpm = 700\r\n")
+        rig.settle()
+        assert rig.mem.peek(rig.rpm, "<f") == 700.0
+        assert "rpm = 700" in rig.game.read_out("presets/Default.txt")
+        assert 'preset "Default": 1 values set through the in-game menu' in rig.game.status()
+        rig.game.lua.execute(FAKE_ENGINE)
+        rig.game.press(F9)
+        assert "Preset: Default" in shown(rig)
+        rig.game.press(F7)
+        text = shown(rig)
+        assert "Default   (active, 1 values)" in text and "+ New preset (empty)" in text, text[:600]
+        rig.game.press(DOWN)                                           # + New preset (empty)
+        rig.game.press(INSERT)
+        typed(rig, b"FUN")
+        assert "Name: fun_" in shown(rig)
+        rig.game.press(INSERT)
+        rig.game.frames(60)
+        assert rig.mem.peek(rig.rpm, "<f") == 640.0                    # the old preset's value is gone from the game
+        assert os.path.exists(rig.game.out_path("presets/fun.txt"))
+        assert "rpm = 700" in rig.game.read_out("presets/Default.txt")  # and still in its own file
+        assert "preset = fun" in rig.game.read_out("settings.txt")
+        text = shown(rig)
+        assert "fun   (active, 0 values)" in text and "Preset: fun" in text, text[:600]
+        # a name that is taken, whatever the case
+        rig.game.press(DOWN); rig.game.press(DOWN)
+        rig.game.press(INSERT)
+        typed(rig, b"DEFAULT")
+        rig.game.press(INSERT)
+        assert "That name is taken" in shown(rig)
+        # back to the first one
+        rig.game.press(UP); rig.game.press(UP); rig.game.press(UP)
+        rig.game.press(INSERT)                                         # [Activate] on "Default"
+        rig.game.frames(60)
+        assert rig.mem.peek(rig.rpm, "<f") == 700.0
+        # delete the other one: asked first
+        rig.game.press(DOWN)
+        for _ in range(3):
+            rig.game.press(RIGHT)
+        rig.game.press(INSERT)
+        assert 'Delete the preset "fun"?' in shown(rig)
+        rig.game.press(END)                                            # no
+        assert os.path.exists(rig.game.out_path("presets/fun.txt"))
+        rig.game.press(INSERT)
+        rig.game.press(INSERT)                                         # yes
+        assert not os.path.exists(rig.game.out_path("presets/fun.txt"))
+        assert rig.mem.peek(rig.rpm, "<f") == 700.0
+    finally:
+        rig.close()
+
+
+def check_keys_can_be_changed(mutate=None):
+    rig = Rig("", mutate)
+    try:
+        rig.settle()
+        rig.game.lua.execute(FAKE_ENGINE)
+        rig.game.press(F9)
+        rig.game.press(F7); rig.game.press(F7)                         # Keys
+        text = shown(rig)
+        assert "Search" in text and "F3" in text and "Reset the keys" in text, text[:900]
+        for _ in range(12):
+            rig.game.press(DOWN)                                       # the 13th action: search
+        rig.game.press(INSERT)
+        assert "Press the key for: Search" in shown(rig)
+        rig.game.press(0x4B)                                           # K
+        assert "key.search = K" in rig.game.read_out("settings.txt")
+        rig.game.press(F6); rig.game.press(F6)                         # Items
+        rig.game.press(F3)
+        assert "search: _" not in shown(rig)
+        rig.game.press(0x4B)
+        assert "search: _" in shown(rig)
+        rig.game.press(END)
+        # two actions on one key are named
+        rig.game.press(F7); rig.game.press(F7)
+        rig.game.press(INSERT)                                         # search again
+        rig.game.press(TAB)
+        assert "Two actions share the key TAB" in shown(rig)
+    finally:
+        rig.close()
+
+
+FAKE_KEYBOARD = b"""
+stingray.Keyboard = { level = 0.5, calls = {},
+  down_threshold = function() return stingray.Keyboard.level end,
+  set_down_threshold = function(level)
+    stingray.Keyboard.level = level
+    stingray.Keyboard.calls[#stingray.Keyboard.calls + 1] = level
+  end }
+"""
+
+
+def check_the_game_input_can_be_blocked(mutate=None):
+    rig = Rig("", mutate)
+    try:
+        rig.settle()
+        rig.game.lua.execute(FAKE_ENGINE)
+        rig.game.lua.execute(FAKE_KEYBOARD)
+        level = lambda: rig.game.lua.eval(b"stingray.Keyboard.level")
+        rig.game.press(F9)
+        assert level() == 0.5                                          # off until it is switched on
+        rig.game.press(F7); rig.game.press(F7)
+        for _ in range(15):
+            rig.game.press(DOWN)
+        text = shown(rig)
+        assert "Block game input while the menu is open" in text and "off" in text
+        rig.game.press(INSERT)
+        assert level() == 2
+        assert "block_game_input = true" in rig.game.read_out("settings.txt")
+        assert "menu: about to use Keyboard.set_down_threshold(2)" in rig.game.read_out("byog.log")
+        rig.game.press(F9)                                             # closed: the game has its keyboard back
+        assert level() == 0.5
+        rig.game.press(F9)
+        assert level() == 2                                            # and it is remembered
+        rig.game.press(F9)
+        assert level() == 0.5
+    finally:
+        rig.close()
+
+
+def check_the_game_input_switch_without_the_engine_function(mutate=None):
+    rig = Rig("", mutate)
+    try:
+        rig.settle()
+        rig.game.lua.execute(FAKE_ENGINE)                              # no stingray.Keyboard at all
+        rig.game.press(F9)
+        rig.game.press(F7); rig.game.press(F7)
+        for _ in range(15):
+            rig.game.press(DOWN)
+        rig.game.press(INSERT)
+        assert "not available in this game" in shown(rig)
+        assert "block_game_input = false" in rig.game.read_out("settings.txt")
+    finally:
+        rig.close()
+
+
+FAKE_FONTS = b"""
+stingray.Application.can_get = function(kind, name)
+  return kind == 'font' and name == 'content/fonts/fallback'
+end
+"""
+
+
+def check_chinese(mutate=None):
+    rig = Rig("", mutate)
+    try:
+        rig.settle()
+        rig.game.lua.execute(FAKE_ENGINE)
+        rig.game.lua.execute(FAKE_FONTS)
+        rig.game.press(F9)
+        rig.game.press(F6)                                             # Language is the last page
+        text = shown(rig)
+        assert "English   *" in text and "Chinese (Simplified)" in text, text[:600]
+        rig.game.press(DOWN)
+        rig.game.press(INSERT)
+        text = shown(rig)
+        assert "物品" in text and "预设" in text and "Items" not in text, text[:600]
+        assert rig.game.lua.eval(b"stingray.drawn.font") == b"content/fonts/fallback"
+        assert "language = zh" in rig.game.read_out("settings.txt")
+        rig.game.press(F7)                                             # Items: headings and values in Chinese
+        rig.game.press(TAB)
+        text = shown(rig)
+        assert "伤害" in text and "穿甲加成" in text and "AR-23 Liberator" in text, text[:900]
+        assert "ap_bonus   (config.txt" in text                        # the name config.txt takes stays as it is
+        rig.game.press(F6)
+        rig.game.press(UP)
+        rig.game.press(INSERT)                                         # and back
+        text = shown(rig)
+        assert "Items" in text and "language = en" in rig.game.read_out("settings.txt")
+    finally:
+        rig.close()
+
+
+def check_chinese_needs_a_font_of_the_game(mutate=None):
+    rig = Rig("", mutate)
+    try:
+        rig.settle()
+        rig.game.lua.execute(FAKE_ENGINE)                              # this engine has none of the fonts
+        rig.game.lua.execute(b"stingray.Application.can_get = function(kind, name) return false end")
+        rig.game.press(F9)
+        rig.game.press(F6)
+        rig.game.press(DOWN)
+        rig.game.press(INSERT)
+        text = shown(rig)
+        assert "no font of the game can draw Chinese" in text and "Items" in text, text[:600]
+        assert "language = en" in rig.game.read_out("settings.txt")
+        assert "menu: font content/fonts/fallback: not there" in rig.game.read_out("byog.log")
+    finally:
+        rig.close()
+
+
+def check_status_effects_have_a_length(mutate=None):
+    rig = Rig("[status: acid_storm]\nduration = 10\n[status: gas]\nduration = 150%\n", mutate)
+    try:
+        status = rig.settle()
+        assert first_line(status) == "OK - 2 values applied", status[:900]
+        # the rows of the table follow its 16-byte array head, 152 bytes each, in the order of their ids
+        row = lambda row_id: rig.blocks["StatusEffectSettings"][0] + 24 + 16 + row_id * 152 + 40
+        assert rig.mem.peek(row(55), "<f") == 10.0 and rig.mem.peek(row(42), "<f") == 9.0
+        assert rig.mem.peek(row(43), "<f") == 10.0                     # the other gas is another status: untouched
+        rig.game.lua.execute(FAKE_ENGINE)
+        rig.game.press(F9)
+        rig.game.press(LEFT)                                           # the last category
+        text = shown(rig)
+        assert "Status effects 8" in text and "Acid Storm" in text, text[:900]
+        rig.game.press(TAB)
+        text = shown(rig)
+        assert "Duration (s)" in text and "A status effect has one length" in text, text[:900]
+    finally:
+        rig.close()
+
+
+def check_research_file(mutate=None):
+    rig = Rig("[settings]\nresearch = true\n", mutate)
+    try:
+        rig.settle()
+        rig.game.frames(400)
+        text = rig.game.read_out("RESEARCH.txt")
+        assert "[status effects] " in text and " rows of 152 bytes" in text, text[:400]
+        rows = [line.split("|") for line in text.splitlines() if line[:1].isdigit()]
+        by_id = {int(r[0]): r for r in rows}
+        assert len(rows) >= 56 and by_id[55][1] == "Acid Storm" and by_id[55][4] == "1", rows[55:56]
+        assert by_id[42][1] == "Gas" and by_id[42][4] == "6" and by_id[43][4] == "10"
+        assert all(len(r[5]) == 304 for r in rows)                     # the whole row, for what is not known yet
+        assert "[engine] no stingray table here" in text               # (this fake game has no engine)
+        assert "research: RESEARCH.txt written" in rig.game.read_out("byog.log")
+        assert first_line(rig.game.status()) == "OK - no changes configured"   # reading is not a change
+    finally:
+        rig.close()
+
+
+def check_research_can_be_switched_off(mutate=None):
+    rig = Rig("[settings]\nresearch = false\n", mutate)
+    try:
+        rig.settle()
+        rig.game.frames(200)
+        assert rig.game.read_out("RESEARCH.txt") == ""
     finally:
         rig.close()
 
@@ -1713,9 +2035,89 @@ MUTATIONS = [
      "    local RESUPPLY_LIMIT = 99999\n",
      check_more_ammunition_than_a_resupply_fills_is_said),
     ("menu: the warning of the selected value is not shown",
-     "        if warning then text('! ' .. warning:sub(1, 150)",
-     "        if false then text('! ' .. warning:sub(1, 150)",
+     "            if warning and not menu.note then yellow('! '",
+     "            if false then yellow('! '",
      check_more_ammunition_than_a_resupply_fills_is_said),
+    ("menu: a value is shown by its short name",
+     "                    row(menu_label(stat), 460, y, 728 - 16, here, focused, 34)\n",
+     "                    row(stat, 460, y, 728 - 16, here, focused, 34)\n",
+     check_menu_changes_a_value_and_remembers_it),
+    ("menu: the name config.txt takes is not shown",
+     "            if stats[at] then gray(menu_clip(stats[at], 60) .. '   ('",
+     "            if stats[at] then gray(menu_clip(menu_label(stats[at]), 60) .. '   ('",
+     check_menu_changes_a_value_and_remembers_it),
+    ("menu: the menu's keys also work while a box is typed into",
+     "    if menu.mode == 'text' then\n        menu_box_input(now)\n    elseif menu.mode == 'capture' then",
+     "    if menu.mode == 'text' then\n        menu_box_input(now)\n    end\n    if menu.mode == 'capture' then",
+     check_keys_go_to_the_box_only),
+    ("menu: a letter searches without the search key",
+     "    if menu_act('search', now, true) then\n",
+     "    if menu_act('search', now, true) or A.key_down(0x53) then\n",
+     check_keys_go_to_the_box_only),
+    ("menu: a typed value may leave the range",
+     "    value = math.max(range.min, math.min(range.max, value))\n",
+     "",
+     check_a_value_can_be_typed),
+    ("menu: a box that is given up still counts",
+     "    elseif menu_act('back', now, true) then\n        menu.mode, menu.box = 'list', nil\n        if box.kind == 'search'",
+     "    elseif menu_act('back', now, true) then\n        menu.mode, menu.box = 'list', nil\n        if box.done then box.done(box.text, now) end\n        if box.kind == 'search'",
+     check_a_value_can_be_typed),
+    ("presets: the values of the old preset stay",
+     "    for key in pairs(overrides) do overrides[key] = nil end\n    for key, value in pairs(values or {})",
+     "    for key, value in pairs(values or {})",
+     check_presets),
+    ("presets: a name can be used twice",
+     "            if preset_known(new) then return menu_say(L('That name is taken'), at) end\n",
+     "",
+     check_presets),
+    ("presets: deleted without asking",
+     "        menu.mode, menu.ask = 'confirm', { name = name }\n",
+     "        os.remove(dir .. '\\\\' .. preset_file(name))\n",
+     check_presets),
+    ("presets: menu.txt of v1.0 is forgotten",
+     "        for key, value in pairs(preset_parse(read_file(OLD_MENU_FILE))) do overrides[key] = value end\n",
+     "",
+     check_presets),
+    ("keys: the chosen key is not kept",
+     "                menu.bind[capture.action] = key\n",
+     "",
+     check_keys_can_be_changed),
+    ("keys: two actions on one key are not named",
+     "                if clash then menu_say(L('Two actions share the key %s'):format(clash), now) end\n",
+     "",
+     check_keys_can_be_changed),
+    ("game input: not given back when the menu closes",
+     "    pcall(menu_block_game, false)\n",
+     "",
+     check_the_game_input_can_be_blocked),
+    ("game input: blocked without being switched on",
+     "    if menu.block then menu_block_game(true) end\n",
+     "    menu_block_game(true)\n",
+     check_the_game_input_can_be_blocked),
+    ("game input: the switch is on although the engine cannot do it",
+     "        if menu.block and not worked then menu.block = false end\n",
+     "",
+     check_the_game_input_switch_without_the_engine_function),
+    ("chinese: a font the engine does not have is used",
+     "                if asked and there then menu.zh_fonts[#menu.zh_fonts + 1] = font end\n",
+     "                menu.zh_fonts[#menu.zh_fonts + 1] = font\n",
+     check_chinese_needs_a_font_of_the_game),
+    ("chinese: drawn with the font that has no Chinese",
+     "    if menu.lang == 'zh' and menu.zh_font then\n        font = menu.zh_font\n",
+     "    if false then\n        font = menu.zh_font\n",
+     check_chinese),
+    ("chinese: the values keep their English names",
+     "    local label = MENU_LABEL[rest]\n    return label and L(label) or stat\n",
+     "    local label = MENU_LABEL[rest]\n    return label or stat\n",
+     check_chinese),
+    ("research: the names of the status rows are not read",
+     "                if pointer and pointer > 0x10000 and A.read(pointer, 64) then\n",
+     "                if false then\n",
+     check_research_file),
+    ("research: written although it is switched off",
+     "            if config.research and research.pending then\n",
+     "            if research.pending then\n",
+     check_research_can_be_switched_off),
     ("menu: the values of an item are not grouped",
      "        if x.rank ~= y.rank then return x.rank < y.rank end\n        if x.first ~= y.first",
      "        if x.first ~= y.first",

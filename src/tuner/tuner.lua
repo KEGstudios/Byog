@@ -3,10 +3,12 @@
 -- shields and vehicles in the game's memory, from an in-game menu and a config file.
 -- Files, all in %LOCALAPPDATA%\BYOG:
 --   config.txt    what to change (see docs/CONFIG-FORMAT.md; a template is created on first run)
---   menu.txt      what was set in the in-game menu (wins over config.txt)
+--   presets\      what was set in the in-game menu, one file a preset (wins over config.txt)
+--   settings.txt  the menu's keys, language and active preset
 --   STATUS.txt    what happened: first line is the verdict
 --   catalog.txt   every item and stat this build knows, with the game's value and allowed range
 --   byog.log      developer log
+--   RESEARCH.txt  v1.1.1 only: rows of the game's status table and engine facts, for the next version
 -- Requires Bingus Shared Loader (API 1). Runs on LuaJIT (Lua 5.1 syntax only).
 --
 -- Safety rules this file implements:
@@ -151,6 +153,9 @@ local function build_api()
     local working_set = resolve(K, 'K32QueryWorkingSetEx', 'int (*)(void *, void *, uint32_t)')
     local create_directory = resolve(K, 'CreateDirectoryA', 'int (*)(const char *, void *)')
     local get_last_error = resolve(K, 'GetLastError', 'uint32_t (*)(void)')
+    local find_first = resolve(K, 'FindFirstFileA', 'void *(*)(const char *, void *)')
+    local find_next = resolve(K, 'FindNextFileA', 'int (*)(void *, void *)')
+    local find_close = resolve(K, 'FindClose', 'int (*)(void *)')
     local perf_counter = resolve(K, 'QueryPerformanceCounter', 'int (*)(int64_t *)')
     local perf_frequency = resolve(K, 'QueryPerformanceFrequency', 'int (*)(int64_t *)')
     local module_handle = resolve(K, 'GetModuleHandleA', 'void *(*)(const char *)')
@@ -302,6 +307,22 @@ local function build_api()
 
     function a.mkdir(path)
         return create_directory(path, nil) ~= 0 or get_last_error() == 183
+    end
+
+    -- The names of the files matching a pattern like C:\folder\*.txt (folders are left out).
+    -- WIN32_FIND_DATAA: attributes at +0, the name at +44 (260 bytes); 320 bytes in all.
+    local found = ffi.new('uint8_t[328]')
+    function a.list(pattern)
+        local names = {}
+        local handle = find_first(pattern, found)
+        if handle == nil or tonumber(ffi.cast('intptr_t', handle)) == -1 then return names end
+        repeat
+            if math.floor(tonumber(ffi.cast('uint32_t *', found)[0]) / 16) % 2 == 0 then   -- not a folder
+                names[#names + 1] = ffi.string(ffi.cast('const char *', found) + 44)
+            end
+        until find_next(handle, found) == 0 or #names >= 200
+        find_close(handle)
+        return names
     end
 
     function a.module(name)
@@ -1021,7 +1042,8 @@ local config = { text = nil, enabled = true, reload_vk = 0x79, reload_key = 'F10
                  menu_vk = 0x78, menu_key = 'F9',
                  own_rows = true,
                  rescan = DEFAULT_RESCAN_SECONDS, requests = {}, problems = {} }
-local overrides = {}     -- 'category:item:stat' -> expression, set through the API (a future UI)
+local overrides = {}     -- 'category:item:stat' -> expression, set through the menu or the API
+local preset_name = nil  -- the menu's active preset: the file `overrides` is kept in
 -- field key -> { field, value, copies = { [block address] = { address, original, block } },
 --                state, note }: what the engine has touched in memory
 local applied = {}
@@ -1279,6 +1301,8 @@ local function build_desired(text)
     config.requests, config.problems = {}, {}
     config.enabled, config.reload_key, config.reload_vk = true, 'F10', 0x79
     config.menu_key, config.menu_vk = 'F9', 0x78
+    -- the research of this build is on, except under the tests' fake Windows (they ask for it by name)
+    config.research = type(rawget(_G, 'HD2ST_TEST_RESOLVER')) ~= 'function'
     config.auto_reload, config.rescan, config.own_rows = 0, DEFAULT_RESCAN_SECONDS, true
     local section, line_number = nil, 0
     local by_stat = {}   -- 'category:item:stat' -> request (a later line replaces an earlier one)
@@ -1318,6 +1342,8 @@ local function build_desired(text)
                     elseif key == 'probe' or key == 'census' or key == 'canary' or key == 'dump_globals'
                         or key == 'ui_probe' then
                         -- research settings of the test builds: gone. Accepted, so that an old config is no problem.
+                    elseif key == 'research' and parse_bool(value) ~= nil then
+                        config.research = parse_bool(value)
                     elseif key == 'own_rows' and (value:lower() == 'auto' or parse_bool(value) ~= nil) then
                         config.own_rows = value:lower() == 'auto' or parse_bool(value) == true
                     else
@@ -2126,7 +2152,10 @@ local function build_status()
                       tostring(config.rescan), config.own_rows and 'auto' or 'off'))
     local from_menu = 0
     for _ in pairs(overrides) do from_menu = from_menu + 1 end
-    if from_menu > 0 then add('menu.txt: ' .. from_menu .. ' values set through the in-game menu (they win over config.txt)') end
+    if from_menu > 0 then
+        add('preset "' .. tostring(preset_name or 'Default') .. '": ' .. from_menu
+            .. ' values set through the in-game menu (they win over config.txt)')
+    end
     for _, problem in ipairs(config.problems) do add('config problem: ' .. problem) end
     if own.state ~= 'unused' then
         add('')
@@ -2314,6 +2343,112 @@ local function write_catalog()
     handle:close()
 end
 
+-- ---------------------------------------------------------------- research (v1.1.1)
+-- Read-only. Once per start, RESEARCH.txt is written:
+--   * every row of the status effect table. The table is not in the offline data, and the recon build
+--     of v0.1.0 wrote out 8 of its 71 rows only, so the game's own duration of the others is not known;
+--   * what this build of the engine offers for fonts and input (names and yes / no, nothing is called
+--     but Application.can_get, which the menu uses as well).
+-- `[settings] research = false` switches it off.
+local research = { pending = true, tries = 0 }
+research.fonts = { 'core/performance_hud/debug', 'core/editor_slave/gui/arial', 'gui/fonts/arial',
+    'content/fonts/core_sans', 'content/fonts/core_sans_curved', 'content/fonts/cyborg_style',
+    'content/fonts/cyborg_style_terminal_layer', 'content/fonts/fallback', 'content/fonts/runtime_font',
+    'content/fonts/runtime_font_curved', 'content/fonts/runtime_font_terminal_layer', 'content/fonts/samples',
+    'content/fonts/samples_curved', 'content/fonts/samples_terminal_layer' }
+research.engine = { Keyboard = { 'down_threshold', 'set_down_threshold', 'keystrokes', 'button', 'pressed' },
+    Mouse = { 'down_threshold', 'set_down_threshold', 'axis', 'button' },
+    Window = { 'set_show_cursor', 'show_cursor', 'set_clip_cursor', 'set_mouse_focus', 'has_focus' },
+    Gui = { 'has_all_glyphs', 'text_extents', 'word_wrap', 'material' },
+    Application = { 'can_get', 'user_setting', 'back_buffer_size' }, Localizer = { 'lookup', 'set_language' },
+    Input = { 'event_queue' } }
+
+-- (kept in one table: the main chunk of a Lua file may hold 200 local variables, and this file is near)
+function research.run()
+    research.tries = research.tries + 1
+    local L = { MOD.title .. ' v' .. MOD.version .. ' research (read-only)', 'build: ' .. tostring(build.label or build.state),
+                '' }
+    local spec = SPECS['StatusEffectSettings']
+    if spec and #spec.blocks == 0 then
+        state.step = 'research: searching for the status table'
+        find_tables()
+    end
+    local block = spec and spec.blocks[1]
+    local rows = 0
+    if block and parse_block(block) then
+        local stride = spec.stride
+        L[#L + 1] = '[status effects] ' .. block.count .. ' rows of ' .. stride .. ' bytes at ' .. hex(block.records_at)
+        L[#L + 1] = '# id | debug name | +32 | +36 | +40 (duration) | the whole row'
+        for row = 0, block.count - 1 do
+            state.step = 'research: status row ' .. row
+            local at = block.records_at + row * stride
+            if A.read(at, stride) then
+                local bytes, parts = A.buffer, {}
+                for i = 0, stride - 1 do parts[i + 1] = string.format('%02X', bytes[i]) end
+                local raw = table.concat(parts)
+                local id = A.u32(at)
+                local floats = {}
+                for n, offset in ipairs({ 32, 36, 40 }) do
+                    local bits = A.u32(at + offset)
+                    floats[n] = bits and string.format('%g', bits_to_f32(bits)) or '?'
+                end
+                -- the debug name: a pointer to a C string at +8
+                local name, pointer = '?', A.u64(at + 8)
+                if pointer and pointer > 0x10000 and A.read(pointer, 64) then
+                    local chars = {}
+                    for i = 0, 63 do
+                        local c = A.buffer[i]
+                        if c == 0 then break end
+                        chars[#chars + 1] = (c >= 32 and c < 127) and string.char(c) or '?'
+                    end
+                    name = table.concat(chars)
+                end
+                L[#L + 1] = table.concat({ tostring(id), name, floats[1], floats[2], floats[3], raw }, '|')
+                rows = rows + 1
+            else
+                L[#L + 1] = '# row ' .. row .. ' unreadable'
+            end
+            pause()
+        end
+    else
+        L[#L + 1] = '[status effects] the table was not found (try ' .. research.tries .. ')'
+    end
+    L[#L + 1] = ''
+    local S = rawget(_G, 'stingray')
+    if type(S) == 'table' then
+        L[#L + 1] = '[engine] functions that are there'
+        local tables = {}
+        for name in pairs(research.engine) do tables[#tables + 1] = name end
+        table.sort(tables)
+        for _, name in ipairs(tables) do
+            local found = {}
+            for _, fn in ipairs(research.engine[name]) do
+                found[#found + 1] = fn .. '=' .. ((type(S[name]) == 'table' and type(S[name][fn]) == 'function') and 'yes' or 'no')
+            end
+            L[#L + 1] = name .. ': ' .. table.concat(found, ' ')
+        end
+        L[#L + 1] = ''
+        L[#L + 1] = '[fonts] Application.can_get("font", name)'
+        if type(S.Application) == 'table' and type(S.Application.can_get) == 'function' then
+            log('research: about to use Application.can_get("font", name)')
+            flush_log()
+            for _, font in ipairs(research.fonts) do
+                local asked, there = pcall(S.Application.can_get, 'font', font)
+                L[#L + 1] = font .. ': ' .. (asked and tostring(there) or ('error ' .. tostring(there)))
+            end
+        else
+            L[#L + 1] = 'the engine cannot be asked'
+        end
+    else
+        L[#L + 1] = '[engine] no stingray table here'
+    end
+    write_file('RESEARCH.txt', table.concat(L, '\r\n') .. '\r\n')
+    if rows > 0 or research.tries >= 3 then
+        research.pending = false
+        log('research: RESEARCH.txt written, ' .. rows .. ' status rows')
+    end
+end
+
 -- ---------------------------------------------------------------- the worker
 local wake = { at = 0, reload = false, config_check_at = 0 }
 
@@ -2345,6 +2480,13 @@ local function worker_main()
             write_status()
             sleep(3600)
         else
+            if config.research and research.pending then
+                local ok_research, why_research = pcall(research.run)
+                if not ok_research then
+                    research.pending = research.tries < 3
+                    log('research: ' .. tostring(why_research))
+                end
+            end
             local missing = missing_tables()
             local have_work = next(desired) ~= nil or next(applied) ~= nil
             local rescan_due = have_work and config.rescan > 0 and A.now() >= next_rescan
@@ -2408,27 +2550,75 @@ end
 
 -- ---------------------------------------------------------------- in-game menu
 -- A panel in the middle of the screen, drawn with the engine's own immediate-mode Gui (confirmed in
--- game by the drawing probe of v0.14.0). Keyboard only:
---   menu key (F9)   open / close            Left / Right   category, or change the value
---   Up / Down       move                    Tab            item list <-> value list
---   PageUp / Down   move ten                Shift          ten times the step
---   Delete          back to the game's value
+-- game by the drawing probe of v0.14.0). Keyboard only, every key can be changed on the Keys page.
+-- Four pages: Items (the values), Presets, Keys, Language.
+-- The menu is in one mode at a time, and a key does only what it means in that mode:
+--   list     moving through the lists and changing values
+--   text     a box is being typed into (search, a value, a preset's name): keys go to the text only
+--   capture  the next key pressed is given to an action
+--   confirm  a yes / no question
 -- A change is an entry of `overrides` (the same path the API uses): it is applied by the engine like a
--- config line, wins over config.txt for that value, and is kept in menu.txt.
-local MENU_FILE = 'menu.txt'
-local VK = { UP = 0x26, DOWN = 0x28, LEFT = 0x25, RIGHT = 0x27, TAB = 0x09, DELETE = 0x2E, PAGE_UP = 0x21,
-             PAGE_DOWN = 0x22, SHIFT = 0x10, BACKSPACE = 0x08, SPACE = 0x20, MINUS = 0xBD }
--- what a key types into the search line: letters, digits, space, '-'
-local MENU_TYPED = { SPACE = ' ', MINUS = '-' }
-for code = 0x30, 0x39 do VK['D' .. string.char(code)], MENU_TYPED['D' .. string.char(code)] = code, string.char(code) end
-for code = 0x41, 0x5A do
-    VK['L' .. string.char(code)], MENU_TYPED['L' .. string.char(code)] = code, string.char(code):lower()
+-- config line, wins over config.txt for that value, and is kept in the active preset's file.
+local SETTINGS_FILE, PRESET_DIR, OLD_MENU_FILE = 'settings.txt', 'presets', 'menu.txt'
+local KEY_VK = { UP = 0x26, DOWN = 0x28, LEFT = 0x25, RIGHT = 0x27, TAB = 0x09, ENTER = 0x0D, ESCAPE = 0x1B,
+                 SPACE = 0x20, BACKSPACE = 0x08, DELETE = 0x2E, INSERT = 0x2D, HOME = 0x24, END = 0x23,
+                 PAGE_UP = 0x21, PAGE_DOWN = 0x22, SHIFT = 0x10, CTRL = 0x11, ALT = 0x12, MINUS = 0xBD,
+                 EQUALS = 0xBB, COMMA = 0xBC, PERIOD = 0xBE, SLASH = 0xBF, SEMICOLON = 0xBA, QUOTE = 0xDE,
+                 LBRACKET = 0xDB, RBRACKET = 0xDD, BACKSLASH = 0xDC, GRAVE = 0xC0, ADD = 0x6B, SUBTRACT = 0x6D,
+                 MULTIPLY = 0x6A, DIVIDE = 0x6F, DECIMAL = 0x6E }
+for n = 1, 12 do KEY_VK['F' .. n] = 0x6F + n end
+for code = 0x30, 0x39 do KEY_VK[string.char(code)] = code end
+for code = 0x41, 0x5A do KEY_VK[string.char(code)] = code end
+for n = 0, 9 do KEY_VK['NUMPAD' .. n] = 0x60 + n end
+local KEY_ORDER = {}
+for name in pairs(KEY_VK) do KEY_ORDER[#KEY_ORDER + 1] = name end
+table.sort(KEY_ORDER)
+-- what a key types into a box: { key, plain, with Shift }
+local MENU_TYPED = { { 'SPACE', ' ', ' ' }, { 'MINUS', '-', '_' }, { 'SUBTRACT', '-', '-' }, { 'PERIOD', '.', '.' },
+                     { 'DECIMAL', '.', '.' } }
+for code = 0x30, 0x39 do
+    MENU_TYPED[#MENU_TYPED + 1] = { string.char(code), string.char(code), string.char(code) }
+    MENU_TYPED[#MENU_TYPED + 1] = { 'NUMPAD' .. (code - 0x30), string.char(code), string.char(code) }
 end
-local MENU_CATEGORIES = { 'weapon', 'throwable', 'stratagem_weapon', 'stratagem', 'backpack', 'shield', 'vehicle' }
-local MENU_ROWS = 20
+for code = 0x41, 0x5A do
+    MENU_TYPED[#MENU_TYPED + 1] = { string.char(code), string.char(code):lower(), string.char(code) }
+end
+-- The actions of the menu and the keys they start with. None of the defaults is a key the game gives a
+-- meaning in a mission by default (Enter opens the chat, Escape the game's own menu).
+local MENU_ACTIONS = {
+    { 'toggle', 'F9', 'Open / close the menu' },
+    { 'up', 'UP', 'Up' }, { 'down', 'DOWN', 'Down' }, { 'left', 'LEFT', 'Left / lower the value' },
+    { 'right', 'RIGHT', 'Right / raise the value' },
+    { 'column', 'TAB', 'Switch between the two lists' },
+    { 'page_up', 'PAGE_UP', 'Ten rows up' }, { 'page_down', 'PAGE_DOWN', 'Ten rows down' },
+    { 'prev_page', 'F6', 'Previous page' }, { 'next_page', 'F7', 'Next page' },
+    { 'fast', 'SHIFT', 'Hold: ten times the step' },
+    { 'reset', 'DELETE', "Back to the game's value" },
+    { 'search', 'F3', 'Search' },
+    { 'accept', 'INSERT', 'Select / type a value / confirm' },
+    { 'back', 'END', 'Cancel / clear the search' },
+}
+local MENU_PAGES = { 'Items', 'Presets', 'Keys', 'Language' }
+local MENU_CATEGORIES = { 'weapon', 'throwable', 'stratagem_weapon', 'stratagem', 'backpack', 'shield', 'vehicle',
+                          'status' }
+local MENU_CATEGORY_NAME = { weapon = 'Weapons', throwable = 'Throwables', stratagem_weapon = 'Strat. weapons',
+                             stratagem = 'Stratagems', backpack = 'Backpacks', shield = 'Shields',
+                             vehicle = 'Vehicles', status = 'Status effects' }
+-- the short form, beside a hit of the search
+local MENU_CATEGORY_TAG = { weapon = 'weapon', throwable = 'throwable', stratagem_weapon = 'strat. weapon',
+                            stratagem = 'stratagem', backpack = 'backpack', shield = 'shield', vehicle = 'vehicle',
+                            status = 'status' }
+local MENU_ROWS = 18
 local MENU_FONTS = { 'core/performance_hud/debug', 'core/editor_slave/gui/arial', 'gui/fonts/arial' }
-local menu = { open = false, state = 'closed', tab = 1, focus = 'items', item = {}, stat = {}, keys = {},
-               toggle_down = false, loaded = false, filter = '' }
+-- fonts of the game that may hold Chinese glyphs (names from the community's list of resource names);
+-- one is only used when the engine says the resource is there
+local MENU_FONTS_ZH = { 'content/fonts/runtime_font', 'content/fonts/fallback', 'content/fonts/core_sans',
+                        'content/fonts/samples' }
+local MENU_PRESET_ACTIONS = { 'Activate', 'Rename', 'Duplicate', 'Delete' }
+local menu = { open = false, state = 'closed', page = 1, tab = 1, focus = 'items', item = {}, stat = {}, keys = {},
+               toggle_down = false, loaded = false, filter = '', mode = 'list', bind = {}, lang = 'en',
+               lang_saved = 'en', block = false, presets = {}, preset_row = 1, preset_action = 1, key_row = 1,
+               lang_row = 1, zh_fonts = {}, zh_font = nil }
 
 local function menu_key_of(item, stat) return item.category .. ':' .. item.name:lower() .. ':' .. stat end
 
@@ -2443,11 +2633,209 @@ local function menu_step(name)
     flush_log()
 end
 
--- menu.txt: the config format, written by the menu only
-local function menu_load()
-    menu.loaded = true
-    local text = read_file(MENU_FILE)
-    local section = nil
+-- ---- text: Chinese takes two cells of width and three bytes a character
+local function menu_cells(text)
+    local n = 0
+    for i = 1, #text do
+        local b = text:byte(i)
+        if b < 0x80 then n = n + 1 elseif b >= 0xC0 then n = n + 2 end
+    end
+    return n
+end
+local function menu_clip(text, cells)
+    local n, i = 0, 1
+    while i <= #text do
+        local b = text:byte(i)
+        local bytes = b < 0x80 and 1 or (b >= 0xF0 and 4 or (b >= 0xE0 and 3 or 2))
+        local wide = b < 0x80 and 1 or 2
+        if n + wide > cells then return text:sub(1, i - 1) end
+        n, i = n + wide, i + bytes
+    end
+    return text
+end
+
+-- ---- language
+local MENU_ZH = {
+    ['Items'] = '物品', ['Presets'] = '预设', ['Keys'] = '按键', ['Language'] = '语言',
+    ['Weapons'] = '武器', ['Throwables'] = '投掷物', ['Strat. weapons'] = '战备武器', ['Stratagems'] = '战备',
+    ['Backpacks'] = '背包', ['Shields'] = '护盾', ['Vehicles'] = '载具', ['Status effects'] = '状态效果',
+    ['Preset'] = '预设', ['value'] = '当前值', ['game'] = '游戏原值', ['Search'] = '搜索',
+    ['search'] = '搜索', ['of'] = '/', ['name in config.txt'] = 'config.txt 中的名称',
+    ['reading the built-in data ...'] = '正在读取内置数据……', ['Saved to'] = '已保存到',
+    ['press %s to search'] = '按 %s 搜索', ['type a value'] = '输入数值', ['Name'] = '名称',
+    ['close'] = '关闭', ['move'] = '移动', ['change'] = '调整', ['lists'] = '切换列表', ['x10'] = '十倍',
+    ['reset'] = '还原', ['type'] = '输入', ['page'] = '翻页', ['select'] = '选择', ['cancel'] = '取消',
+    ['confirm'] = '确认', ['delete a letter'] = '删除字符', ['action'] = '操作',
+    ['Activate'] = '启用', ['Rename'] = '重命名', ['Duplicate'] = '复制', ['Delete'] = '删除',
+    ['active'] = '使用中', ['values'] = '项数值', ['+ New preset (empty)'] = '+ 新建预设（空白）',
+    ['+ New preset (copy of the active one)'] = '+ 新建预设（复制当前预设）',
+    ['Delete the preset "%s"?   %s yes   %s no'] = '删除预设“%s”？   %s 是   %s 否',
+    ['That name is taken'] = '该名称已被使用', ['A name needs a letter or a digit'] = '名称需要包含字母或数字',
+    ['The file could not be written'] = '无法写入文件', ['Preset "%s" is active'] = '已启用预设“%s”',
+    ['Press the key for: %s   (%s cancels)'] = '请按下要用于“%s”的按键   （%s 取消）',
+    ['Two actions share the key %s'] = '有两个操作使用了同一个按键 %s',
+    ['Block game input while the menu is open'] = '菜单打开时屏蔽游戏输入', ['on'] = '开', ['off'] = '关',
+    ['not available in this game'] = '此游戏中不可用', ['Reset the keys'] = '恢复默认按键',
+    ['experimental: the game stops seeing the keyboard'] = '实验功能：游戏将不再接收键盘输入',
+    ['English'] = 'English', ['Chinese (Simplified)'] = '简体中文', ['Font for Chinese'] = '中文字体',
+    ['no font of the game can draw Chinese'] = '游戏中没有可显示中文的字体',
+    ['Open / close the menu'] = '打开 / 关闭菜单', ['Up'] = '上', ['Down'] = '下',
+    ['Left / lower the value'] = '左 / 减小数值', ['Right / raise the value'] = '右 / 增大数值',
+    ['Switch between the two lists'] = '在两个列表之间切换', ['Ten rows up'] = '上移十行', ['Ten rows down'] = '下移十行',
+    ['Previous page'] = '上一页', ['Next page'] = '下一页', ['Hold: ten times the step'] = '按住：十倍步长',
+    ["Back to the game's value"] = '还原为游戏原值', ['Select / type a value / confirm'] = '选择 / 输入数值 / 确认',
+    ['Cancel / clear the search'] = '取消 / 清除搜索',
+    ['A status effect has one length: it is the same for every weapon and enemy that applies it'] =
+        '状态效果只有一个时长：对所有施加它的武器和敌人都相同',
+    -- headings of the value list
+    ['DAMAGE'] = '伤害', ['STATUS EFFECTS'] = '状态效果', ['EXPLOSION'] = '爆炸', ['EXPLOSION ON EXPIRY'] = '到期爆炸',
+    ['EXPLOSION: STATUS EFFECTS'] = '爆炸：状态效果', ['EXPLOSION ON EXPIRY: STATUS EFFECTS'] = '到期爆炸：状态效果',
+    ['PROJECTILE'] = '弹丸', ['FIRE'] = '射击', ['HEAT'] = '热量', ['AMMO'] = '弹药', ['HANDLING'] = '操控',
+    ['THROW'] = '投掷', ['STRATAGEM'] = '战备', ['SHIELD'] = '护盾', ['VEHICLE'] = '载具', ['STATUS'] = '状态',
+    ['OTHER'] = '其他', ['PART'] = '部件',
+    -- the values
+    ['Damage'] = '伤害', ['Durable damage'] = '耐久伤害',
+    ['Armor penetration, direct hit'] = '穿甲（正面命中）', ['Armor penetration, slight angle'] = '穿甲（小角度）',
+    ['Armor penetration, large angle'] = '穿甲（大角度）', ['Armor penetration, extreme angle'] = '穿甲（极端角度）',
+    ['Demolition force'] = '破坏力', ['Stagger force'] = '硬直力', ['Push force'] = '推力',
+    ['Armor penetration bonus'] = '穿甲加成', ['Armor penetration bonus, durable'] = '穿甲加成（耐久）',
+    ['Second bonus (effect unknown)'] = '第二加成（效果未知）',
+    ['Second bonus, durable (effect unknown)'] = '第二加成（耐久，效果未知）',
+    ['Projectiles per shot'] = '每发弹丸数', ['Muzzle velocity'] = '初速', ['Projectile mass'] = '弹丸质量',
+    ['Calibre'] = '口径', ['Drag'] = '阻力', ['Gravity'] = '重力', ['Projectile lifetime (s)'] = '弹丸存在时间（秒）',
+    ['Speed lost through a target'] = '穿透目标后的速度损失', ['Arming distance'] = '引信保险距离',
+    ['Projectile speed multiplier'] = '弹丸速度倍率',
+    ['Fire rate (rpm)'] = '射速（发/分）', ['Fire rate, low setting (rpm)'] = '射速，低档（发/分）',
+    ['Fire rate, high setting (rpm)'] = '射速，高档（发/分）', ['Arc fire rate (rpm)'] = '电弧射速（发/分）',
+    ['Arc range'] = '电弧射程', ['Overheat temperature'] = '过热温度', ['Heat per shot'] = '每发热量',
+    ['Heat per second'] = '每秒热量', ['Cooling per second'] = '每秒冷却',
+    ['Magazine size'] = '弹匣容量', ['Magazines at start'] = '初始弹匣数', ['Magazines per resupply'] = '每次补给弹匣数',
+    ['Magazines, most carried'] = '最大携带弹匣数', ['Rounds at start'] = '初始弹药数',
+    ['Rounds per resupply'] = '每次补给弹药数', ['Rounds, most carried'] = '最大携带弹药数',
+    ['Charges, most carried'] = '最大携带次数', ['Charges at start'] = '初始次数', ['Charges per resupply'] = '每次补给次数',
+    ['Amount at start'] = '初始数量', ['Amount, most carried'] = '最大携带数量', ['Amount per resupply'] = '每次补给数量',
+    ['Recoil drift, horizontal'] = '后坐偏移（水平）', ['Recoil drift, vertical'] = '后坐偏移（垂直）',
+    ['Recoil climb, horizontal'] = '后坐上扬（水平）', ['Recoil climb, vertical'] = '后坐上扬（垂直）',
+    ['Spread, horizontal'] = '散布（水平）', ['Spread, vertical'] = '散布（垂直）', ['Sway'] = '晃动',
+    ['Ergonomics'] = '人机工效', ['Throw distance, longest'] = '最远投掷距离', ['Arming delay'] = '引信延迟',
+    ['Fuse'] = '引信时间', ['Cooldown (s)'] = '冷却时间（秒）', ['Uses'] = '使用次数', ['Lifetime (s)'] = '存在时间（秒）',
+    ['Sight range'] = '视野范围', ['Proximity range'] = '近距感应范围', ['Shield health'] = '护盾生命值',
+    ['Shield radius'] = '护盾半径', ['Recharge delay, shield intact'] = '充能延迟（护盾未破）',
+    ['Recharge delay, shield broken'] = '充能延迟（护盾破碎后）', ['Recharge rate'] = '充能速率',
+    ['Health'] = '生命值', ['Armor'] = '护甲', ['Durable resistance'] = '耐久抗性',
+    ['Explosion damage multiplier'] = '爆炸伤害倍率', ['Constitution'] = '体质', ['Constitution change rate'] = '体质变化速率',
+    ['Inner radius'] = '内圈半径', ['Outer radius'] = '外圈半径', ['Stagger radius'] = '硬直半径',
+    ['Shrapnel count'] = '破片数量', ['Damage passed on to the vehicle'] = '传递给载具的伤害',
+    ['Stops passing damage when destroyed'] = '被摧毁后不再传递伤害', ['Duration (s)'] = '持续时间（秒）',
+    ['Status effect %s: type'] = '状态效果 %s：类型', ['Status effect %s: strength'] = '状态效果 %s：强度',
+}
+-- the text of the menu in the chosen language
+local function L(text)
+    if menu.lang == 'zh' then return MENU_ZH[text] or text end
+    return text
+end
+
+-- the names of the status effects, by the id a `status*_type` value holds (docs/STATUS-EFFECTS.md)
+local MENU_STATUS = {}
+for id, name in ipairs({ 'Blind', 'Bleed', 'Deaf', 'Confusion', 'Fire', 'Fire_Panic', 'Lava', 'Slowed', 'Rooted',
+    'Acid Splash', 'Acid Stream', 'Thermite', 'Cyborg Fire', 'Choked', 'Sand', 'Mud', 'Snow', 'Submerged', 'Thornbush',
+    'Cactus', 'Barbwire', 'BushSmall', 'BushLarge', 'Pure Damage', 'Stim Fx', 'Stim Stamina', 'Stim Heal',
+    'Stim Pistol Heal', 'Stim Combat Drugs', 'Stim Cooldown', 'BurningLight', 'BurningHeavy', 'RadiationLight',
+    'RadiationHeavy', 'Electric', 'Hidden', 'Stun Small', 'Stun Medium', 'Stun Large', 'Stun Massive',
+    'Stun Illuminate', 'Gas', 'Gas', 'Gas_Confusion', 'Gas_Confusion', 'Inverted_Aim_Assist', 'Flashlighted',
+    'Smoke_Covered', 'Backpack Chemicals', 'Intense Heat', 'Extreme Cold', 'Tremor', 'Sandstorm', 'Blizzard',
+    'Acid Storm', 'Weather Insulated', 'TornadoStun', 'Dark Fluid', 'Death March', 'Hotshot Laser Rifle',
+    'Hotshot Laser Rifle', 'Hotshot Laser Rifle', 'Illuminate Scrambler', 'Constitution',
+    'Constitution Booster Armor Resistance', 'Post Mortem Explosion', 'FlamerSlowed', 'Gloom', 'Dark Fluid', 'Poison',
+    'PoisonVulnerability' }) do MENU_STATUS[id] = name end
+
+-- ---- keys
+local function menu_bound(action)
+    if menu.bind[action] then return menu.bind[action] end
+    if action == 'toggle' then return config.menu_key end
+    for _, a in ipairs(MENU_ACTIONS) do
+        if a[1] == action then return a[2] end
+    end
+end
+-- true when the key was just pressed, and again while it is held
+local function menu_key_pressed(key, now, no_repeat)
+    local vk = KEY_VK[key]
+    if not vk then return false end
+    local k = menu.keys[key]
+    if not A.key_down(vk) then
+        menu.keys[key] = nil
+        return false
+    end
+    if not k then
+        menu.keys[key] = { since = now, last = now }
+        return true
+    end
+    if not no_repeat and now - k.since > 0.35 and now - k.last > 0.05 then
+        k.last = now
+        return true
+    end
+    return false
+end
+local function menu_act(action, now, no_repeat) return menu_key_pressed(menu_bound(action), now, no_repeat) end
+-- the key of two actions, when two share one
+local function menu_key_clash()
+    local seen = {}
+    for _, a in ipairs(MENU_ACTIONS) do
+        local key = menu_bound(a[1])
+        if seen[key] then return key end
+        seen[key] = true
+    end
+    return nil
+end
+
+-- ---- settings.txt: the keys, the language, the active preset
+local function menu_settings_save()
+    local lines = { '# Written by the in-game menu: the active preset, the language and the keys.',
+                    'preset = ' .. tostring(preset_name or 'Default'),
+                    'language = ' .. menu.lang_saved,
+                    'block_game_input = ' .. tostring(menu.block_saved == true) }
+    if menu.zh_font then lines[#lines + 1] = 'chinese_font = ' .. menu.zh_font end
+    for _, a in ipairs(MENU_ACTIONS) do
+        if menu.bind[a[1]] then lines[#lines + 1] = 'key.' .. a[1] .. ' = ' .. menu.bind[a[1]] end
+    end
+    write_file(SETTINGS_FILE, table.concat(lines, '\r\n') .. '\r\n')
+end
+local function menu_settings_load()
+    local wanted = nil
+    for raw in ((read_file(SETTINGS_FILE) or '') .. '\n'):gmatch('([^\n]*)\n') do
+        local key, value = trim((raw:gsub('#.*$', ''):gsub('\r', ''))):match('^([^=]+)=(.*)$')
+        if key then
+            key, value = trim(key):lower(), trim(value)
+            local action = key:match('^key%.([%w_]+)$')
+            if key == 'preset' and value ~= '' then
+                wanted = value
+            elseif key == 'language' and (value == 'en' or value == 'zh') then
+                menu.lang, menu.lang_saved = value, value
+            elseif key == 'block_game_input' then
+                menu.block = value == 'true'
+                menu.block_saved = menu.block
+            elseif key == 'chinese_font' and value ~= '' then
+                menu.zh_font = value
+            elseif action and KEY_VK[value:upper()] then
+                for _, a in ipairs(MENU_ACTIONS) do
+                    if a[1] == action then menu.bind[action] = value:upper() end
+                end
+            end
+        end
+    end
+    return wanted
+end
+
+-- ---- presets: one file each in presets\, in the config format, written by the menu only
+local function preset_file(name) return PRESET_DIR .. '\\' .. name .. '.txt' end
+-- a name is letters, digits, spaces, '-' and '_': it is a file name
+local function preset_clean(name)
+    name = trim((tostring(name or ''):gsub('[^%w _%-]', ''))):sub(1, 24)
+    if not name:find('%w') then return nil end
+    return trim(name)
+end
+local function preset_parse(text)
+    local values, section = {}, nil
     for raw in ((text or '') .. '\n'):gmatch('([^\n]*)\n') do
         local line = trim((raw:gsub('#.*$', ''):gsub('\r', '')))
         local category, item = line:match('^%[%s*([%w_]+)%s*:%s*(.-)%s*%]$')
@@ -2455,27 +2843,83 @@ local function menu_load()
         if category then
             section = category:lower() .. ':' .. item:lower()
         elseif key and section then
-            overrides[section .. ':' .. trim(key):lower()] = trim(value)
+            values[section .. ':' .. trim(key):lower()] = trim(value)
         end
     end
+    return values
 end
-local function menu_save()
+local function preset_text(values)
     local keys = {}
-    for key in pairs(overrides) do keys[#keys + 1] = key end
+    for key in pairs(values) do keys[#keys + 1] = key end
     table.sort(keys)
-    local L, last = { '# Written by the in-game menu. Values here win over config.txt. Delete the file to forget them.' }, nil
+    local lines, last = { '# A preset of the in-game menu. Its values win over config.txt. The file can be shared.' }, nil
     for _, key in ipairs(keys) do
         local category, item, stat = key:match('^([^:]+):([^:]+):(.+)$')
         if category then
             if last ~= category .. ':' .. item then
                 last = category .. ':' .. item
-                L[#L + 1] = ''
-                L[#L + 1] = '[' .. category .. ': ' .. item .. ']'
+                lines[#lines + 1] = ''
+                lines[#lines + 1] = '[' .. category .. ': ' .. item .. ']'
             end
-            L[#L + 1] = stat .. ' = ' .. overrides[key]
+            lines[#lines + 1] = stat .. ' = ' .. values[key]
         end
     end
-    write_file(MENU_FILE, table.concat(L, '\r\n') .. '\r\n')
+    return table.concat(lines, '\r\n') .. '\r\n'
+end
+local function preset_scan()
+    local names, seen = {}, {}
+    local dir = ensure_out_dir()
+    if dir then
+        local ok, files = pcall(A.list, dir .. '\\' .. PRESET_DIR .. '\\*.txt')
+        for _, file in ipairs(ok and files or {}) do
+            local name = file:match('^(.*)%.[Tt][Xx][Tt]$')
+            if name and preset_clean(name) == name and not seen[name:lower()] then
+                seen[name:lower()] = true
+                names[#names + 1] = name
+            end
+        end
+    end
+    table.sort(names, function(x, y) return x:lower() < y:lower() end)
+    menu.presets = names
+    return names
+end
+local function preset_known(name)
+    for _, known in ipairs(menu.presets) do
+        if known:lower() == tostring(name):lower() then return known end
+    end
+    return nil
+end
+local function menu_save()
+    if not preset_name then return false end
+    return write_file(preset_file(preset_name), preset_text(overrides))
+end
+-- the values of the menu become those of another preset
+local function preset_use(name, values)
+    for key in pairs(overrides) do overrides[key] = nil end
+    for key, value in pairs(values or {}) do overrides[key] = value end
+    preset_name = name
+    menu_save()
+    preset_scan()
+    pcall(menu_settings_save)
+    request_reload()
+end
+local function menu_load()
+    menu.loaded = true
+    local wanted = menu_settings_load()
+    local dir = ensure_out_dir()
+    if dir then pcall(A.mkdir, dir .. '\\' .. PRESET_DIR) end
+    preset_scan()
+    if #menu.presets == 0 then
+        -- the first start of this version: what the menu of v1.0 kept in menu.txt becomes the first preset
+        preset_name = 'Default'
+        for key, value in pairs(preset_parse(read_file(OLD_MENU_FILE))) do overrides[key] = value end
+        menu_save()
+        preset_scan()
+    else
+        preset_name = preset_known(wanted) or preset_known('Default') or menu.presets[1]
+        for key, value in pairs(preset_parse(read_file(preset_file(preset_name)))) do overrides[key] = value end
+    end
+    pcall(menu_settings_save)
 end
 
 local function menu_lists()
@@ -2510,12 +2954,69 @@ for rank, group in ipairs({
     { 'HANDLING', 'recoil_drift_h recoil_drift_v recoil_climb_h recoil_climb_v spread_h spread_v sway ergonomics' },
     { 'THROW', 'throw_distance_max arming_delay fuse' },
     { 'STRATAGEM', 'cooldown uses lifetime_seconds sight_range proximity_range' },
+    { 'STATUS', 'duration' },
     { 'SHIELD', 'shield_health shield_radius shield_recharge_delay shield_broken_delay shield_recharge_rate' },
     { 'VEHICLE', 'health armor durable_resistance explosion_damage_multiplier constitution constitution_rate' },
 }) do
     for stat in group[2]:gmatch('%S+') do MENU_GROUP_OF[stat] = { group[1], rank * 10 } end
 end
 local MENU_PART_ENDS = { '_durable_resistance', '_overflow_cap', '_to_main', '_health', '_armor' }
+
+-- The name a value is shown by. config.txt and menu.txt keep the short names (shown under the list).
+local MENU_LABEL = {
+    damage = 'Damage', durable_damage = 'Durable damage',
+    ap_direct = 'Armor penetration, direct hit', ap_slight = 'Armor penetration, slight angle',
+    ap_large = 'Armor penetration, large angle', ap_extreme = 'Armor penetration, extreme angle',
+    demolition = 'Demolition force', stagger = 'Stagger force', push = 'Push force',
+    ap_bonus = 'Armor penetration bonus', durable_ap_bonus = 'Armor penetration bonus, durable',
+    bonus2 = 'Second bonus (effect unknown)', durable_bonus2 = 'Second bonus, durable (effect unknown)',
+    pellets = 'Projectiles per shot', velocity = 'Muzzle velocity', mass = 'Projectile mass', calibre = 'Calibre',
+    drag = 'Drag', gravity = 'Gravity', life_time = 'Projectile lifetime (s)',
+    penetration_slowdown = 'Speed lost through a target', arming_distance = 'Arming distance',
+    speed_multiplier = 'Projectile speed multiplier',
+    rpm = 'Fire rate (rpm)', rpm_low = 'Fire rate, low setting (rpm)', rpm_high = 'Fire rate, high setting (rpm)',
+    arc_rpm = 'Arc fire rate (rpm)', arc_range = 'Arc range',
+    overheat_temperature = 'Overheat temperature', temp_gain_per_shot = 'Heat per shot',
+    temp_gain_per_second = 'Heat per second', temp_loss_per_second = 'Cooling per second',
+    capacity = 'Magazine size', mags_start = 'Magazines at start', mags_supply = 'Magazines per resupply',
+    mags_max = 'Magazines, most carried', rounds_start = 'Rounds at start', rounds_supply = 'Rounds per resupply',
+    rounds_max = 'Rounds, most carried', charges = 'Charges, most carried', charges_start = 'Charges at start',
+    charges_refill = 'Charges per resupply', start_amount = 'Amount at start', max_amount = 'Amount, most carried',
+    refill_amount = 'Amount per resupply',
+    recoil_drift_h = 'Recoil drift, horizontal', recoil_drift_v = 'Recoil drift, vertical',
+    recoil_climb_h = 'Recoil climb, horizontal', recoil_climb_v = 'Recoil climb, vertical',
+    spread_h = 'Spread, horizontal', spread_v = 'Spread, vertical', sway = 'Sway', ergonomics = 'Ergonomics',
+    throw_distance_max = 'Throw distance, longest', arming_delay = 'Arming delay', fuse = 'Fuse',
+    cooldown = 'Cooldown (s)', uses = 'Uses', lifetime_seconds = 'Lifetime (s)', sight_range = 'Sight range',
+    proximity_range = 'Proximity range',
+    shield_health = 'Shield health', shield_radius = 'Shield radius',
+    shield_recharge_delay = 'Recharge delay, shield intact', shield_broken_delay = 'Recharge delay, shield broken',
+    shield_recharge_rate = 'Recharge rate',
+    health = 'Health', armor = 'Armor', durable_resistance = 'Durable resistance',
+    explosion_damage_multiplier = 'Explosion damage multiplier', constitution = 'Constitution',
+    constitution_rate = 'Constitution change rate',
+    inner_radius = 'Inner radius', outer_radius = 'Outer radius', stagger_radius = 'Stagger radius',
+    shrapnel_count = 'Shrapnel count',
+    duration = 'Duration (s)',
+    to_main = 'Damage passed on to the vehicle', overflow_cap = 'Stops passing damage when destroyed',
+}
+local function menu_label(stat)
+    local rest = stat
+    if stat:sub(1, 5) == 'part_' then                       -- the heading names the part
+        for _, ending in ipairs(MENU_PART_ENDS) do
+            if stat:sub(-#ending) == ending then
+                rest = ending:sub(2)
+                break
+            end
+        end
+    else
+        rest = stat:match('^blast_(.+)$') or stat:match('^expiry_(.+)$') or stat   -- the heading says which explosion
+    end
+    local slot, what = rest:match('^status(%d)_(%a+)$')
+    if slot then return L(what == 'type' and 'Status effect %s: type' or 'Status effect %s: strength'):format(slot) end
+    local label = MENU_LABEL[rest]
+    return label and L(label) or stat
+end
 
 -- -> heading, rank of the group a stat belongs to
 local function menu_group(stat)
@@ -2608,7 +3109,7 @@ local function menu_change(item, stat, direction, big, now)
     menu.dirty_at = now
 end
 
--- The list shown on the left: the items of the selected category, or, while something is typed, every
+-- The list shown on the left: the items of the selected category, or, while a search is set, every
 -- item of every category whose name (the game's or the internal one) contains it.
 local function menu_current(lists)
     if menu.filter == '' then
@@ -2632,22 +3133,65 @@ local function menu_current(lists)
     return menu.found, 'search'
 end
 
--- true when the key was just pressed, and again while it is held
-local function menu_pressed(name, now)
-    local k = menu.keys[name]
-    if not A.key_down(VK[name]) then
-        menu.keys[name] = nil
+-- a value typed in: rounded like the steps are, and kept inside the range
+local function menu_set(item, stat, value, now)
+    local entry, range = item.stats[stat], RANGES[stat]
+    if not range then return end
+    local whole = range.integer or entry.field.storage ~= 'f32'
+    if whole then value = math.floor(value + 0.5) else value = math.floor(value * 1000 + 0.5) / 1000 end
+    value = math.max(range.min, math.min(range.max, value))
+    if same_value(entry.field.storage, value, entry.field.stock) then
+        overrides[menu_key_of(item, stat)] = nil
+    else
+        overrides[menu_key_of(item, stat)] = whole and string.format('%.0f', value) or tostring(value)
+    end
+    menu.dirty_at = now
+end
+
+-- a heading of the value list in the chosen language ('PART: name' keeps the part's name)
+local function menu_heading(heading)
+    local part = heading:match('^PART: (.*)$')
+    if part then return L('PART') .. ': ' .. part end
+    return L(heading)
+end
+
+local function menu_say(text, now)
+    menu.note, menu.note_until = text, (now or A.now()) + 4
+end
+
+-- ---- the game's own view of the keyboard
+-- While the menu is open the game still reads every key. The engine has no switch for that; what it has
+-- is the level at which a key counts as down. Raised above what a key can reach, the game sees no key
+-- pressed, and the menu, which asks Windows, still does. Untested in game when written: it is off until
+-- it is switched on in the Keys page, and every engine call leaves a line in the log first.
+local function menu_block_game(on)
+    local K = menu.S and menu.S.Keyboard
+    if type(K) ~= 'table' or type(K.set_down_threshold) ~= 'function' then
+        menu.block_missing = true
         return false
     end
-    if not k then
-        menu.keys[name] = { since = now, last = now }
-        return true
+    if on and not menu.blocked then
+        menu.threshold = 0.5
+        if type(K.down_threshold) == 'function' then
+            menu_step('Keyboard.down_threshold()')
+            local ok, old = pcall(K.down_threshold)
+            if ok and type(old) == 'number' and old > 0 and old <= 1 then menu.threshold = old end
+        end
+        menu_step('Keyboard.set_down_threshold(2)')
+        local ok, why = pcall(K.set_down_threshold, 2)
+        if not ok then
+            log('menu: the game input could not be blocked: ' .. tostring(why))
+            menu.block_missing = true
+            return false
+        end
+        menu.blocked = true
+        log('menu: game input blocked (threshold ' .. tostring(menu.threshold) .. ' -> 2)')
+    elseif not on and menu.blocked then
+        menu.blocked = false
+        pcall(K.set_down_threshold, menu.threshold or 0.5)
+        log('menu: game input given back (threshold ' .. tostring(menu.threshold or 0.5) .. ')')
     end
-    if now - k.since > 0.35 and now - k.last > 0.05 then
-        k.last = now
-        return true
-    end
-    return false
+    return true
 end
 
 local function menu_start()
@@ -2671,6 +3215,26 @@ local function menu_start()
         end
     end
     if not menu.font then return nil, 'no font could be used' end
+    -- Fonts for Chinese: only what the engine says it has loaded. Asked once.
+    if not menu.zh_asked then
+        menu.zh_asked = true
+        if type(S.Application.can_get) == 'function' then
+            menu_step('Application.can_get("font", name)')
+            for _, font in ipairs(MENU_FONTS_ZH) do
+                local asked, there = pcall(S.Application.can_get, 'font', font)
+                log('menu: font ' .. font .. ': ' .. ((asked and there) and 'there' or 'not there'))
+                if asked and there then menu.zh_fonts[#menu.zh_fonts + 1] = font end
+            end
+        else
+            log('menu: the engine cannot be asked for fonts: no Chinese')
+        end
+        local chosen = nil
+        for _, font in ipairs(menu.zh_fonts) do
+            if font == menu.zh_font then chosen = font end
+        end
+        menu.zh_font = chosen or menu.zh_fonts[1]
+        if menu.lang == 'zh' and not menu.zh_font then menu.lang, menu.lang_saved = 'en', 'en' end
+    end
     -- Draw order. In game (v0.15.1) the panel and the selection bars covered the text: the Gui does not
     -- draw in call order. A Vector3 position carries a layer in z; whether this build takes one is
     -- tried once, and without layers nothing is drawn that could cover text.
@@ -2682,11 +3246,14 @@ local function menu_start()
         end)
         log('menu: layers ' .. (menu.layers and 'available' or 'not available: drawn without panel and bars'))
     end
+    if menu.block then menu_block_game(true) end
     return true
 end
 
 local function menu_close(now)
     menu.open, menu.state, menu.width = false, 'closed', nil
+    menu.mode, menu.box, menu.capture, menu.ask = 'list', nil, nil, nil
+    pcall(menu_block_game, false)
     if menu.S and menu.gui then
         menu_step('World.destroy_gui(world, gui)')
         pcall(menu.S.World.destroy_gui, menu.world, menu.gui)
@@ -2699,21 +3266,51 @@ local function menu_close(now)
     pcall(menu_save)
 end
 
-local function menu_input(now)
-    local lists = menu_lists()
-    if not lists or not A.game_in_front() then return end
-    -- typing searches (in the item list only: in the value list the keys are left alone)
-    if menu.focus == 'items' then
-        for name, typed in pairs(MENU_TYPED) do
-            if menu_pressed(name, now) and #menu.filter < 24 then menu.filter = menu.filter .. typed end
-        end
-        if menu_pressed('BACKSPACE', now) then menu.filter = menu.filter:sub(1, -2) end
-        if menu_pressed('DELETE', now) then menu.filter = '' end
+-- ---- typing into a box
+-- kind: 'search' (anything), 'value' (a number), 'name' (a file name)
+local function menu_box_open(kind, text, done)
+    menu.mode = 'text'
+    menu.box = { kind = kind, text = text or '', done = done }
+    -- keys held right now belong to what was done before the box opened
+    for _, typed in ipairs(MENU_TYPED) do
+        if A.key_down(KEY_VK[typed[1]]) then menu.keys[typed[1]] = { since = 1e18, last = 1e18 } end
     end
+end
+local function menu_box_input(now)
+    local box = menu.box
+    local shift = A.key_down(KEY_VK.SHIFT)
+    for _, typed in ipairs(MENU_TYPED) do
+        if menu_key_pressed(typed[1], now) then
+            local char = shift and typed[3] or typed[2]
+            local fits = true
+            if box.kind == 'value' then
+                fits = char:find('^[%d%.%-]$') ~= nil and #box.text < 12
+            elseif box.kind == 'name' then
+                fits = char:find('^[%w _%-]$') ~= nil and #box.text < 24
+            else
+                char = char:lower()
+                fits = #box.text < 24
+            end
+            if fits then box.text = box.text .. char end
+        end
+    end
+    if menu_key_pressed('BACKSPACE', now) then box.text = box.text:sub(1, -2) end
+    if box.kind == 'search' then menu.filter = box.text end
+    if menu_act('accept', now, true) then
+        menu.mode, menu.box = 'list', nil
+        if box.done then box.done(box.text, now) end
+    elseif menu_act('back', now, true) then
+        menu.mode, menu.box = 'list', nil
+        if box.kind == 'search' then menu.filter = '' end
+    end
+end
+
+-- ---- the pages
+local function menu_items_input(now, lists)
     local list, category = menu_current(lists)
     local selected = math.min(menu.item[category] or 1, math.max(#list, 1))
     local item = list[selected]
-    local big = A.key_down(VK.SHIFT)
+    local big = A.key_down(KEY_VK[menu_bound('fast')] or 0)
     local function move(by)
         if menu.focus == 'items' then
             menu.item[category] = math.max(1, math.min(#list, selected + by))
@@ -2723,12 +3320,17 @@ local function menu_input(now)
             menu.stat[item] = math.max(1, math.min(#stats, at + by))
         end
     end
-    if menu_pressed('TAB', now) then menu.focus = menu.focus == 'items' and 'stats' or 'items' end
-    if menu_pressed('UP', now) then move(-1) end
-    if menu_pressed('DOWN', now) then move(1) end
-    if menu_pressed('PAGE_UP', now) then move(-10) end
-    if menu_pressed('PAGE_DOWN', now) then move(10) end
-    local side = (menu_pressed('RIGHT', now) and 1 or 0) - (menu_pressed('LEFT', now) and 1 or 0)
+    if menu_act('search', now, true) then
+        menu.focus = 'items'
+        menu_box_open('search', menu.filter)
+        return
+    end
+    if menu_act('column', now) then menu.focus = menu.focus == 'items' and 'stats' or 'items' end
+    if menu_act('up', now) then move(-1) end
+    if menu_act('down', now) then move(1) end
+    if menu_act('page_up', now) then move(-10) end
+    if menu_act('page_down', now) then move(10) end
+    local side = (menu_act('right', now) and 1 or 0) - (menu_act('left', now) and 1 or 0)
     if side ~= 0 then
         if menu.focus == 'items' then
             if menu.filter == '' then menu.tab = (menu.tab - 1 + side) % #MENU_CATEGORIES + 1 end
@@ -2737,20 +3339,218 @@ local function menu_input(now)
             menu_change(item, stats[menu.stat[item] or 1], side, big, now)
         end
     end
-    if menu_pressed('DELETE', now) and menu.focus == 'stats' and item then
+    if menu_act('back', now, true) and menu.filter ~= '' then menu.filter = '' end
+    if menu.focus == 'stats' and item then
         local _rows, stats = menu_rows(item)
-        overrides[menu_key_of(item, stats[menu.stat[item] or 1])] = nil
-        menu.dirty_at = now
+        local stat = stats[math.min(menu.stat[item] or 1, #stats)]
+        if stat and menu_act('reset', now, true) then
+            overrides[menu_key_of(item, stat)] = nil
+            menu.dirty_at = now
+        end
+        if stat and menu_act('accept', now, true) then
+            menu_box_open('value', '', function(text, at)
+                local value = tonumber(text)
+                if value then menu_set(item, stat, value, at) end
+            end)
+        end
+    elseif menu.focus == 'items' and item and menu_act('accept', now, true) then
+        menu.focus = 'stats'
+    end
+end
+
+local function menu_presets_input(now)
+    local rows = #menu.presets + 2
+    menu.preset_row = math.max(1, math.min(rows, menu.preset_row))
+    if menu_act('up', now) then menu.preset_row = math.max(1, menu.preset_row - 1) end
+    if menu_act('down', now) then menu.preset_row = math.min(rows, menu.preset_row + 1) end
+    local name = menu.presets[menu.preset_row]
+    if name then
+        local side = (menu_act('right', now) and 1 or 0) - (menu_act('left', now) and 1 or 0)
+        menu.preset_action = (menu.preset_action - 1 + side) % #MENU_PRESET_ACTIONS + 1
+    end
+    if not menu_act('accept', now, true) then return end
+    local function create(values_of)
+        menu_box_open('name', '', function(text, at)
+            local new = preset_clean(text)
+            if not new then return menu_say(L('A name needs a letter or a digit'), at) end
+            if preset_known(new) then return menu_say(L('That name is taken'), at) end
+            pcall(menu_save)                                   -- what was open is kept as it is
+            local values = values_of()
+            if not write_file(preset_file(new), preset_text(values)) then
+                return menu_say(L('The file could not be written'), at)
+            end
+            preset_use(new, values)
+            menu_say(L('Preset "%s" is active'):format(new), at)
+        end)
+    end
+    if not name then
+        if menu.preset_row == #menu.presets + 1 then
+            create(function() return {} end)
+        else
+            create(function()
+                local copy = {}
+                for key, value in pairs(overrides) do copy[key] = value end
+                return copy
+            end)
+        end
+        return
+    end
+    local action = MENU_PRESET_ACTIONS[menu.preset_action]
+    local dir = ensure_out_dir()
+    if action == 'Activate' then
+        if name ~= preset_name then
+            pcall(menu_save)
+            preset_use(name, preset_parse(read_file(preset_file(name))))
+        end
+        menu_say(L('Preset "%s" is active'):format(name), now)
+    elseif action == 'Rename' or action == 'Duplicate' then
+        menu_box_open('name', action == 'Rename' and name or '', function(text, at)
+            local new = preset_clean(text)
+            if not new then return menu_say(L('A name needs a letter or a digit'), at) end
+            if preset_known(new) and new:lower() ~= name:lower() then return menu_say(L('That name is taken'), at) end
+            if name == preset_name then pcall(menu_save) end
+            local content = read_file(preset_file(name))
+            if not content or not write_file(preset_file(new), content) then
+                return menu_say(L('The file could not be written'), at)
+            end
+            if action == 'Rename' and new ~= name then
+                if dir and new:lower() ~= name:lower() then os.remove(dir .. '\\' .. preset_file(name)) end
+                if name == preset_name then preset_name = new end
+            end
+            preset_scan()
+            pcall(menu_settings_save)
+        end)
+    elseif action == 'Delete' then
+        menu.mode, menu.ask = 'confirm', { name = name }
+    end
+end
+
+local function menu_confirm_input(now)
+    local name = menu.ask.name
+    if menu_act('accept', now, true) then
+        menu.mode, menu.ask = 'list', nil
+        local dir = ensure_out_dir()
+        if dir then os.remove(dir .. '\\' .. preset_file(name)) end
+        preset_scan()
+        if name == preset_name then
+            -- the active one is gone: the next one takes over, or an empty Default
+            local next_name = menu.presets[1] or 'Default'
+            preset_name = nil
+            preset_use(next_name, menu.presets[1] and preset_parse(read_file(preset_file(next_name))) or {})
+        end
+        menu.preset_row = 1
+    elseif menu_act('back', now, true) then
+        menu.mode, menu.ask = 'list', nil
+    end
+end
+
+-- the rows of the Keys page: the actions, then the two switches
+local function menu_keys_input(now)
+    local rows = #MENU_ACTIONS + 2
+    if menu_act('up', now) then menu.key_row = math.max(1, menu.key_row - 1) end
+    if menu_act('down', now) then menu.key_row = math.min(rows, menu.key_row + 1) end
+    if not menu_act('accept', now, true) then return end
+    local action = MENU_ACTIONS[menu.key_row]
+    if action then
+        -- keys held right now are not the answer
+        local held = {}
+        for _, key in ipairs(KEY_ORDER) do
+            if A.key_down(KEY_VK[key]) then held[key] = true end
+        end
+        menu.mode, menu.capture = 'capture', { action = action[1], label = action[3], held = held }
+    elseif menu.key_row == #MENU_ACTIONS + 1 then
+        menu.block = not menu.block
+        local worked = menu_block_game(menu.block)
+        if menu.block and not worked then menu.block = false end
+        -- written down only once the engine has taken it without closing the game
+        menu.block_saved = menu.block
+        pcall(menu_settings_save)
+    else
+        menu.bind = {}
+        pcall(menu_settings_save)
+    end
+end
+local function menu_capture_input(now)
+    local capture = menu.capture
+    for _, key in ipairs(KEY_ORDER) do
+        local down = A.key_down(KEY_VK[key])
+        if not down then
+            capture.held[key] = nil
+        elseif not capture.held[key] then
+            menu.mode, menu.capture = 'list', nil
+            menu.keys[key] = { since = 1e18, last = 1e18 }          -- this press is spent
+            if key ~= menu_bound('back') or capture.action == 'back' then
+                menu.bind[capture.action] = key
+                pcall(menu_settings_save)
+                local clash = menu_key_clash()
+                if clash then menu_say(L('Two actions share the key %s'):format(clash), now) end
+            end
+            return
+        end
+    end
+end
+
+local function menu_language_input(now)
+    local rows = #menu.zh_fonts > 1 and 3 or 2
+    if menu_act('up', now) then menu.lang_row = math.max(1, menu.lang_row - 1) end
+    if menu_act('down', now) then menu.lang_row = math.min(rows, menu.lang_row + 1) end
+    if not menu_act('accept', now, true) then return end
+    if menu.lang_row == 1 then
+        menu.lang, menu.lang_saved = 'en', 'en'
+        pcall(menu_settings_save)
+    elseif menu.lang_row == 2 then
+        if menu.zh_font then
+            -- kept as English in the file until a frame has been drawn in Chinese: a font the engine
+            -- cannot draw with must not come back at the next start
+            menu.lang, menu.lang_drawn = 'zh', false
+        else
+            menu_say(L('no font of the game can draw Chinese'), now)
+        end
+    else
+        for n, font in ipairs(menu.zh_fonts) do
+            if font == menu.zh_font then
+                menu.zh_font = menu.zh_fonts[n % #menu.zh_fonts + 1]
+                break
+            end
+        end
+        menu.lang_drawn = false
+        if menu.lang ~= 'zh' then pcall(menu_settings_save) end
+    end
+end
+
+local function menu_input(now)
+    local lists = menu_lists()
+    if not lists or not A.game_in_front() then return end
+    if menu.mode == 'text' then
+        menu_box_input(now)
+    elseif menu.mode == 'capture' then
+        menu_capture_input(now)
+    elseif menu.mode == 'confirm' then
+        menu_confirm_input(now)
+    else
+        local turn = (menu_act('next_page', now, true) and 1 or 0) - (menu_act('prev_page', now, true) and 1 or 0)
+        if turn ~= 0 then
+            menu.page = (menu.page - 1 + turn) % #MENU_PAGES + 1
+        elseif menu.page == 1 then
+            menu_items_input(now, lists)
+        elseif menu.page == 2 then
+            menu_presets_input(now)
+        elseif menu.page == 3 then
+            menu_keys_input(now)
+        else
+            menu_language_input(now)
+        end
     end
     -- a change is handed to the engine when the keys have been quiet for a moment
     if menu.dirty_at and now - menu.dirty_at > 0.3 then
         menu.dirty_at = nil
         request_reload()
         pcall(menu_save)
+        menu.saved_at = now
     end
 end
 
-local function menu_draw()
+local function menu_draw(now)
     local S, gui = menu.S, menu.gui
     if not menu.width then
         menu.width, menu.height = 1920, 1080
@@ -2764,10 +3564,15 @@ local function menu_draw()
     local width, height = menu.width, menu.height
     local scale = height / 1080
     menu_step('Gui.rect / Gui.text (first frame)')
-    local PANEL_W, PANEL_H = 1180, 664
+    local PANEL_W, PANEL_H = 1180, 700
     local left, bottom = (width - PANEL_W * scale) / 2, (height - PANEL_H * scale) / 2
     -- panel coordinates: x from the left edge, y from the TOP edge of the panel (the Gui's origin is bottom left)
     local layers = menu.layers
+    local font = menu.font
+    if menu.lang == 'zh' and menu.zh_font then
+        font = menu.zh_font
+        menu_step('Gui.text with the font ' .. font)
+    end
     -- layer 900: the panel, 901: bars on it, 902: text
     local function rect(x, y, w_, h_, a, r, g, b, layer)
         if not layers then return end
@@ -2776,124 +3581,265 @@ local function menu_draw()
     end
     local function text(str, x, y, size, a, r, g, b)
         local px, py = left + x * scale, bottom + (PANEL_H - y - size) * scale
-        S.Gui.text(gui, str, menu.font, size * scale, menu.font,
+        S.Gui.text(gui, str, font, size * scale, font,
                    layers and S.Vector3(px, py, 902) or S.Vector2(px, py), S.Color(a, r, g, b))
     end
+    local function gray(str, x, y, size) text(str, x, y, size or 14, 255, 210, 210, 210) end
+    local function yellow(str, x, y, size) text(str, x, y, size or 14, 255, 255, 214, 0) end
+    -- a row of a list: a bar when it is the selected one, dark text on a bright bar
+    local function row(label, x, y, w_, here, focused, cells)
+        if here then rect(x - 8, y, w_, 24, 255, focused and 255 or 70, focused and 214 or 70, focused and 0 or 60) end
+        label = menu_clip(label, cells or 60)
+        if not layers and here then label = '> ' .. label end
+        if focused and layers then text(label, x, y + 3, 17, 255, 0, 0, 0)
+        elseif here and not layers then text(label, x, y + 3, 17, 255, 255, 214, 0)
+        else text(label, x, y + 3, 17, 255, 255, 255, 255) end
+    end
+    local key = menu_bound
     rect(0, 0, PANEL_W, PANEL_H, 245, 8, 10, 14, 900)
     rect(0, 0, PANEL_W, 4, 255, 255, 214, 0)
     text('BALANCE YOUR OWN GAME   v' .. MOD.version, 20, 16, 24, 255, 255, 214, 0)
-    text(config.menu_key .. ' close   Tab list   Arrows move / change   Shift x10   Del reset   type: search', 470, 22, 16,
-         255, 210, 210, 210)
-    local lists = menu_lists()
-    if not lists then
-        text('reading the built-in data ...', 20, 80, 18, 255, 220, 220, 220)
-        return
-    end
-    -- categories
+    gray(L('Preset') .. ': ' .. tostring(preset_name or ''), 860, 22, 16)
+    -- pages
     local x = 20
-    for n, category in ipairs(MENU_CATEGORIES) do
-        local label = category .. ' ' .. #lists[category]
-        local w_ = 18 + #label * 10
-        local active = n == menu.tab and menu.filter == ''
-        if active then rect(x, 56, w_, 26, 255, 255, 214, 0) end
-        if not active then text(label, x + 9, 60, 17, 255, menu.filter == '' and 255 or 120, menu.filter == '' and 255 or 120,
-                                 menu.filter == '' and 255 or 120)
-        elseif layers then text(label, x + 9, 60, 17, 255, 0, 0, 0)
-        else text(label, x + 9, 60, 17, 255, 255, 214, 0) end
+    for n, page in ipairs(MENU_PAGES) do
+        local label = L(page)
+        local w_ = 22 + menu_cells(label) * 10
+        if n == menu.page then
+            rect(x, 50, w_, 26, 255, 255, 214, 0)
+            if layers then text(label, x + 11, 54, 17, 255, 0, 0, 0) else yellow(label, x + 11, 54, 17) end
+        else
+            text(label, x + 11, 54, 17, 255, 255, 255, 255)
+        end
         x = x + w_ + 6
     end
-    local list, category = menu_current(lists)
-    local selected = math.min(menu.item[category] or 1, math.max(#list, 1))
-    local item = list[selected]
-    -- items
-    local first = math.max(1, math.min(selected - 9, #list - MENU_ROWS + 1))
-    for row = 0, MENU_ROWS - 1 do
-        local entry = list[first + row]
-        if entry then
-            local y = 96 + row * 26
-            local here, focused = first + row == selected, first + row == selected and menu.focus == 'items'
-            if here then
-                rect(16, y, 400, 24, 255, focused and 255 or 70, focused and 214 or 70, focused and 0 or 60)
+    gray(key('prev_page') .. ' / ' .. key('next_page') .. '  ' .. L('page'), x + 14, 56, 14)
+    rect(16, 80, PANEL_W - 32, 1, 255, 120, 100, 0)
+
+    local hints = {}
+    local function hint(keys, what) hints[#hints + 1] = keys .. ' ' .. L(what) end
+    local TOP = 124
+    local lists = menu_lists()
+    if not lists then
+        text(L('reading the built-in data ...'), 20, TOP, 18, 255, 220, 220, 220)
+    elseif menu.page == 1 then
+        -- categories
+        x = 20
+        local searching = menu.filter ~= '' or (menu.box and menu.box.kind == 'search')
+        for n, category in ipairs(MENU_CATEGORIES) do
+            local active = n == menu.tab and not searching
+            local label = L(MENU_CATEGORY_NAME[category]) .. (active and (' ' .. #lists[category]) or '')
+            local w_ = 16 + menu_cells(label) * 9
+            if active then
+                rect(x, 88, w_, 24, 255, 70, 70, 60)
+                yellow(label, x + 8, 92, 16)
+            else
+                local c = searching and 120 or 255
+                text(label, x + 8, 92, 16, 255, c, c, c)
             end
-            local label = (entry.display or entry.name):sub(1, 38)
-            if category == 'search' then label = label:sub(1, 24) .. '  [' .. (entry.category == 'stratagem_weapon' and 'strat. weapon' or entry.category) .. ']' end
-            if not layers and here then label = '> ' .. label end
-            if focused and layers then text(label, 24, y + 3, 17, 255, 0, 0, 0)
-            elseif here and not layers then text(label, 24, y + 3, 17, 255, 255, 214, 0)
-            else text(label, 24, y + 3, 17, 255, 255, 255, 255) end
+            x = x + w_ + 4
         end
-    end
-    text(string.format('%d of %d', #list > 0 and selected or 0, #list), 330, 96 + MENU_ROWS * 26 + 4, 14, 255, 210, 210, 210)
-    if menu.filter ~= '' then
-        text('search: ' .. menu.filter .. '_', 24, 96 + MENU_ROWS * 26 + 3, 16, 255, 255, 214, 0)
-    else
-        text('type to search', 24, 96 + MENU_ROWS * 26 + 4, 14, 255, 150, 150, 150)
-    end
-    -- values of the selected item
-    if item then
-        text(item.display and (item.name .. '   (name in config.txt)') or '', 444, 96 - 22, 15, 255, 210, 210, 210)
-        text('value', 780, 96 - 22, 15, 255, 210, 210, 210)
-        text('game', 960, 96 - 22, 15, 255, 210, 210, 210)
-        local rows, stats = menu_rows(item)
-        local at = math.min(menu.stat[item] or 1, #stats)
-        local at_row = 1
-        for index, entry in ipairs(rows) do
-            if entry.n == at then at_row = index end
-        end
-        -- the window of rows: the selected value near the middle, its heading in view when it is close
-        local top = math.max(1, math.min(at_row - 9, #rows - MENU_ROWS + 1))
-        for row = 0, MENU_ROWS - 1 do
-            local entry = rows[top + row]
-            local stat = entry and entry.stat
-            if entry and entry.heading then
-                local y = 96 + row * 26
-                rect(436, y + 21, 728, 1, 255, 120, 100, 0)
-                text(entry.heading, 444, y + 5, 14, 255, 255, 214, 0)
+        local list, category = menu_current(lists)
+        local selected = math.min(menu.item[category] or 1, math.max(#list, 1))
+        local item = list[selected]
+        -- items
+        local first = math.max(1, math.min(selected - 8, #list - MENU_ROWS + 1))
+        for at = 0, MENU_ROWS - 1 do
+            local entry = list[first + at]
+            if entry then
+                local here = first + at == selected
+                local label = entry.display or entry.name
+                if category == 'search' then
+                    label = menu_clip(label, 24) .. '  [' .. MENU_CATEGORY_TAG[entry.category] .. ']'
+                end
+                row(label, 24, TOP + at * 26, 400, here, here and menu.focus == 'items' and menu.mode == 'list',
+                    category == 'search' and 42 or 38)
             end
-            if stat then
-                local y = 96 + row * 26
-                local value, changed = menu_value(item, stat)
-                local field = item.stats[stat].field
-                local here = entry.n == at
-                local focused = here and menu.focus == 'stats'
+        end
+        local under = TOP + MENU_ROWS * 26 + 6
+        gray(string.format('%d %s %d', #list > 0 and selected or 0, L('of'), #list), 330, under)
+        if menu.box and menu.box.kind == 'search' then
+            rect(16, under - 3, 300, 22, 255, 255, 214, 0)
+            if layers then text(L('search') .. ': ' .. menu.box.text .. '_', 24, under, 16, 255, 0, 0, 0)
+            else yellow(L('search') .. ': ' .. menu.box.text .. '_', 24, under, 16) end
+        elseif menu.filter ~= '' then
+            yellow(L('search') .. ': ' .. menu.filter, 24, under, 16)
+        else
+            text(L('press %s to search'):format(key('search')), 24, under, 14, 255, 150, 150, 150)
+        end
+        -- values of the selected item
+        if item then
+            gray(item.display and (item.name .. '   (' .. L('name in config.txt') .. ')') or '', 444, TOP - 22, 15)
+            gray(L('value'), 800, TOP - 22, 15)
+            gray(L('game'), 980, TOP - 22, 15)
+            local rows, stats = menu_rows(item)
+            local at = math.min(menu.stat[item] or 1, #stats)
+            local at_row = 1
+            for index, entry in ipairs(rows) do
+                if entry.n == at then at_row = index end
+            end
+            -- the window of rows: the selected value near the middle, its heading in view when it is close
+            local top = math.max(1, math.min(at_row - 8, #rows - MENU_ROWS + 1))
+            for n = 0, MENU_ROWS - 1 do
+                local entry = rows[top + n]
+                local stat = entry and entry.stat
+                local y = TOP + n * 26
+                if entry and entry.heading then
+                    rect(436, y + 21, 728, 1, 255, 120, 100, 0)
+                    yellow(menu_heading(entry.heading), 444, y + 5, 14)
+                end
+                if stat then
+                    local value, changed = menu_value(item, stat)
+                    local field = item.stats[stat].field
+                    local here = entry.n == at
+                    local focused = here and menu.focus == 'stats' and menu.mode ~= 'capture'
+                    row(menu_label(stat), 460, y, 728 - 16, here, focused, 34)
+                    local dark = focused and layers
+                    local c = dark and 0 or 255
+                    local shown = show(value, field.storage)
+                    if stat:find('status%d_type$') and MENU_STATUS[value] then shown = shown .. '  ' .. MENU_STATUS[value] end
+                    if here and menu.box and menu.box.kind == 'value' then
+                        text(menu.box.text .. '_', 800, y + 3, 17, 255, c, c, c)
+                    elseif changed and not dark then
+                        text(menu_clip(shown, 17), 800, y + 3, 17, 255, 255, 214, 0)
+                    else
+                        text(menu_clip(shown, 17), 800, y + 3, 17, 255, c, c, c)
+                    end
+                    local stock = show(field.stock, field.storage)
+                    if stat:find('status%d_type$') and MENU_STATUS[field.stock] then
+                        stock = stock .. '  ' .. MENU_STATUS[field.stock]
+                    end
+                    if dark then text(menu_clip(stock, 17), 980, y + 3, 17, 255, 0, 0, 0)
+                    else gray(menu_clip(stock, 17), 980, y + 3, 17) end
+                end
+            end
+            gray(string.format('%d %s %d', at, L('of'), #stats), 444, under)
+            if stats[at] then gray(menu_clip(stats[at], 60) .. '   (' .. L('name in config.txt') .. ')', 560, under) end
+            local warning = stats[at] and menu_warning(item, stats[at])
+            if item.category == 'status' then
+                warning = warning or L('A status effect has one length: it is the same for every weapon and enemy that applies it')
+            end
+            if warning and not menu.note then yellow('! ' .. menu_clip(warning, 150), 20, PANEL_H - 76) end
+        end
+        if menu.mode == 'text' then
+            hint(key('accept'), 'confirm'); hint(key('back'), 'cancel'); hint('BACKSPACE', 'delete a letter')
+        else
+            hint(key('up') .. '/' .. key('down'), 'move'); hint(key('column'), 'lists')
+            hint(key('left') .. '/' .. key('right'), 'change'); hint(key('fast'), 'x10')
+            hint(key('reset'), 'reset'); hint(key('accept'), 'type'); hint(key('search'), 'search')
+        end
+    elseif menu.page == 2 then
+        for n, name in ipairs(menu.presets) do
+            local here = n == menu.preset_row
+            local y = TOP + (n - 1) * 26
+            if y < PANEL_H - 130 then
+                local label = name
+                if name == preset_name then
+                    local count = 0
+                    for _ in pairs(overrides) do count = count + 1 end
+                    label = name .. '   (' .. L('active') .. ', ' .. count .. ' ' .. L('values') .. ')'
+                end
+                row(label, 24, y, 620, here, here and menu.mode == 'list', 58)
                 if here then
-                    rect(436, y, 728, 24, 255, focused and 255 or 70, focused and 214 or 70, focused and 0 or 60)
+                    local ax = 660
+                    for a, action in ipairs(MENU_PRESET_ACTIONS) do
+                        local label_a = L(action)
+                        if a == menu.preset_action then yellow('[' .. label_a .. ']', ax, y + 3, 17)
+                        else gray(label_a, ax + 6, y + 3, 17) end
+                        ax = ax + 30 + menu_cells(label_a) * 10
+                    end
                 end
-                local dark = focused and layers
-                local c = dark and 0 or 255
-                local name = stat:sub(1, 36)
-                if not layers and here then name = '> ' .. name end
-                if focused and not layers then text(name, 460, y + 3, 17, 255, 255, 214, 0)
-                else text(name, 460, y + 3, 17, 255, c, c, c) end
-                if changed and not dark then
-                    text(show(value, field.storage), 780, y + 3, 17, 255, 255, 214, 0)
-                else
-                    text(show(value, field.storage) .. (changed and '  *' or ''), 780, y + 3, 17, 255, c, c, c)
-                end
-                text(show(field.stock, field.storage), 960, y + 3, 17, 255, dark and 0 or 210, dark and 0 or 210,
-                     dark and 0 or 210)
             end
         end
-        text(string.format('%d of %d', at, #stats), 444, 96 + MENU_ROWS * 26 + 4, 14, 255, 210, 210, 210)
-        local warning = stats[at] and menu_warning(item, stats[at])
-        if warning then text('! ' .. warning:sub(1, 150), 20, PANEL_H - 46, 14, 255, 255, 214, 0) end
+        for n, label in ipairs({ '+ New preset (empty)', '+ New preset (copy of the active one)' }) do
+            local index = #menu.presets + n
+            local y = TOP + (index - 1) * 26
+            if y < PANEL_H - 100 then row(L(label), 24, y, 620, index == menu.preset_row, index == menu.preset_row
+                                          and menu.mode == 'list', 58) end
+        end
+        if menu.box and menu.box.kind == 'name' then
+            rect(16, PANEL_H - 104, 520, 24, 255, 255, 214, 0)
+            if layers then text(L('Name') .. ': ' .. menu.box.text .. '_', 24, PANEL_H - 101, 17, 255, 0, 0, 0)
+            else yellow(L('Name') .. ': ' .. menu.box.text .. '_', 24, PANEL_H - 101, 17) end
+        elseif menu.ask then
+            yellow(L('Delete the preset "%s"?   %s yes   %s no'):format(menu.ask.name, key('accept'), key('back')), 24,
+                   PANEL_H - 101, 17)
+        end
+        if menu.mode == 'text' then
+            hint(key('accept'), 'confirm'); hint(key('back'), 'cancel'); hint('BACKSPACE', 'delete a letter')
+        else
+            hint(key('up') .. '/' .. key('down'), 'move'); hint(key('left') .. '/' .. key('right'), 'action')
+            hint(key('accept'), 'select')
+        end
+    elseif menu.page == 3 then
+        local clash = menu_key_clash()
+        for n, action in ipairs(MENU_ACTIONS) do
+            local here = n == menu.key_row
+            local y = TOP + (n - 1) * 26
+            row(L(action[3]), 24, y, 760, here, here and menu.mode == 'list', 44)
+            local bound = key(action[1])
+            local dark = here and menu.mode == 'list' and layers
+            if dark then text(bound, 520, y + 3, 17, 255, 0, 0, 0)
+            elseif bound == clash then yellow('! ' .. bound, 520, y + 3, 17)
+            else gray(bound, 520, y + 3, 17) end
+        end
+        local y = TOP + #MENU_ACTIONS * 26
+        local n = #MENU_ACTIONS + 1
+        local state_text = menu.block_missing and L('not available in this game') or (menu.block and L('on') or L('off'))
+        row(L('Block game input while the menu is open'), 24, y, 760, n == menu.key_row, n == menu.key_row
+            and menu.mode == 'list', 44)
+        if n == menu.key_row and menu.mode == 'list' and layers then text(state_text, 520, y + 3, 17, 255, 0, 0, 0)
+        else gray(state_text, 520, y + 3, 17) end
+        gray(L('experimental: the game stops seeing the keyboard'), 800, y + 5)
+        row(L('Reset the keys'), 24, y + 26, 760, n + 1 == menu.key_row, n + 1 == menu.key_row and menu.mode == 'list', 44)
+        if menu.capture then
+            yellow(L('Press the key for: %s   (%s cancels)'):format(L(menu.capture.label), key('back')), 24, PANEL_H - 101, 17)
+        end
+        hint(key('up') .. '/' .. key('down'), 'move'); hint(key('accept'), 'select')
+    else
+        local names = { 'English', menu.lang == 'zh' and L('Chinese (Simplified)') or 'Chinese (Simplified)' }
+        for n, name in ipairs(names) do
+            local here = n == menu.lang_row
+            local chosen = (n == 1) == (menu.lang == 'en')
+            row(name .. (chosen and '   *' or ''), 24, TOP + (n - 1) * 26, 620, here, here, 58)
+        end
+        if not menu.zh_font then gray(L('no font of the game can draw Chinese'), 660, TOP + 26 + 5) end
+        if #menu.zh_fonts > 1 then
+            row(L('Font for Chinese') .. ': ' .. tostring(menu.zh_font), 24, TOP + 52, 620, menu.lang_row == 3,
+                menu.lang_row == 3, 58)
+        end
+        hint(key('up') .. '/' .. key('down'), 'move'); hint(key('accept'), 'select')
     end
-    text(tostring(state.verdict or ''):sub(1, 120), 20, PANEL_H - 26, 14, 255, 210, 210, 210)
+    hint(key('toggle'), 'close')
+    if menu.note and now and now < (menu.note_until or 0) then
+        yellow('! ' .. menu_clip(menu.note, 150), 20, PANEL_H - 76)
+    else
+        menu.note = nil
+    end
+    gray(menu_clip(tostring(state.verdict or ''), 110), 20, PANEL_H - 52)
+    if menu.saved_at then gray(L('Saved to') .. ' "' .. tostring(preset_name) .. '"', 900, PANEL_H - 52) end
+    gray(menu_clip(table.concat(hints, '    '), 150), 20, PANEL_H - 26)
     if not menu_trail.drawn then
         menu_trail.drawn = true
         log('menu: first frame drawn')
         flush_log()
+    end
+    if menu.lang == 'zh' and menu.lang_drawn == false then
+        menu.lang_drawn, menu.lang_saved = true, 'zh'
+        pcall(menu_settings_save)
     end
 end
 
 -- once per frame
 local function menu_tick()
     if not menu.loaded then pcall(menu_load) end
-    local down = A.key_down(config.menu_vk)
+    local now = A.now()
+    local down = A.key_down(KEY_VK[menu_bound('toggle')] or config.menu_vk)
     local toggled = down and not menu.toggle_down
     menu.toggle_down = down
     if toggled and not A.game_in_front() then toggled = false end
-    local now = A.now()
+    -- while a key is being chosen, or a box is typed into, the menu key is a key like any other
+    if toggled and menu.open and menu.mode == 'capture' then toggled = false end
     if toggled then
         if menu.open then
             menu_close(now)
@@ -2910,7 +3856,7 @@ local function menu_tick()
     if not menu.open then return end
     local ok, why = pcall(function()
         menu_input(now)
-        menu_draw()
+        menu_draw(now)
     end)
     if not ok then
         log('menu: closed after an error: ' .. tostring(why))

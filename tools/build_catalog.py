@@ -490,6 +490,26 @@ def live_stratagems():
     return out
 
 
+def live_statuses():
+    """Status effect rows as read in game (tools/live_statuses.txt): the table is not in the offline data."""
+    out, seen = [], {}
+    with open(os.path.join(HERE, "live_statuses.txt"), encoding="utf-8") as f:
+        for line in f:
+            if line.startswith("#") or not line.strip():
+                continue
+            row_id, name, _a, _b, duration = line.rstrip("\n").split("|")
+            slug = "_".join("".join(c.lower() if c.isalnum() else " " for c in name).split())
+            seen[slug] = seen.get(slug, 0) + 1
+            if seen[slug] > 1:
+                slug += "_%d" % seen[slug]
+            out.append({"category": "status", "entity": "%016X" % int(row_id), "path": "statuses/" + slug,
+                        "sources": ["live:" + name], "stats": [
+                            {"table": "StatusEffectSettings", "key": int(row_id), "record": "StatusEffectInfo",
+                             "id": "duration", "field": "+40", "offset": 40, "storage": "FP32",
+                             "original": float(duration)}]})
+    return out
+
+
 def armor(T):
     """Armor kits (weight class per piece), passives (modifier lists) and the avatar's movement block."""
     out = {"kits": [], "passives": [], "avatar": []}
@@ -595,6 +615,7 @@ def main():
                                     "field": "+0", "offset": 0, "storage": "FP32",
                                     "original": round(struct.unpack_from("<f", rec, 0)[0], 6)})
     items += live_stratagems()
+    items += live_statuses()
     unnamed = sorted("%016X" % e for e in T.weapon.index if hashnames.name(e) is None)
     cat = {"snapshot": {"source": "FileDiver datalibrary mirror", "projectile_rows": T.projectile.count,
                         "damage_rows": T.damage.count, "explosion_rows": T.explosion.count},

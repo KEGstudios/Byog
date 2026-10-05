@@ -6,7 +6,7 @@ A Helldivers 2 mod that lets you change the numbers of the game from inside the 
 penetration, fire rate, recoil, magazines, explosions, stratagem cooldowns, sentry lifetime, backpack
 charges, shield and vehicle health, and more. Every value is set on its own, for one item at a time.
 
-Download: [`dist/BYOG-v1.0.1.zip`](dist/BYOG-v1.0.1.zip)
+Download: [`dist/BYOG-v1.1.1.zip`](dist/BYOG-v1.1.1.zip)
 
 ## What you need
 
@@ -16,7 +16,7 @@ Download: [`dist/BYOG-v1.0.1.zip`](dist/BYOG-v1.0.1.zip)
 
 ## Install
 
-1. Add `BYOG-v1.0.1.zip` to your mod manager, enable it, deploy.
+1. Add `BYOG-v1.1.1.zip` to your mod manager, enable it, deploy.
 2. Start the game. Press **F9**.
 
 To remove it: disable the mod in the manager. Your settings stay in `%LOCALAPPDATA%\BYOG`; delete that
@@ -24,18 +24,43 @@ folder to forget them.
 
 ## The menu
 
+Four pages: **Items** (the values), **Presets**, **Keys** and **Language**. The keys below are the ones
+the menu starts with; every one of them can be changed on the Keys page, and the line at the bottom of
+the menu always shows the keys that are in use.
+
 | Key | What it does |
 |---|---|
 | **F9** | open / close |
+| **F6 / F7** | previous / next page |
 | **Up / Down**, **PageUp / PageDown** | move (ten rows) |
 | **Tab** | item list ↔ value list |
 | **Left / Right** | in the item list: category. In the value list: lower / raise the value (**Shift**: ten times the step) |
-| **Delete** | in the value list: back to the game's value. In the item list: clear the search |
-| **letters, digits** | in the item list: search in every category. **Backspace** removes a letter |
+| **Insert** | select; on a value: type the number in. Confirms what was typed |
+| **End** | cancel what is being typed; clear the search |
+| **Delete** | back to the game's value |
+| **F3** | search in every category |
 
-A change is applied at once and kept in `%LOCALAPPDATA%\BYOG\menu.txt`, so it is still there the next
-time you start the game. Some values are read by the game when a thing is created: a magazine size or
-a vehicle's health shows on the next weapon or vehicle, a stratagem's cooldown after its next use.
+While you type (a search, a number, a preset's name) the keys go to the text only: nothing else in the
+menu moves. **Backspace** removes a letter.
+
+A change is applied at once and kept in the active preset, so it is still there the next time you
+start the game. Some values are read by the game when a thing is created: a magazine size or a
+vehicle's health shows on the next weapon or vehicle, a stratagem's cooldown after its next use.
+
+**Presets.** A preset is a full set of the values you changed: one for serious play, one for fooling
+around with friends. Switching puts every value of the old one back to the game's own and applies the
+new one. Each preset is a text file in `%LOCALAPPDATA%\BYOG\presets`, in the format of the config file,
+so it can be given to someone else: put the file into that folder and it shows up in the list. What
+v1.0 kept in `menu.txt` becomes the preset "Default" at the first start.
+
+**Block game input** (Keys page, off by default, experimental). While the menu is open the game still
+reads the keyboard: a key that means something to the game does that too. With this switched on the
+menu asks the engine to stop seeing key presses for as long as it is open. Mouse movement and mouse
+buttons still reach the game.
+
+**Language.** English and Simplified Chinese (menu texts and the names of the values; items keep their
+English names). Chinese needs a font of the game that can draw it; the menu looks for one and says so
+when there is none.
 
 ## What can be changed
 
@@ -48,6 +73,7 @@ a vehicle's health shows on the next weapon or vehicle, a stratagem's cooldown a
 | `backpack` | 18 | charges, starting charges, refill |
 | `shield` | 4 | health, radius, recharge delay and rate, lifetime of the relay |
 | `vehicle` | 14 | health, armor, and for every part its own health, armor and how much of its damage reaches the vehicle |
+| `status` | 8 status effects (acid, gas, sandstorm, acid storm) | how long the effect lasts |
 
 Many weapons share one round in the game's data (the Liberator and the Stalwart, a sentry and the
 MG-43). BYOG gives a weapon data of its own the moment you change it, so a change reaches that weapon

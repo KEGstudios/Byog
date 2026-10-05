@@ -16,20 +16,51 @@ magazine = +15            # the game's value plus 15
 recoil_v = -20            # the game's value minus 20
 ```
 
-## The in-game menu (works in game since v0.15.2)
+## The in-game menu (works in game since v0.15.2; rebuilt in v1.1.0, not yet tested in game)
 
-`[settings] menu_key = F9` (F1..F12) opens a panel in the middle of the screen: categories, items, and the
-values of the selected item. Up / Down and PageUp / PageDown move, Tab switches between the item list and
-the value list, Left / Right changes the category or the value (Shift: ten times the step), Delete puts a
-value back to the game's own. A change is applied by the engine like a config line. The menu's values
-are kept in `menu.txt` next to config.txt, are read again at the next start, and **win over config.txt**
-for the same value. Deleting menu.txt forgets them. The menu shows the game's own names where they are known
-(`tools/display_names.txt`, written by hand: AR-23 Liberator, MG-43 Machine Gun...) and the internal name
-otherwise; config.txt and menu.txt always use the internal names, which catalog.txt lists side by side. While the menu is open the game still receives the keys.
+A panel in the middle of the screen with four pages: Items, Presets, Keys, Language. A change made in it
+is applied by the engine like a config line and **wins over config.txt** for the same value. The menu
+shows the game's own names where they are known (`tools/display_names.txt`, written by hand) and the
+internal name otherwise; config.txt and the preset files always use the internal names, which
+catalog.txt lists side by side. The values have readable names too ("Armor penetration, direct hit");
+the name config.txt takes (`ap_direct`) is shown under the value list.
 
-Search (v0.16.0, not yet tested in game): in the item list, typing letters or digits lists every item of
-every category whose name, the game's or the internal one, contains what was typed. Backspace removes a
-letter, Delete clears the search.
+**Modes.** The menu is in one mode at a time: moving through the lists, typing into a box (search, a
+number, a preset's name), waiting for a key (Keys page), or a yes / no question. A key does only what it
+means in that mode: while a box is open nothing else moves.
+
+**Keys** (`settings.txt`, `key.<action> = <KEY>`; changed on the Keys page). Defaults: `toggle` F9
+(`[settings] menu_key` of config.txt is used while none is set), `up` / `down` / `left` / `right` the
+arrows, `column` TAB, `page_up` / `page_down`, `prev_page` F6, `next_page` F7, `fast` SHIFT, `reset`
+DELETE, `search` F3, `accept` INSERT, `back` END. None of the defaults is a key the game uses by default
+(Enter opens the chat, Escape the game's menu). Two actions on one key both fire; the page names the key.
+
+**Presets** (`presets\<name>.txt`, the config format). The active preset holds every value set in the
+menu; `settings.txt` names it (`preset = <name>`). Activating another one drops the old values (the game's
+own come back) and applies the new ones. New (empty or a copy of the active one), rename, duplicate,
+delete (asked first). A name is letters, digits, spaces, `-` and `_`, 24 at most. A file put into the
+folder by hand is listed. `menu.txt` of v1.0 is read once, when there is no preset yet, into "Default".
+
+**Block game input** (`block_game_input = true`, Keys page; off by default). On open the menu reads
+`stingray.Keyboard.down_threshold()` and sets it to 2 with `set_down_threshold`, on close it puts the old
+value back: no key can count as down for the game, while the menu reads the keys from Windows. Untested
+in game when written; every engine call leaves a line in byog.log first. The mouse is not covered.
+
+**Language** (`language = en | zh`). Simplified Chinese for the menu's texts, headings and value names.
+The debug font the menu draws with has no Chinese glyphs, so the menu asks the engine
+(`Application.can_get("font", name)`) for `content/fonts/runtime_font`, `fallback`, `core_sans` and
+`samples` (names from the community's list of resource names) and draws Chinese with the first one that
+is there; with several, the Language page can switch between them. `language = zh` is only written to
+settings.txt after a frame was drawn in Chinese. Whether those fonts draw Chinese is not known yet.
+
+**Research file (v1.1.1 only).** Once per start the mod writes `RESEARCH.txt` next to STATUS.txt, reading
+only: every row of the game's status effect table (id, debug name, the three numbers at +32 / +36 / +40
+and the whole row), which engine functions for fonts and input are there, and which of the game's fonts
+the engine has loaded. It is what the next version needs to offer the duration of all 71 status effects
+and a font for Chinese. `[settings] research = false` switches it off.
+
+**Search.** The search key opens the box; what is typed lists every item of every category whose name,
+the game's or the internal one, contains it. `accept` leaves the box and keeps the hits, `back` drops them.
 
 ## Sections
 
@@ -38,6 +69,7 @@ uses, backpack charges, shield health, vehicle health; the stats added in v0.11.
 
 | Category | Items | Stats |
 |---|---|---|
+| `status` (v1.1.0, not yet tested in game) | 8 status effects: `acid_splash`, `acid_stream`, `gas` (6 s), `gas_2` (10 s), `gas_confusion` (5 s), `gas_confusion_2` (9 s), `sandstorm`, `acid_storm`. Only the rows the recon build wrote out in full; the other 63 need their game values read first | `duration` (seconds; +40 of the status record). One value per status: it holds for every weapon and enemy that applies it. For Acid Storm the armor loss is done by game code, not by this record: a longer duration may or may not lengthen it |
 | `stratagem` | 149 rows of the game's stratagem table, named after the game's own debug names (`eagle_500kg_bomb`, `orbital_laser`, `sentrys_machinegun`...) | `cooldown` (seconds), `uses` (4294967295 = unlimited) |
 | `backpack` | 18 backpacks (`recoilless_rifle_backpack`, `ammo_backpack`...) | `charges`, `charges_start` (-1 = start full), `charges_refill` |
 | `shield` | 4 (`energy_shield_backpack`, `directional_energy_shield`, `energy_shield` = the relay, `energy_shield_grenade`) | `shield_health`, `shield_radius`, `shield_recharge_delay` (before an unbroken shield refills), `shield_broken_delay` (after it broke), `shield_recharge_rate` (per second) - settled in game |
