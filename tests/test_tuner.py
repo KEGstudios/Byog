@@ -1652,6 +1652,13 @@ def check_keys_can_be_changed(mutate=None):
         rig.close()
 
 
+def expected_filter(flag, next_hook):
+    """The message filter, written out here independently of the addon (see a.hook_code for the listing)."""
+    return (bytes.fromhex("85C9" "7829" "48B8") + struct.pack("<Q", flag) + bytes.fromhex("803800" "741A" "418B4008"
+            "3D00010000" "7407" "3D02010000" "7508" "41C7400800000000" "4D89C1" "4989D0" "4863D1" "31C9" "48B8")
+            + struct.pack("<Q", next_hook) + bytes.fromhex("FFE0"))
+
+
 def check_the_game_input_can_be_blocked(mutate=None):
     rig = Rig("", mutate)
     try:
@@ -1659,41 +1666,163 @@ def check_the_game_input_can_be_blocked(mutate=None):
         os.makedirs(os.path.dirname(rig.game.out_path("settings.txt")), exist_ok=True)
         with open(rig.game.out_path("settings.txt"), "wb") as f:
             f.write(b"preset = Default\r\nlanguage = en\r\nblock_game_input = false\r\n")
+        rig.game.window_thread = 5                                     # as in the game: not the mod's thread
         rig.settle()
         rig.game.lua.execute(FAKE_ENGINE)
         start = list(rig.game.raw)
-        assert rig.game.game_gets_keys()
+        assert rig.game.game_gets_keys() and not rig.game.hooks
         rig.game.press(F9)
         assert rig.game.raw == [(1, 5, 0x0, 0x777)]                    # open: the pad is left, the mouse is gone
-        assert not rig.game.game_gets_keys() and rig.game.focus in rig.game.windows   # and the keys go to our window
+        # a "get message" hook on the game's window thread, and it is switched on
+        assert len(rig.game.hooks) == 1 and rig.game.hooks[0][0] == 3 and rig.game.hooks[0][2] == 5
+        assert not rig.game.game_gets_keys()
+        code_at, flag_at = rig.game.hooks[0][1], rig.game.filter_flag()
+        region = rig.mem.find(code_at)
+        code = bytes(region["data"][:68])
+        assert code == expected_filter(flag_at, 0x7FFB12345678), code.hex()
+        assert region["protect"] == 0x20 and rig.mem.find(flag_at)["protect"] == 0x04   # runs, cannot be written; the flag can
+        assert rig.mem.find(flag_at) is not region
+        assert rig.game.focus == 0x777 and rig.game.focus_calls == 0 and rig.game.attach_calls == 0   # the focus is left alone
         log = rig.game.read_out("byog.log")
         assert "menu: raw input registered by the game: 1/2 flags 100 window 0x777" in log
-        assert "menu: about to use RegisterRawInputDevices" in log
-        assert "menu: the game window 0x777 belongs to this thread" in log
-        assert "menu: game input blocked (keyboard: focus, mouse: raw input)" in log
-        # the game's window takes the focus back when it is activated again (Alt+Tab): put right at once
-        rig.game.focus = 0x777
-        rig.game.frames(2)
-        assert not rig.game.game_gets_keys()
+        assert "menu: the game window 0x777 belongs to another thread" in log
+        assert "menu: about to use SetWindowsHookExA" in log and "menu: message filter installed, code at" in log
+        assert "menu: game input blocked (keyboard: message filter, mouse: raw input)" in log
         settings = rig.game.read_out("settings.txt")
         assert "block_input = true" in settings and "trying" not in settings
         typed(rig, b"S")                                               # the menu still sees the keys
-        rig.game.press(F9)                                             # closed: registered again, as it was
-        assert sorted(rig.game.raw) == sorted(start)
-        assert rig.game.game_gets_keys() and not rig.game.windows      # the focus is back, our window is gone
+        rig.game.frames(70)
+        assert "filter on" in rig.game.read_out("watch.txt")
+        rig.game.press(F9)                                             # closed: as it was
+        assert sorted(rig.game.raw) == sorted(start) and rig.game.game_gets_keys()
         assert "menu: game input given back" in rig.game.read_out("byog.log")
-        rig.game.press(F9)
+        rig.game.press(F9)                                             # open again: the same filter, not a second one
+        assert not rig.game.game_gets_keys() and len(rig.game.hooks) == 1
         rig.game.press(F7); rig.game.press(F7)
         for _ in range(15):
             rig.game.press(DOWN)
         assert "Block game input while the menu is open" in shown(rig)
-        assert not rig.game.game_gets_keys()
         rig.game.press(INSERT)                                         # switched off, at once
         assert sorted(rig.game.raw) == sorted(start) and rig.game.game_gets_keys()
         assert "block_input = false" in rig.game.read_out("settings.txt")
         rig.game.press(F9)
         rig.game.press(F9)
         assert sorted(rig.game.raw) == sorted(start) and rig.game.game_gets_keys()   # and it stays off
+        assert rig.game.focus_calls == 0 and rig.game.attach_calls == 0
+    finally:
+        rig.close()
+
+
+def check_the_filter_does_what_its_listing_says(mutate=None):
+    """The 68 bytes run for real, in this process: called like Windows calls a hook."""
+    if sys.platform != "win32":
+        return
+    import ctypes
+    rig = Rig("", mutate)
+    try:
+        rig.settle()
+        k32 = ctypes.WinDLL("kernel32")
+        k32.VirtualAlloc.restype = ctypes.c_void_p
+        k32.VirtualAlloc.argtypes = [ctypes.c_void_p, ctypes.c_size_t, ctypes.c_uint32, ctypes.c_uint32]
+        k32.VirtualFree.argtypes = [ctypes.c_void_p, ctypes.c_size_t, ctypes.c_uint32]
+        seen = []
+        NEXT = ctypes.WINFUNCTYPE(ctypes.c_ssize_t, ctypes.c_void_p, ctypes.c_int, ctypes.c_size_t, ctypes.c_void_p)
+
+        def next_hook(hook, code, wparam, lparam):
+            seen.append((hook, code, wparam, lparam))
+            return 1234
+
+        keep = NEXT(next_hook)
+        flag = ctypes.c_uint8(0)
+        api = rig.game.state()[b"api"]
+        code = bytes(api[b"hook_code"](ctypes.addressof(flag), ctypes.cast(keep, ctypes.c_void_p).value))
+        assert len(code) == 68
+        page = k32.VirtualAlloc(None, 4096, 0x3000, 0x40)
+        try:
+            ctypes.memmove(page, code, len(code))
+            proc = ctypes.WINFUNCTYPE(ctypes.c_ssize_t, ctypes.c_int, ctypes.c_size_t, ctypes.c_void_p)(page)
+            msg = (ctypes.c_uint8 * 48)()
+
+            def call(on, code_value, message):
+                flag.value = on
+                struct.pack_into("<QI", msg, 0, 0x777, message)
+                result = proc(code_value, 1, ctypes.addressof(msg))
+                assert result == 1234                                          # what the next hook answered
+                assert seen[-1] == (None, code_value, 1, ctypes.addressof(msg)), seen[-1]   # and it got all three
+                assert struct.unpack_from("<Q", msg, 0)[0] == 0x777            # nothing else of the MSG is touched
+                return struct.unpack_from("<I", msg, 8)[0]
+
+            assert call(0, 0, 0x100) == 0x100 and call(0, 0, 0x102) == 0x102   # menu closed: everything passes
+            assert call(1, 0, 0x100) == 0 and call(1, 0, 0x102) == 0           # open: key down and character are dropped
+            assert call(1, 0, 0x101) == 0x101                                  # a released key passes
+            assert call(1, 0, 0x104) == 0x104 and call(1, 0, 0x105) == 0x105   # Alt combinations (Alt+F4) pass
+            assert call(1, 0, 0x0FF) == 0x0FF and call(1, 0, 0x103) == 0x103   # raw input, and the neighbours
+            assert call(1, 0, 0x200) == 0x200 and call(1, 0, 0x0F) == 0x0F     # mouse, paint
+            assert call(1, -1, 0x100) == 0x100                                 # code < 0: hands off, by the rules of a hook
+            assert call(7, 3, 0x100) == 0                                      # any value but 0 is "on"
+        finally:
+            k32.VirtualFree(page, 0, 0x8000)
+    finally:
+        rig.close()
+
+
+def check_nothing_of_ours_is_in_the_way_when_the_game_is_switched_away_from(mutate=None):
+    # seen in game (v1.1.13, v1.1.16): moving the keyboard focus made the game stop answering, on Alt+Tab
+    # or at once. The focus is not touched at all any more, whatever the game's window does.
+    rig = Rig("", mutate)
+    try:
+        rig.game.window_thread = 5
+        rig.settle()
+        rig.game.lua.execute(FAKE_ENGINE)
+        rig.game.press(F9)
+        assert not rig.game.game_gets_keys()
+        rig.game.in_front = False                                      # another window is in front
+        rig.game.frames(120)
+        rig.game.in_front = True
+        rig.game.frames(60)
+        assert not rig.game.game_gets_keys()                           # still open, still ours
+        rig.game.in_front = False
+        rig.game.lua.execute(b"BYOG.api.close_menu()")                 # closed while the game is behind
+        assert rig.game.game_gets_keys()
+        assert rig.game.focus_calls == 0 and rig.game.attach_calls == 0 and rig.game.focus == 0x777
+    finally:
+        rig.close()
+
+
+def check_without_the_filter_the_keys_are_left_alone(mutate=None):
+    rig = Rig("", mutate)
+    try:
+        rig.game.window_thread = 5
+        rig.game.hook_refused = True                                   # Windows says no
+        rig.settle()
+        rig.game.lua.execute(FAKE_ENGINE)
+        rig.game.press(F9)
+        assert rig.game.game_gets_keys() and rig.game.focus_calls == 0
+        assert rig.game.raw == [(1, 5, 0x0, 0x777)]                    # the mouse is still taken care of
+        log = rig.game.read_out("byog.log")
+        assert "the message filter could not be installed: Windows refused the hook" in log
+        assert "game input blocked (keyboard: no, mouse: raw input)" in log
+    finally:
+        rig.close()
+
+
+def check_a_settings_file_that_cannot_be_written_is_written_later(mutate=None):
+    # seen in game (v1.1.15): the mark of the first try stayed in the file, and the next start took it for a crash
+    rig = Rig("", mutate)
+    try:
+        rig.game.window_thread = 5
+        rig.settle()
+        rig.game.lua.execute(FAKE_ENGINE)
+        path = rig.game.out_path("settings.txt")
+        os.remove(path)
+        os.mkdir(path)                                                 # nothing can be written there now
+        rig.game.press(F9)
+        assert not rig.game.game_gets_keys()                           # the menu works all the same
+        rig.game.frames(60)
+        os.rmdir(path)                                                 # and now it can
+        rig.game.frames(60)
+        settings = rig.game.read_out("settings.txt")
+        assert "block_input = true" in settings and "trying" not in settings, settings
     finally:
         rig.close()
 
@@ -1709,34 +1838,11 @@ def check_a_block_that_closed_the_game_is_not_tried_again(mutate=None):
         rig.game.lua.execute(FAKE_ENGINE)
         rig.game.press(F9)
         assert len(rig.game.raw) == 2 and rig.game.raw_calls == 0 and rig.game.game_gets_keys()
+        assert rig.game.focus_calls == 0
         assert "block_input = false" in rig.game.read_out("settings.txt")
         assert "switched off" in rig.game.read_out("byog.log")
         rig.game.press(F7); rig.game.press(F7)
         assert "switched off: the game closed when this was tried" in shown(rig)
-    finally:
-        rig.close()
-
-
-def check_keys_are_blocked_when_the_window_belongs_to_another_thread(mutate=None):
-    # seen in game (v1.1.6): it does, and "disabling" the window instead left the keys with the game
-    rig = Rig("", mutate)
-    try:
-        rig.game.window_thread = 5
-        rig.settle()
-        rig.game.lua.execute(FAKE_ENGINE)
-        rig.game.press(F9)
-        assert not rig.game.game_gets_keys() and rig.game.focus in rig.game.windows and rig.game.window_enabled
-        log = rig.game.read_out("byog.log")
-        assert "menu: the game window 0x777 belongs to another thread" in log
-        assert "menu: game input blocked (keyboard: focus, from another thread, mouse: raw input)" in log
-        # what Windows queues for our window on this thread is taken off, frame by frame
-        rig.game.queued = 100
-        rig.game.frames(1)
-        assert rig.game.queued == 36
-        rig.game.frames(1)
-        assert rig.game.queued == 0
-        rig.game.press(F9)
-        assert rig.game.game_gets_keys() and not rig.game.windows
     finally:
         rig.close()
 
@@ -2228,18 +2334,42 @@ MUTATIONS = [
      "        local keys = menu.block_keys(true)\n",
      "        local keys = false\n",
      check_the_game_input_can_be_blocked),
-    ("game input: the focus is not looked at again while the menu is open",
-     "        if A.game_in_front() then A.focus_keep() end\n",
-     "",
-     check_the_game_input_can_be_blocked),
-    ("game input: the focus is not given back",
-     "        menu.keys_blocked = nil\n        A.focus_give_back(blocked.window)\n",
+    ("game input: the filter stays on when the menu is closed",
+     "        menu.keys_blocked = nil\n        A.hook_on(false)\n",
      "        menu.keys_blocked = nil\n",
      check_the_game_input_can_be_blocked),
-    ("game input: the messages for our window are left on the queue",
-     "        A.focus_pump()\n",
-     "",
-     check_keys_are_blocked_when_the_window_belongs_to_another_thread),
+    ("game input: a second filter with every opening",
+     "            if hook.thread == thread then return true end\n",
+     "            hook = nil\n",
+     check_the_game_input_can_be_blocked),
+    ("game input: the filter's code stays writable",
+     "        if not a.protect(code_at, 0x20) then return nil, 'the code could not be made executable' end",
+     "        if false then return nil end",
+     check_the_game_input_can_be_blocked),
+    ("game input: the flag is in the page of the code",
+     "        local code_at, flag_at = own_memory(), own_memory()\n",
+     "        local code_at = own_memory()\n        local flag_at = code_at + 2048\n",
+     check_the_game_input_can_be_blocked),
+    ("filter: a released key is dropped as well (a key held when the menu opens stays down for the game)",
+     "'\\x3D\\x02\\x01\\x00\\x00' .. '\\x75\\x08'",
+     "'\\x3D\\x01\\x01\\x00\\x00' .. '\\x75\\x08'",
+     check_the_filter_does_what_its_listing_says),
+    ("filter: it also drops while the menu is closed",
+     "'\\x80\\x38\\x00' .. '\\x74\\x1A'",
+     "'\\x80\\x38\\x00' .. '\\x90\\x90'",
+     check_the_filter_does_what_its_listing_says),
+    ("filter: the next hook gets the arguments in the wrong places",
+     "'\\x4D\\x89\\xC1' .. '\\x49\\x89\\xD0'",
+     "'\\x49\\x89\\xD0' .. '\\x4D\\x89\\xC1'",
+     check_the_filter_does_what_its_listing_says),
+    ("filter: it acts on a call it has to keep its hands off (code < 0)",
+     "'\\x85\\xC9' .. '\\x78\\x29'",
+     "'\\x85\\xC9' .. '\\x90\\x90'",
+     check_the_filter_does_what_its_listing_says),
+    ("game input: when Windows refuses the filter the menu says the keys are blocked",
+     "        local ok, where = A.hook_install(thread)\n        if not ok then\n",
+     "        local ok, where = A.hook_install(thread)\n        if false then\n",
+     check_without_the_filter_the_keys_are_left_alone),
     ("game input: the pad is taken away as well",
      "            if d.page == 1 and (d.usage == 2 or d.usage == 6) then mine[#mine + 1] = d end\n",
      "            if d.page == 1 then mine[#mine + 1] = d end\n",
@@ -2248,6 +2378,10 @@ MUTATIONS = [
      "        if not A.raw_register(menu.raw_saved) then log(",
      "        for _, d in ipairs(menu.raw_saved) do d.flags = 0 end\n        if not A.raw_register(menu.raw_saved) then log(",
      check_the_game_input_can_be_blocked),
+    ("settings: a write that failed is never made up for",
+     "    if menu.settings_unsaved and now - (menu.settings_tried or 0) > 0.5 then\n",
+     "    if false then\n",
+     check_a_settings_file_that_cannot_be_written_is_written_later),
     ("game input: a try that closed the game is tried again",
      "            elseif key == 'block_input_trying' and value == 'true' then\n                tried = true\n",
      "",

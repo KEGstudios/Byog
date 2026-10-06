@@ -1,4 +1,4 @@
-# TEST v1.1.12 — yeni menü
+# TEST v1.1.17 — yeni menü
 
 Menü baştan yazıldı: dört sayfa (Items, Presets, Keys, Language), atanabilir tuşlar, presetler, Çince,
 status effect süresi. Çevrimdışı testlerin hepsi geçiyor, ama bu sürüm oyunda hiç çalıştırılmadı.
@@ -11,7 +11,7 @@ status effect süresi. Çevrimdışı testlerin hepsi geçiyor, ama bu sürüm o
 
 ## Kurulum
 
-1. Arsenal'da eski BYOG'u sil, `BYOG-v1.1.12.zip` dosyasını ekle, etkinleştir, **Deploy** et.
+1. Arsenal'da eski BYOG'u sil, `BYOG-v1.1.17.zip` dosyasını ekle, etkinleştir, **Deploy** et.
 2. `%LOCALAPPDATA%\BYOG` klasörüne dokunma: eski `menu.txt` içindeki ayarlar "Default" presetine taşınmalı.
 
 ## 0. Silah adları
@@ -23,7 +23,7 @@ iç adlarıyla birlikte görünür: `SG-8 Punisher (pump_shotgun)`, `SMG-37 Defe
 
 ## A. Menü ve eski ayarlar
 
-1. F9 menüyü açıyor mu, başlıkta `v1.1.12` yazıyor mu? Üstte dört sayfa, sağ üstte `Preset: Default` var mı?
+1. F9 menüyü açıyor mu, başlıkta `v1.1.17` yazıyor mu? Üstte dört sayfa, sağ üstte `Preset: Default` var mı?
 2. 1.0'da yaptığın değişiklikler duruyor mu (değerler sarı)? `presets\Default.txt` oluşmuş mu?
 3. Stat adları okunur mu ("Armor penetration, direct hit", "Magazine size")? Listenin altında seçili
    değerin config.txt adı (`ap_direct`) yazıyor mu?
@@ -54,18 +54,27 @@ iç adlarıyla birlikte görünür: `SG-8 Punisher (pump_shotgun)`, `SMG-37 Defe
 2. İki eyleme aynı tuşu ver: uyarı çıkıyor mu?
 3. "Reset the keys" varsayılanlara döndürüyor mu? Oyunu kapat-aç: atadığın tuşlar duruyor mu?
 
-## E. Tuş engelleme (artık varsayılan olarak açık — en önemli kontrol)
+## E. Tuş engelleme ve donma (en önemli kontrol)
 
-Menü açıkken oyun klavyeyi ve fare tuşlarını almamalı; yalnızca menü çalışmalı. Önce gemide dene.
+Odağı değiştiren bütün yöntemler ya tuş kaçırdı ya oyunu dondurdu. Bu sürüm odağa dokunmuyor: oyunun
+pencere iş parçacığına küçük bir mesaj süzgeci koyuyor ve menü açıkken tuş mesajlarını orada düşürüyor.
 
-1. F9'a bastığında oyun çöktü mü? Çöktüyse oyunu yeniden aç: mod engellemeyi kendisi kapatmış olmalı
-   (Keys sayfasında "switched off: the game closed when this was tried" yazar). `byog.log` dosyasını gönder.
-2. Menü açıkken W/A/S/D: karakter **duruyor mu**? Esc, Enter, Tab, M oyunda bir şey açıyor mu?
-3. Fare: sol tık ateş ediyor mu, sağ tık nişan alıyor mu, fareyi oynatınca bakış dönüyor mu?
-   (Üçü de **olmamalı**.) İmleç ekranda garip davranıyorsa (görünüyor, pencereden çıkıyor) yaz.
-4. Menü tuşlara tepki veriyor mu, yazı yazılabiliyor mu?
-5. F9 ile kapat: oyun tuşları ve fareyi **yeniden** alıyor mu? (Almıyorsa oyunu yeniden başlat ve bunu yaz.)
-6. Keys sayfasında "Block game input" satırında Insert: kapatınca tuşlar yine oyuna gidiyor mu?
+**Tuşlar engelleniyor mu?**
+1. Menü açıkken W/A/S/D, Esc, Enter, Tab, M: oyunda bir şey oluyor mu? Ses çıkıyor mu?
+2. Arama kutusuna yaz, Backspace'e bas: oyunun menüsü açılıyor mu?
+3. Bir tuşu (örneğin W) basılı tutarken F9 ile menüyü aç, sonra bırak: karakter yürümeye devam ediyor mu? (Etmemeli.)
+
+**Oyun normal mi?**
+4. Menü açıkken görüntü akıyor mu, ses kesiliyor mu? Menüyü kapatınca tuşlar hemen dönüyor mu?
+5. Oyunun sohbet kutusu ve kendi menüleri menü kapalıyken normal çalışıyor mu (yazı yazılabiliyor mu)?
+
+**Donuyor mu?**
+6. Menü açıkken Alt+Tab ile çık, 10 saniye bekle, dön. Beş kez tekrarla.
+7. Menü açıkken oyun penceresine fareyle tıkla, menüde gezin.
+8. Birkaç değeri hızlıca değiştir; bir değerin üstünde Insert ile sayı yaz.
+9. Menü açıkken Alt+F4 oyunu kapatıyor mu? (Kapatmalı.)
+
+Donarsa ya da oyun kapanırsa: **yeniden açmadan** haber ver (`watch.txt`, `byog.log`).
 
 ## F. Çince (deneme — oyun donabilir)
 

@@ -423,14 +423,8 @@ local function build_api()
         return raw_set(raw_buffer, #list, 16) ~= 0
     end
 
-    -- The game's window (the one in front, when it is ours), and whether this thread owns it.
+    -- The game's window (the one in front, when it is ours), whether this thread owns it, and its thread.
     local current_thread = resolve(K, 'GetCurrentThreadId', 'uint32_t (*)(void)')
-    local get_focus = resolve(U, 'GetFocus', 'void *(*)(void)')
-    local set_focus = resolve(U, 'SetFocus', 'void *(*)(void *)')
-    local create_window = resolve(U, 'CreateWindowExA',
-        'void *(*)(uint32_t, const char *, const char *, uint32_t, int, int, int, int, void *, void *, void *, void *)')
-    local destroy_window = resolve(U, 'DestroyWindow', 'int (*)(void *)')
-    local is_window = resolve(U, 'IsWindow', 'int (*)(void *)')
     local function handle(p) return tonumber(ffi.cast('uintptr_t', p)) end
     function a.game_window()
         local window = foreground_window()
@@ -438,46 +432,92 @@ local function build_api()
         window_owner[0] = 0
         local thread = window_process(window, window_owner)
         if window_owner[0] ~= own_process then return nil end
-        return handle(window), thread == current_thread()
+        return handle(window), thread == current_thread(), thread
     end
-    -- Keyboard focus to a child window of our own (class STATIC, no size): key messages go to it, and it
-    -- does nothing with them. Only on the thread that owns the game's window.
-    local focus_child = nil
-    function a.focus_take(window)
-        if focus_child == nil or is_window(focus_child) == 0 then
-            -- WS_CHILD | WS_VISIBLE: a window has to be visible to hold the focus; it has no size
-            focus_child = create_window(0, 'STATIC', '', 0x50000000, 0, 0, 0, 0, ffi.cast(void, window), nil, nil, nil)
-            if focus_child == nil then return false end
+
+    -- ---- the message filter
+    -- Windows calls a "get message" hook on a thread for every message that thread takes off its queue:
+    --     LRESULT proc(int code, WPARAM wParam, LPARAM lParam)        lParam: the MSG (its message at +8)
+    -- The code below is that function. While the byte at `flag` is not 0 it turns WM_KEYDOWN (0x100) and
+    -- WM_CHAR (0x102) into WM_NULL (0), which is the way Windows gives for dropping a message there; a
+    -- key that is released (WM_KEYUP) is let through, so a key held when the menu opens does not stay
+    -- "down" for the game. Then it goes on to CallNextHookEx(NULL, code, wParam, lParam), as a hook must.
+    --      0  85 C9                     test ecx, ecx            ; code < 0: hands off
+    --      2  78 29                     js   pass
+    --      4  48 B8 <flag>              mov  rax, flag
+    --     14  80 38 00                  cmp  byte [rax], 0       ; the menu is closed
+    --     17  74 1A                     je   pass
+    --     19  41 8B 40 08               mov  eax, [r8 + 8]       ; MSG.message
+    --     23  3D 00 01 00 00            cmp  eax, 0x100
+    --     28  74 07                     je   drop
+    --     30  3D 02 01 00 00            cmp  eax, 0x102
+    --     35  75 08                     jne  pass
+    --     37  41 C7 40 08 00 00 00 00   drop: mov dword [r8 + 8], 0
+    --     45  4D 89 C1                  pass: mov r9, r8         ; lParam
+    --     48  49 89 D0                  mov  r8, rdx             ; wParam
+    --     51  48 63 D1                  movsxd rdx, ecx          ; code
+    --     54  31 C9                     xor  ecx, ecx            ; hook handle: not used by Windows
+    --     56  48 B8 <CallNextHookEx>    mov  rax, CallNextHookEx
+    --     66  FF E0                     jmp  rax
+    local function u64_bytes(n)
+        local out = {}
+        for i = 1, 8 do
+            out[i] = string.char(n % 256)
+            n = math.floor(n / 256)
         end
-        set_focus(focus_child)
-        return get_focus() == focus_child
+        return table.concat(out)
     end
-    -- true while the focus is where focus_take put it; puts it back there when it is not
-    function a.focus_keep()
-        if focus_child == nil then return false end
-        if get_focus() == focus_child then return true end
-        set_focus(focus_child)
-        return false
+    function a.hook_code(flag, next_hook)
+        return '\x85\xC9' .. '\x78\x29' .. '\x48\xB8' .. u64_bytes(flag) .. '\x80\x38\x00' .. '\x74\x1A'
+            .. '\x41\x8B\x40\x08' .. '\x3D\x00\x01\x00\x00' .. '\x74\x07' .. '\x3D\x02\x01\x00\x00' .. '\x75\x08'
+            .. '\x41\xC7\x40\x08\x00\x00\x00\x00' .. '\x4D\x89\xC1' .. '\x49\x89\xD0' .. '\x48\x63\xD1' .. '\x31\xC9'
+            .. '\x48\xB8' .. u64_bytes(next_hook) .. '\xFF\xE0'
     end
-    function a.focus_give_back(window)
-        set_focus(ffi.cast(void, window))
-        if focus_child ~= nil then destroy_window(focus_child) end
-        focus_child = nil
-    end
-    -- The messages Windows puts on this thread's queue for our window (the keys typed while it has the
-    -- focus, and what its parent's thread sends it): taken off and handed to the window, a few a frame.
-    local peek_message = resolve(U, 'PeekMessageA', 'int (*)(void *, void *, uint32_t, uint32_t, uint32_t)')
-    local dispatch_message = resolve(U, 'DispatchMessageA', 'intptr_t (*)(const void *)')
-    local message = ffi.new('uint8_t[64]')                 -- MSG is 48 bytes
-    function a.focus_pump()
-        if focus_child == nil then return 0 end
+    local set_hook = resolve(U, 'SetWindowsHookExA', 'void *(*)(int, void *, void *, uint32_t)')
+    local call_next = resolve(U, 'CallNextHookEx', 'intptr_t (*)(void *, int, uintptr_t, intptr_t)')
+    -- two pieces of memory of our own, anywhere: they are never given back, so the filter stays valid
+    -- for as long as the process lives, whatever happens to this script
+    local function own_memory()
+        local got = virtual_alloc(ffi.cast(void, 0), 4096, 0x3000, PAGE_READWRITE)
         local n = 0
-        while n < 64 and peek_message(message, focus_child, 0, 0, 1) ~= 0 do   -- PM_REMOVE
-            dispatch_message(message)
+        while got == nil and n < 64 do                       -- (a fixed place, where "anywhere" is not offered)
+            got = virtual_alloc(ffi.cast(void, 0x6F0000000000 + n * 0x10000), 4096, 0x3000, PAGE_READWRITE)
             n = n + 1
         end
-        return n
+        return got ~= nil and handle(got) or nil
     end
+    local hook = nil                                          -- { flag = address, thread = id }
+    -- Puts the filter on a thread of this process, once. -> true, or nil and why not
+    function a.hook_install(thread)
+        if hook then
+            if hook.thread == thread then return true end
+            return nil, 'the filter is on another thread'
+        end
+        local code_at, flag_at = own_memory(), own_memory()
+        if not code_at or not flag_at then return nil, 'no memory' end
+        local code = a.hook_code(flag_at, handle(call_next))
+        code = code .. string.rep('\xCC', (4 - #code % 4) % 4)
+        for i = 1, #code, 4 do
+            local b1, b2, b3, b4 = code:byte(i, i + 3)
+            if not a.write_u32(code_at + i - 1, b1 + b2 * 256 + b3 * 65536 + b4 * 16777216) then
+                return nil, 'the code could not be written'
+            end
+        end
+        if not a.write_u32(flag_at, 0) then return nil, 'the flag could not be written' end
+        if not a.protect(code_at, 0x20) then return nil, 'the code could not be made executable' end   -- execute + read
+        local got = set_hook(3, ffi.cast(void, code_at), nil, thread)                                   -- WH_GETMESSAGE
+        if got == nil then return nil, 'Windows refused the hook (error ' .. tostring(get_last_error()) .. ')' end
+        hook = { flag = flag_at, thread = thread, code = code_at }
+        return true, code_at
+    end
+    -- while on, the filter drops the key messages; off, it passes everything
+    function a.hook_on(on)
+        if not hook then return false end
+        return a.write_u32(hook.flag, on and 1 or 0)
+    end
+    -- Windows' own word on whether a window's thread has stopped taking its messages
+    local is_hung = resolve(U, 'IsHungAppWindow', 'int (*)(void *)')
+    function a.window_hung(window) return is_hung(ffi.cast(void, window)) ~= 0 end
 
     return a
 end
@@ -2922,7 +2962,19 @@ local function menu_settings_save()
     for _, a in ipairs(MENU_ACTIONS) do
         if menu.bind[a[1]] then lines[#lines + 1] = 'key.' .. a[1] .. ' = ' .. menu.bind[a[1]] end
     end
-    write_file(SETTINGS_FILE, table.concat(lines, '\r\n') .. '\r\n')
+    -- Seen in game (v1.1.15): of two writes in one frame the second did not arrive (a file written a moment
+    -- ago can refuse to be opened), and the mark of a try stayed in the file. A write that fails is noted,
+    -- and tried again from menu_tick until it works.
+    local dir = ensure_out_dir()
+    local handle = dir and io.open(dir .. '\\' .. SETTINGS_FILE, 'wb')
+    if not handle then
+        menu.settings_unsaved = true
+        return false
+    end
+    handle:write(table.concat(lines, '\r\n') .. '\r\n')
+    handle:close()
+    menu.settings_unsaved = nil
+    return true
 end
 local function menu_settings_load()
     local wanted, tried = nil, false
@@ -3309,6 +3361,34 @@ end
 -- The menu asks Windows for the state of a key, which depends on neither.
 --   v1.1.7  the game's window belongs to another thread than the one this runs on (seen in the log of
 --           v1.1.6); the focus is moved from here all the same, see menu.block_keys.
+--   v1.1.17 the focus is not touched any more. Seen in game with v1.1.16: giving it to the helper window
+--           made the game stop answering in that very call (the game's window is "not active" then, and
+--           its thread and this one wait for each other). Every way of moving the focus has now either
+--           let keys through or stopped the game. The keys are instead dropped where the game's window
+--           thread takes them off its queue, by a message filter that runs on that thread (a.hook_code).
+--           Nothing about focus, activation or Alt+Tab changes. Decided with the user, who was told
+--           that it is machine code put into the game's process and that the anti-cheat's view of it is
+--           not known.
+--   v1.1.15 the focus goes to the helper window Windows itself made for the game's window thread (class
+--           "IME"), enabled for as long. Seen in game with v1.1.14 (focus on no window): no hang on
+--           Alt+Tab any more, but a sound on every key and Backspace still opened the game's menu:
+--           Windows sends the keys to the active window as "system key" messages then. With the focus on
+--           the helper the game's window sees neither kind (tried on a test window, build/an_focus6.py),
+--           and the helper is the window thread's own, so nothing waits for this thread.
+--   v1.1.14 no window of ours any more. Seen in game (v1.1.13): Alt+Tab with the menu open, and the game
+--           stopped answering; watch.txt was last written with the game still in front. When the game is
+--           switched away from, its window thread tells the window that has the focus and waits for the
+--           answer; that window was ours, on this thread, and this thread was not running then. Now the
+--           focus is set to no window at all: the game's window gets no key messages (Windows sends the
+--           keys to the active window as "system key" messages instead; whether the game reads those is
+--           the open question), and nothing of ours takes part in what Windows does on a switch.
+--   v1.1.13 users of v1.1.12 reported the game stopping to answer: when one switches to another window
+--           with the menu open, when a value is changed. On the tester's computer Windows recorded the
+--           game as "stopped interacting" six times, all after v1.1.7. Not reproduced on a test window
+--           (build/an_focus3.py). A window of ours that has the focus makes the game's window thread
+--           send messages to this thread and wait for them, and this thread sends to that one when it
+--           moves the focus: two threads that can wait for each other. So the focus is now held with
+--           care, see menu.block_watch, and watch.txt says once a second what the state is.
 -- settings.txt carries a mark while the first try of a session runs: when the game closed during it,
 -- the next start leaves the blocking off.
 function menu.block_mouse(on)
@@ -3346,29 +3426,34 @@ function menu.block_mouse(on)
 end
 function menu.block_keys(on)
     if on then
-        local window, same_thread = A.game_window()
+        local window, same_thread, thread = A.game_window()
         if not window then return false end
         if not menu.window_logged then
             menu.window_logged = true
             log('menu: the game window ' .. hex(window) .. ' belongs to ' .. (same_thread and 'this thread' or 'another thread'))
         end
-        -- v1.1.6 switched the window to "disabled" when it belonged to another thread. Seen in game: the
-        -- keys still came through (a window keeps the focus it has when it is disabled). A child window
-        -- made from this thread shares the input state with its parent's thread, so the focus can be
-        -- given to it from here; its messages are taken off this thread's queue every frame.
-        menu_step('CreateWindowExA / SetFocus (keyboard focus to a window of our own)')
-        if not A.focus_take(window) then
-            log('menu: the keyboard focus could not be moved')
-            A.focus_give_back(window)
+        menu_step('SetWindowsHookExA (a message filter on the game window thread)')
+        local ok, where = A.hook_install(thread)
+        if not ok then
+            log('menu: the message filter could not be installed: ' .. tostring(where))
             return false
         end
-        menu.keys_blocked = { window = window, how = same_thread and 'focus' or 'focus, from another thread' }
+        if type(where) == 'number' then log('menu: message filter installed, code at ' .. hex(where)) end
+        if not A.hook_on(true) then return false end
+        menu.keys_blocked = { window = window, thread = thread, how = 'message filter' }
         return true
     elseif menu.keys_blocked then
-        local blocked = menu.keys_blocked
         menu.keys_blocked = nil
-        A.focus_give_back(blocked.window)
+        A.hook_on(false)
     end
+end
+-- Once a second while the keys are blocked: what a later look at a game that stopped answering needs.
+function menu.block_watch(now)
+    local b = menu.keys_blocked
+    if not b or (b.noted and now - b.noted < 1) then return end
+    b.noted = now
+    write_file('watch.txt', string.format('frame %d\r\nfilter on\r\nin front %s\r\nwindow answers %s\r\nmode %s\r\n',
+        state.frame, tostring(A.game_in_front()), tostring(not A.window_hung(b.window)), tostring(menu.mode)))
 end
 local function menu_block_game(on)
     if on and not menu.blocked then
@@ -4064,6 +4149,10 @@ end
 local function menu_tick()
     if not menu.loaded then pcall(menu_load) end
     local now = A.now()
+    if menu.settings_unsaved and now - (menu.settings_tried or 0) > 0.5 then
+        menu.settings_tried = now
+        pcall(menu_settings_save)
+    end
     local down = A.key_down(KEY_VK[menu_bound('toggle')] or config.menu_vk)
     local toggled = down and not menu.toggle_down
     menu.toggle_down = down
@@ -4084,10 +4173,7 @@ local function menu_tick()
         end
     end
     -- (only ever set while the menu is open)
-    if menu.keys_blocked then
-        A.focus_pump()
-        if A.game_in_front() then A.focus_keep() end
-    end
+    if menu.keys_blocked then menu.block_watch(now) end
     if not menu.open then return end
     local ok, why = pcall(function()
         menu_input(now)
@@ -4190,6 +4276,8 @@ state.api = {
     end,
     reload = request_reload,
     verdict = function() return state.verdict end,
+    close_menu = function() if menu.open then menu_close(A.now()) end end,
+    hook_code = function(flag, next_hook) return A.hook_code(flag, next_hook) end,
 }
 
 -- ---------------------------------------------------------------- startup

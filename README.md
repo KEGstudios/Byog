@@ -6,7 +6,7 @@ A Helldivers 2 mod that lets you change the numbers of the game from inside the 
 penetration, fire rate, recoil, magazines, explosions, stratagem cooldowns, sentry lifetime, backpack
 charges, shield and vehicle health, and more. Every value is set on its own, for one item at a time.
 
-Download: [`dist/BYOG-v1.1.12.zip`](dist/BYOG-v1.1.12.zip)
+Download: [`dist/BYOG-v1.1.17.zip`](dist/BYOG-v1.1.17.zip)
 
 ## What you need
 
@@ -16,7 +16,7 @@ Download: [`dist/BYOG-v1.1.12.zip`](dist/BYOG-v1.1.12.zip)
 
 ## Install
 
-1. Add `BYOG-v1.1.12.zip` to your mod manager, enable it, deploy.
+1. Add `BYOG-v1.1.17.zip` to your mod manager, enable it, deploy.
 2. Start the game. Press **F9**.
 
 To remove it: disable the mod in the manager. Your settings stay in `%LOCALAPPDATA%\BYOG`; delete that
@@ -54,8 +54,10 @@ so it can be given to someone else: put the file into that folder and it shows u
 v1.0 kept in `menu.txt` becomes the preset "Default" at the first start.
 
 **Block game input** (Keys page, on by default). While the menu is open the game gets no key presses
-and no mouse: only the menu works. Closing the menu gives
-the game its input back. It can be switched off on the Keys page.
+and no mouse: only the menu works. It is done by a small message filter that the mod puts on the game's
+window thread (a Windows hook, 68 bytes of code inside the game's process) and by taking the game's mouse
+registration away for as long. If you would rather not have that, switch it off on the Keys page: the
+game then reads your keys while the menu is open, as it did in v1.0.
 
 **Language.** English and Simplified Chinese (menu texts and the names of the values; items keep their
 English names). Chinese is drawn with the game's own font for it, which the game only has loaded when the

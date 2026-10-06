@@ -567,28 +567,42 @@ F['user32.dll'] = {
         return py.raw_set(ffi.string(devices, tonumber(n) * 16)) and 1 or 0
     end,
     -- windows: the game's is 0x777; which window has the keyboard focus lives in Python
-    GetFocus = function() return ffi.cast('void *', py.focus()) end,
     SetFocus = function(window) pointer(window, 'window'); return ffi.cast('void *', py.set_focus(address_of(window))) end,
-    CreateWindowExA = function(ex, class, title, style, x, y, w, h, parent, menu, instance, param)
+    AttachThreadInput = function(from, to, on) return py.attach(tonumber(from), tonumber(to), on ~= 0) and 1 or 0 end,
+    GetGUIThreadInfo = function(thread, info)
+        pointer(info, 'info')
+        if ffi.cast('uint32_t *', info)[0] ~= 72 or tonumber(thread) ~= py.window_thread() then return 0 end
+        local handles = ffi.cast('uint64_t *', info)
+        handles[1], handles[2] = 0x777, py.focus()
+        return 1
+    end,
+    FindWindowExA = function(parent, after, class, title)
         pointer(parent, 'parent')
-        if text(class, 'class') ~= 'STATIC' or tonumber(style) ~= 0x50000000 or address_of(parent) ~= 0x777 then
-            return ffi.cast('void *', 0)
-        end
-        return ffi.cast('void *', py.new_window())
+        if address_of(parent) == 0 and after == nil then return ffi.cast('void *', 0x777) end
+        return ffi.cast('void *', 0)
     end,
-    DestroyWindow = function(window) pointer(window, 'window'); py.destroy_window(address_of(window)); return 1 end,
-    IsWindow = function(window) pointer(window, 'window'); return py.is_window(address_of(window)) and 1 or 0 end,
-    -- the messages waiting for our window: counted in Python
-    PeekMessageA = function(message, window, first, last, remove)
-        pointer(message, 'message'); pointer(window, 'window')
-        if tonumber(remove) ~= 1 or not py.is_window(address_of(window)) then return 0 end
-        return py.take_message() and 1 or 0
+    GetClassNameA = function(window, buffer, size) pointer(window, 'window'); ffi.copy(buffer, 'GameWindow'); return 10 end,
+    IsHungAppWindow = function(window) pointer(window, 'window'); return py.hung() and 1 or 0 end,
+    SetWindowsHookExA = function(kind, proc, module, thread)
+        pointer(proc, 'proc')
+        if module ~= nil then error('a hook inside the own process takes no module', 2) end
+        return ffi.cast('void *', py.hook(tonumber(kind), address_of(proc), tonumber(thread)) and 0xABC or 0)
     end,
-    DispatchMessageA = function(message) pointer(message, 'message'); return 0 end,
+    -- (never called from Lua: only its address is used, in the code of the filter)
+    CallNextHookEx = ffi.cast('void *', 0x7FFB12345678),
+    EnableWindow = function(window, on) pointer(window, 'window'); py.enable(address_of(window), on ~= 0); return 0 end,
+    IsWindowEnabled = function(window) pointer(window, 'window'); return py.enabled(address_of(window)) and 1 or 0 end,
     GetWindowThreadProcessId = function(window, id)
         pointer(window, 'window'); pointer(id, 'id')
-        id[0] = address_of(window) == 0x777 and 4242 or 1
+        id[0] = (address_of(window) == 0x777 or address_of(window) == 0x555) and 4242 or 1
         return py.window_thread()
+    end,
+}
+F['imm32.dll'] = {
+    -- the helper window of the thread a window belongs to: 0x555 for the game's
+    ImmGetDefaultIMEWnd = function(window)
+        pointer(window, 'window')
+        return ffi.cast('void *', (address_of(window) == 0x777 and py.has_helper()) and 0x555 or 0)
     end,
 }
 F['bcrypt.dll'] = {
@@ -653,8 +667,10 @@ class Game:
             f.write(info.get("dll_bytes", b""))
         self.config_suffix = config_suffix
         self.raw, self.raw_fails, self.raw_calls = list(self.RAW_AT_START), False, 0
-        self.focus, self.windows, self.window_enabled, self.window_thread = 0x777, set(), True, 77
-        self.queued = 0                                   # messages waiting for a window of ours
+        self.focus, self.window_thread, self.attached, self.attach_calls = 0x777, 77, False, 0
+        self.window_hung, self.focus_calls, self.sent_to_hung = False, 0, 0
+        self.helper_enabled, self.has_helper = False, True
+        self.hooks, self.hook_refused = [], False
         if config is not None:
             self.write_config(config)
         self.working_set_fails = working_set_fails
@@ -669,8 +685,10 @@ class Game:
             b"region_info_unsupported": lambda: not self.region_info,
             b"working_set_fails": lambda: self.working_set_fails,
             b"mkdir": self._mkdir, b"find": self._find, b"raw_get": self._raw_get, b"raw_set": self._raw_set, b"focus": self._focus,
-            b"set_focus": self._set_focus, b"new_window": self._new_window, b"destroy_window": self._destroy_window,
-            b"is_window": self._is_window, b"take_message": self._take_message, b"window_thread": lambda: self.window_thread, b"clock": self._clock, b"module": self._module,
+            b"set_focus": self._set_focus, b"attach": self._attach, b"hung": lambda: self.window_hung,
+            b"enable": self._enable, b"enabled": lambda window: int(window) != 0x555 or self.helper_enabled,
+            b"has_helper": lambda: self.has_helper,
+            b"hook": self._hook, b"window_thread": lambda: self.window_thread, b"clock": self._clock, b"module": self._module,
             b"module_path": self._module_path, b"file_open": self._file_open,
             b"file_size": self._file_size, b"file_read": self._file_read, b"file_close": self._file_close,
             b"sha_new": self._sha_new, b"sha_update": self._sha_update, b"sha_digest": self._sha_digest,
@@ -753,34 +771,48 @@ class Game:
         self.raw_calls += 1
         return True
 
-    # the keyboard focus: the game acts on a key when its window (0x777) has it and is enabled
+    # the keyboard focus: the game's window (0x777) gets key messages while it has it
     def _focus(self):
         return self.focus
 
+    def _attach(self, source, target, on):
+        assert source == 77 and target == self.window_thread
+        self.attached = bool(on)
+        self.attach_calls += 1
+        return True
+
     def _set_focus(self, window):
+        # from another thread the call only reaches the window's thread while attached to it; and the
+        # caller waits for a window thread that is stuck (counted)
+        if self.window_thread != 77 and not self.attached:
+            return 0
+        if self.window_hung:
+            self.sent_to_hung += 1
+        self.focus_calls += 1
+        if int(window) == 0x555 and not self.helper_enabled:
+            return 0                                      # a disabled window does not take the focus
         old, self.focus = self.focus, int(window)
         return old
 
-    def _new_window(self):
-        self.windows.add(0x900 + len(self.windows))
-        return max(self.windows)
+    def _enable(self, window, on):
+        assert int(window) == 0x555, "only the helper window is ever enabled or disabled"
+        if self.window_hung:
+            self.sent_to_hung += 1
+        self.helper_enabled = bool(on)
 
-    def _destroy_window(self, window):
-        self.windows.discard(int(window))
-        if self.focus == int(window):
-            self.focus = 0
-
-    def _is_window(self, window):
-        return int(window) in self.windows
-
-    def _take_message(self):
-        if self.queued <= 0:
+    def _hook(self, kind, address, thread):
+        if self.hook_refused:
             return False
-        self.queued -= 1
+        self.hooks.append((kind, address, thread))
         return True
 
+    def filter_flag(self):
+        """The address of the byte the installed filter looks at (it is in its code, at +6)."""
+        return self.memory.peek(self.hooks[0][1] + 6, "<Q")
+
     def game_gets_keys(self):
-        return self.focus == 0x777 and self.window_enabled
+        """The game's window gets key messages unless a filter is installed and switched on."""
+        return not self.hooks or self.memory.peek(self.filter_flag(), "<B") == 0
 
     def _find(self, pattern):
         import glob
