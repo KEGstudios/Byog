@@ -1,0 +1,163 @@
+# The game's own names of armor passives (by the number of the passive) and of body armors (by kit id).
+# Names only, as facts about the game: the passive names as the game shows them, the armor names as
+# FileDiver's armor-set dumper reads them from the game's files. Both lists were read from the data
+# files of Super Earth Armory Forge (reference/, commit 461b42e); no code and no description of it is used.
+# passive|<number>|<name>      kit|<id, 8 hex digits>|<name>
+passive|1|Extra Padding
+passive|2|Scout
+passive|3|Fortified
+passive|5|Electrical Conduit
+passive|6|Engineering Kit
+passive|7|Med-Kit
+passive|8|Servo-Assisted
+passive|9|Democracy Protects
+passive|10|Reinforced Epaulettes
+passive|11|Inflammable
+passive|12|Peak Physique
+passive|13|Advanced Filtration
+passive|14|Unflinching
+passive|15|Acclimated
+passive|16|Siege-Ready
+passive|17|Integrated Explosives
+passive|18|Gunslinger
+passive|19|Adreno-Defibrillator
+passive|20|Ballistic Padding
+passive|21|Desert Stormer
+passive|31|Feet First
+passive|32|Reduced Signature
+passive|33|Rock-Solid
+passive|34|Supplemental Adrenaline
+passive|35|Concussive Padding, Reinforced
+passive|36|Concussive Padding, Grenadier
+passive|37|Concussive Padding, Hazmat
+passive|38|Oxygenator
+passive|39|Kinetic Displacement Mitigation
+passive|40|Blunt-Force Mitigation
+passive|41|True Grit
+kit|01C2A674|AD-26 Bleeding Edge
+kit|05E56EE5|SR-24 Street Scout
+kit|076D9AAD|FS-05 Marksman
+kit|09B08EC4|BP-32 Jackboot
+kit|0A18C237|AD-49 Apollonian
+kit|0ADE6719|DS-191 Scorpion
+kit|0B5CD386|CW-36 Winter Warrior
+kit|100A5DCD|AF-91 Field Chemist
+kit|1369B95B|B-01 Tactical
+kit|14209E3A|SC-37 Legionnaire
+kit|16E1B9D3|A-9 Helljumper
+kit|16EEB860|GS-17 Frontier Marshal
+kit|1B8329AB|KDM-73 Dragoon
+kit|1C089A28|TR-40 Gold Eagle
+kit|1C6C05FA|CM-09 Bonesnapper
+kit|1D0E3431|B-01 Tactical
+kit|1D20D6EE|B-08 Light Gunner
+kit|1D60FC90|SC-30 Trailblazer Scout
+kit|1E28F118|KDM-763 Pacesetter
+kit|1F9BFA78|FS-37 Ravager
+kit|20A85CC1|FS-38 Eradicator
+kit|223A3B4B|I-44 Salamander
+kit|23D0E15C|PH-56 Jaguar
+kit|242702A5|CPH-26 Commandant
+kit|24E3D6BA|EX-03 Prototype 3
+kit|250FD6C1|B-01 Tactical
+kit|2521D401|UF-84 Doubt Killer
+kit|26BF31FE|CE-74 Breaker
+kit|26D572A4|FS-23 Battle Master
+kit|2D1DD830|I-09 Heatseeker
+kit|2E706DB8|O-2 Heavy Operator
+kit|30E54B57|RE-2310 Honorary Guard
+kit|3412F5E4|BFM-77 Reformer
+kit|38AA207D|CM-14 Physician
+kit|3C3EBAF0|SA-32 Dynamo
+kit|3F1BEC1A|DP-00 Tactical
+kit|407AB98A|GS-11 Democracy's Deputy
+kit|40C6635C|BP-20 Correct Officer
+kit|4A545F06|DS-42 Federation's Blade
+kit|4DD749C6|RS-100 Sanctioner
+kit|4F7FB2BD|B-01 Tactical
+kit|5096BCE9|SR-64 Cinderblock
+kit|537E8E45|FS-61 Dreadnought
+kit|55FD699B|AC-2 Obedient
+kit|5662C173|I-102 Draconaught
+kit|58DBDACD|FS-05 Marksman
+kit|5A17D6D6|CE-07 Demolition Specialist
+kit|5BB4BBB0|SC-34 Infiltrator
+kit|5CC09255|AF-50 Noxious Ranger
+kit|5D0D8002|TG-8 Sharpshooter
+kit|5F075DC5|CPG-48 Sapper
+kit|61B31723|B-01 Tactical
+kit|6351A9AA|B-01 Tactical
+kit|674671A0|CE-64 Grenadier
+kit|69BC2D4A|CW-22 Kodiak
+kit|6D30F386|B-01 Tactical
+kit|708451E9|B-01 Tactical
+kit|72B472A7|PH-9 Predator
+kit|7346EDC6|TR-62 Knight
+kit|756159E4|SC-30 Trailblazer Scout
+kit|77947ADD|FS-11 Executioner
+kit|7A07031F|CM-10 Clinician
+kit|7D96D0C6|CM-09 Bonesnapper
+kit|7EDF6505|CE-27 Ground Breaker
+kit|803276CE|B-24 Enforcer
+kit|8A957897|TR-7 Ambassador of the Brand
+kit|8B9ED77D|B-24 Enforcer
+kit|8BD85DD2|FS-34 Exterminator
+kit|8C6AE37C|BFM-16 Tanker
+kit|8C83C789|I-92 Fire Fighter
+kit|940716D6|TR-9 Cavalier of Democracy
+kit|95903ADF|CM-17 Butcher
+kit|97CF0A8A|CE-81 Juggernaut
+kit|98E86082|RS-6 Fiend Destroyer
+kit|9C0BBE91|CPR-80 Bulwark
+kit|9F73133E|TR-117 Alpha Commander
+kit|9FA96490|IE-12 Righteous
+kit|A45385CD|TG-122 Demo-Trooper
+kit|A9A71FE7|DP-8 Mountain-Scaled
+kit|AA32B384|EX-16 Prototype 16
+kit|AC0ADECD|B-24 Enforcer
+kit|AC4235B3|AC-1 Dutiful
+kit|AE5978B1|KDM-500 Outrider
+kit|AED67D10|RS-89 Shadow Paragon
+kit|B028B970|IE-3 Martyr
+kit|B08E0939|B-16 Battle-Scarred Veteran
+kit|B3550D20|UF-50 Bloodhound
+kit|B3DEB5D9|CW-9 White Wolf
+kit|B482B460|GS-66 Lawmaker
+kit|B513FD54|DP-40 Hero of the Federation
+kit|B661572A|UF-16 Inspector
+kit|B69DF10D|SA-8 Ram
+kit|B92E1781|CW-4 Arctic Ranger
+kit|BC5CF836|O-44 Bonded Pilot
+kit|C60C706D|DS-10 Big Game Hunter
+kit|C71DBBA4|RE-1861 Parade Commander
+kit|C7A5782F|SA-7 Headfirst
+kit|C9D2AD39|SA-04 Combat Technician
+kit|CA092176|RS-67 Null Cipher
+kit|CB7E9736|B-22 Model Citizen
+kit|D2C578E1|B-27 Fortified Commando
+kit|D3461392|FS-55 Devastator
+kit|D52BB413|CM-21 Trench Paramedic
+kit|D59566D5|B-01 Tactical
+kit|D63FFDD3|SR-18 Roadblock
+kit|D7B2FD5D|EX-00 Prototype X
+kit|D879973A|A-35 Recon
+kit|DAE4A744|SA-25 Steel Trooper
+kit|DBC21A99|RS-40 Beast of Prey
+kit|DE631A28|PH-202 Twigsnapper
+kit|DEE800A8|CE-101 Guerilla Gorilla
+kit|E1D53693|IE-57 Hell-Bent
+kit|E3AAA79D|DP-11 Champion of the People
+kit|E9ADD047|AF-02 Haz-Master
+kit|EC4638AF|RS-20 Constrictor
+kit|ECABADBF|FS-05 Marksman
+kit|F2B7D3F5|SA-12 Servo-Assisted
+kit|F34064AC|CE-67 Titan
+kit|F4598295|BP-77 Grand Juror
+kit|F57D61CE|SC-15 Drone Master
+kit|F6303500|AF-52 Lockdown
+kit|F7E6F127|O-3 Free Spirit
+kit|F8B8CF9B|BFM-220 Ironclad
+kit|F8FADB6C|AD-11 Livewire
+kit|FB4B1254|CE-35 Trench Engineer
+kit|FD456DE0|DP-53 Savior of the Free
+kit|FDE8F657|RE-824 Bearer of the Standard

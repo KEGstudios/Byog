@@ -26,7 +26,8 @@ import hd2db  # noqa: E402
 from hashnames import murmur64a  # noqa: E402
 
 BUDGET_US, STEP_SLACK_US = 1000, 250
-SHARED_ROWS = "\n[settings]\nown_rows = off\n"
+SHARED_ROWS = "\n[settings]\nown_rows = off\nmenu_sections = open\n"   # (and the menu's headings start open)
+OPEN_SECTIONS = "\n[settings]\nmenu_sections = open\n"
 F10 = 0x79
 
 
@@ -59,7 +60,7 @@ def real_source(info):
 class Rig:
     """A fake game with the tuner loaded, plus the addresses the tests care about."""
 
-    def __init__(self, config, mutate=None, world=None, wrong_build=False, auto=False, **game):
+    def __init__(self, config, mutate=None, world=None, wrong_build=False, auto=False, closed=False, **game):
         """auto=False: the config gets `own_rows = off` appended, so that values go to the rows the weapons
         share (what the engine tests are about). auto=True: the config is used as written."""
         self.mem, self.info = harness.build_world(second_copy=False, **(world or {}))
@@ -72,7 +73,7 @@ class Rig:
             source = source.replace(old, new)
         self.game = harness.Game(source, self.mem, self.info, global_name="BYOG",
                                  log_name="byog.log", config=config,
-                                 config_suffix="" if auto else SHARED_ROWS, **game)
+                                 config_suffix=("" if closed else OPEN_SECTIONS) if auto else SHARED_ROWS, **game)
         self.blocks = self.info["blocks"]
 
     def close(self):
@@ -447,9 +448,9 @@ def check_api(mutate=None):
     try:
         rig.settle()
         api = rig.game.state()[b"api"]
-        assert sorted(x for x in api[b"categories"]().values()) == [b"backpack", b"shield", b"status", b"stratagem", b"stratagem_weapon", b"throwable", b"vehicle", b"weapon"]
+        assert sorted(x for x in api[b"categories"]().values()) == [b"armor", b"armor_passive", b"attachment", b"backpack", b"enemy_weapon", b"shield", b"status", b"stratagem", b"stratagem_weapon", b"throwable", b"unknown_weapon", b"vehicle", b"weapon"]
         stats = {s[b"id"]: s for s in api[b"stats"](b"weapon", b"assault_rifle").values()}
-        assert stats[b"damage"][b"game"] == 90 and stats[b"damage"][b"shared_with"] == 3
+        assert stats[b"damage"][b"game"] == 90 and stats[b"damage"][b"shared_with"] == 6
         assert stats[b"capacity"][b"editable"] is False
         api[b"set"](b"weapon", b"assault_rifle", b"damage", b"150")
         rig.game.frames(300)
@@ -467,7 +468,7 @@ def check_catalog_and_template(mutate=None):
         rig.settle()
         catalog = rig.game.read_out("catalog.txt")
         assert "[weapon: assault_rifle]" in catalog
-        assert "  damage = 90   (0 .. 100000, whole numbers)   # shared with 3 other" in catalog, catalog[:600]
+        assert "  damage = 90   (0 .. 100000, whole numbers)   # shared with 6 other" in catalog, catalog[:600]
         assert "  capacity = 45   (1 .. 9999, whole numbers)   # value of the default attachment: another " \
                "attachment on the weapon replaces it; shared with 2 other" in catalog
         template = rig.game.read_out("config.txt")
@@ -779,6 +780,31 @@ def check_new_projectile_id_only_on_a_verified_build(mutate=None):
         rig.settle()
         rig.game.frames(300)
         assert rig.mem.allocs == [] and rig.mem.writes == []
+    finally:
+        rig.close()
+
+
+def check_a_round_loaded_weapon_is_switched_where_it_takes_its_round_from(mutate=None):
+    # seen in game (v1.1.17): the P-4 Senator got rows of its own, the status said so, and nothing changed. A
+    # weapon that is loaded round by round fires what its ROUNDS record names; that still named the old row.
+    senator = int(catalog_stat("revolver_pistol", "damage")[0]["entity"], 16)
+    veto = int(catalog_stat("pistol_broomhandle", "damage")[0]["entity"], 16)
+    rig = Rig("[weapon: revolver_pistol]\ndamage = 230\n[weapon: pistol_broomhandle]\ndamage = 110\n", mutate, auto=True)
+    try:
+        index = add_game_index(rig)
+        status = rig.settle()
+        assert first_line(status) == "OK - 2 values applied, 2 weapons on their own bullet", status[:1800]
+        for ent, stock, wanted in ((senator, 309, 230), (veto, 237, 110)):
+            in_rounds = rig.mem.peek(rig.keyed_field("WeaponRoundsComponentData", ent, 64), "<I")
+            in_weapon = rig.mem.peek(rig.keyed_field("ProjectileWeaponComponentData", ent, 0), "<I")
+            assert in_rounds == in_weapon and in_rounds > INDEX_SLOTS and in_rounds != stock, (in_rounds, in_weapon)
+            row = rig.mem.peek(index["ProjectileSettings"] + 8 * in_rounds, "<Q")
+            damage_row = rig.mem.peek(index["DamageSettings"] + 8 * rig.mem.peek(row + 60, "<I"), "<Q")
+            assert rig.mem.peek(damage_row + 4, "<i") == wanted
+        # and taken back: the rounds record names the game's row again
+        status = rig.reload("")
+        assert rig.mem.peek(rig.keyed_field("WeaponRoundsComponentData", senator, 64), "<I") == 309, status[:900]
+        assert rig.mem.peek(rig.keyed_field("WeaponRoundsComponentData", veto, 64), "<I") == 237
     finally:
         rig.close()
 
@@ -1331,7 +1357,7 @@ def check_menu_changes_a_value_and_remembers_it(mutate=None):
         rig.game.press(TAB)
         # the values come in groups under headings: damage first, then what the hit applies, then the round ...
         text, _rects = drawn(rig)
-        order = [text.index("\n" + heading + "\n") for heading in ("DAMAGE", "STATUS EFFECTS")]
+        order = [text.index("\n[-] " + heading + "\n") for heading in ("DAMAGE", "STATUS EFFECTS")]
         assert order == sorted(order) and text.index("\nDamage\n") < text.index("\nStatus effect 1: type\n"), text[:900]
         assert "\nArmor penetration, direct hit\n" in text and "\nap_direct\n" not in text   # by a readable name
         assert "ap_bonus   (name in config.txt)" in text               # and the name config.txt takes, under the list
@@ -1344,10 +1370,13 @@ def check_menu_changes_a_value_and_remembers_it(mutate=None):
                  or s.startswith("status")]
         for _ in ahead:                                                # walk down to the first value under FIRE
             rig.game.press(DOWN)
+        text = shown(rig)                                              # (the row before it: what the weapon explodes like)
+        assert "\n[-] EXPLOSION\n" in text and "\nExplodes like\n" in text and "\nits own\n" in text, text[:900]
+        rig.game.press(DOWN)
         drawn(rig)
         rig.game.frames(2)
         text, _rects = drawn(rig)
-        assert "\nFIRE\n" in text and "\nFire rate (rpm)\n" in text and "\nAMMO\n" in text, text[:900]
+        assert "\n[-] FIRE\n" in text and "\nFire rate (rpm)\n" in text and "\n[-] AMMO\n" in text, text[:900]
         assert "rpm   (name in config.txt)" in text
         rig.game.press(RIGHT)
         rig.game.frames(40)                                            # quiet for a moment: handed to the engine
@@ -1421,6 +1450,7 @@ def check_menu_stays_inside_the_range(mutate=None):
         stats = [s["id"] for s in catalog_stat("assault_rifle", "rpm")[0]["stats"] if s["id"] != "mode"]
         for _ in range(sum(1 for s in stats if s != "rpm" and (s.startswith("status") or s in MENU_BEFORE_FIRE))):
             rig.game.press(DOWN)
+        rig.game.press(DOWN)                                           # (the row "explodes like")
         rig.game.press(RIGHT)                                          # 5999 + 10 would leave 1 .. 6000
         rig.game.frames(40)
         assert rig.mem.peek(rig.rpm, "<f") == 6000.0 and "REJECTED" not in rig.game.status()
@@ -1443,7 +1473,7 @@ def check_menu_search_finds_items_of_every_category(mutate=None):
         rig.game.frames(2)
         text, _rects = drawn(rig)
         assert "search: sentry_" in text, text[:400]
-        assert "Machine Gun Sentry (gun)  [strat. weapon]" in text and "Gatling Sentry (gun)" in text, text[:900]
+        assert "A/G-16 Gatling Sentry  [strat. weapon]" in text and "A/MG-43 Machine Gun Sent" in text, text[:900]
         assert "AR-23 Liberator" not in text                           # the weapon tab is no longer what is listed
         rig.game.press(BACKSPACE)
         assert "search: sentr_" in shown(rig)
@@ -1455,7 +1485,7 @@ def check_menu_search_finds_items_of_every_category(mutate=None):
         rig.game.press(TAB)
         rig.game.press(END)                                            # drops the search
         text = shown(rig)
-        assert "press INSERT / F3 to search" in text and "AR-23 Liberator" in text
+        assert "press ENTER / F3 to search" in text and "AR-23 Liberator" in text
     finally:
         rig.close()
 
@@ -1487,7 +1517,7 @@ def check_more_ammunition_than_a_resupply_fills_is_said(mutate=None):
         rig.close()
 
 
-F3, F6, F7, INSERT, END, BACKSPACE = 0x72, 0x75, 0x76, 0x2D, 0x23, 0x08
+F3, F6, F7, INSERT, END, BACKSPACE, ENTER, ESCAPE = 0x72, 0x75, 0x76, 0x2D, 0x23, 0x08, 0x0D, 0x1B
 
 
 def typed(rig, keys):
@@ -1510,11 +1540,16 @@ def check_keys_go_to_the_box_only(mutate=None):
         rig.game.press(F9)
         typed(rig, b"S")                                               # a letter alone does nothing any more
         text = shown(rig)
-        assert "search: " not in text and "press INSERT / F3 to search" in text, text[:400]
+        assert "search: " not in text and "press ENTER / F3 to search" in text, text[:400]
         rig.game.press(INSERT)                                         # seen in game: this is what testers press
         typed(rig, b"S")
         assert "search: s_" in shown(rig)
         rig.game.press(END)
+        assert "search: " not in shown(rig)
+        rig.game.press(ENTER)                                          # the same with the keys every keyboard has
+        typed(rig, b"S")
+        assert "search: s_" in shown(rig)
+        rig.game.press(ESCAPE)
         assert "search: " not in shown(rig)
         rig.game.press(F3)                                             # and the search key itself
         typed(rig, b"S")
@@ -1529,6 +1564,98 @@ def check_keys_go_to_the_box_only(mutate=None):
         assert "G-4 Gas" in text, text[:1500]
         assert not os.path.exists(rig.game.out_path("presets/Default.txt")) or \
             "=" not in rig.game.read_out("presets/Default.txt")        # and no value was changed on the way
+    finally:
+        rig.close()
+
+
+def check_explodes_like_is_a_row_of_the_menu(mutate=None):
+    rig = Rig("", mutate, auto=True)
+    try:
+        index = add_game_index(rig)
+        rig.settle()
+        rig.game.lua.execute(FAKE_ENGINE)
+        rig.game.press(F9)
+        catalog_stat("assault_rifle", "rpm")
+        for _ in range(menu_order("primary", "secondary", "support", "melee").index("assault_rifle")):
+            rig.game.press(DOWN)
+        rig.game.press(TAB)
+        stats = [s["id"] for s in catalog_stat("assault_rifle", "rpm")[0]["stats"] if s["id"] != "mode"]
+        for _ in range(sum(1 for s in stats if s.startswith("status") or s in MENU_BEFORE_FIRE)):
+            rig.game.press(DOWN)                                       # the row after damage, status and projectile
+        text = shown(rig)
+        assert "blast_from   (name in config.txt)" in text and "\nits own\n" in text, text[:900]
+        rig.game.press(RIGHT)                                          # the first item that explodes, by name
+        rig.game.frames(60)
+        saved = rig.game.read_out("presets/Default.txt")
+        donor = saved.split("blast_from = ")[1].split()[0]
+        status = rig.game.status()
+        assert "blast_from = " + donor in status and "REJECTED" not in status, status[:1500]
+        # the Liberator's own projectile row now names the explosion of that item
+        donor_blast = next(int(line.split("|")[3]) for line in gen_tuner_data.generate()[0].split("\n")
+                           if line.startswith("B|") and line.split("|")[1] == next(
+                               l.split("|")[1] for l in gen_tuner_data.generate()[0].split("\n")
+                               if l.startswith("I|") and l.split("|")[3] == donor))
+        new_id = rig.mem.peek(rig.keyed_field("ProjectileWeaponComponentData", LIBERATOR, 0), "<I")
+        row = rig.mem.peek(index["ProjectileSettings"] + 8 * new_id, "<Q")
+        assert rig.mem.peek(row + 144, "<I") == donor_blast
+        text = shown(rig)
+        assert "\nits own\n" not in text                              # the menu shows the donor's name instead
+        rig.game.press(LEFT)                                           # back to its own
+        rig.game.frames(60)
+        assert "blast_from" not in rig.game.read_out("presets/Default.txt")
+        rig.game.press(ENTER)                                          # no number can be typed here
+        assert "= _" not in shown(rig)
+    finally:
+        rig.close()
+
+
+def check_the_mouse(mutate=None):
+    rig = Rig("", mutate)
+    try:
+        rig.settle()
+        rig.game.lua.execute(FAKE_ENGINE)
+        rig.game.press(F9)
+        rig.game.frames(2)
+        rig.game.press(0x01)                                           # a click of a mouse that has never moved
+        assert "press ENTER / F3 to search" in shown(rig)              # is nothing: nobody is using it
+        assert rig.game.lua.eval(b"stingray.drawn.top_rect") < 903     # and no pointer is drawn
+        # the pages at the top: Presets is the second one
+        rig.game.click(110, 60)
+        text = shown(rig)
+        assert "+ New preset (empty)" in text, text[:500]
+        assert rig.game.lua.eval(b"stingray.drawn.top_rect") == 904    # and now there is a pointer, above everything
+        rig.game.click(40, 60)                                         # Items
+        assert "press ENTER / F3 to search" in shown(rig)
+        # an item of the list, by clicking it: the fourth row
+        catalog_stat("assault_rifle", "rpm")
+        names = menu_order("primary", "secondary", "support", "melee")
+        rig.game.click(100, 150 + 3 * 26 + 10)
+        text = shown(rig)
+        assert names[3] + "   (name in config.txt)" in text, (names[:5], text[:700])
+        # a value, by clicking its number: the box opens, and what is typed is set
+        rig.game.click(820, 150 + 1 * 26 + 10)                         # (row 0 is the heading, row 1 the first value)
+        assert "\n= _\n" in shown(rig)
+        typed(rig, b"3")
+        rig.game.press(ENTER)
+        rig.game.frames(40)
+        assert " = 3" in rig.game.read_out("presets/Default.txt")
+        # while a box is open a click does nothing
+        rig.game.press(ENTER)
+        rig.game.click(110, 60)
+        assert "+ New preset (empty)" not in shown(rig)
+        rig.game.press(ESCAPE)
+        # another category, by its tab; the search, by its box
+        rig.game.click(170, 100)
+        assert "G-4 Gas" in shown(rig)
+        rig.game.click(100, 130)
+        assert "search: _" in shown(rig)
+        rig.game.press(ESCAPE)
+        # a list page: a click selects a row, a click on the selected row confirms it
+        rig.game.click(300, 60)                                        # Language
+        rig.game.click(100, 150 + 26 + 10)                             # Chinese: selected
+        assert "! no font of the game can draw Chinese" not in shown(rig)   # selected only: not confirmed yet
+        rig.game.click(100, 150 + 26 + 10)                             # and confirmed: this engine has no font for it
+        assert "! no font of the game can draw Chinese" in shown(rig)
     finally:
         rig.close()
 
@@ -1949,10 +2076,207 @@ def check_status_effects_have_a_length(mutate=None):
         rig.game.press(F9)
         rig.game.press(LEFT)                                           # the last category
         text = shown(rig)
-        assert "Status effects 71" in text and "Acid Storm" in text, text[:900]
-        rig.game.press(TAB)
+        assert "Status 48" in text and "Acid" in text and "Acid Storm" not in text, text[:900]
+        rig.game.press(TAB)                                            # the three acids are one row: three drop-downs
         text = shown(rig)
-        assert "Duration (s)" in text and "A status effect has one length" in text, text[:900]
+        assert "[+] SPLASH" in text and "[+] STORM" in text and "Duration (s)" not in text, text[:900]
+        rig.game.press(DOWN)
+        rig.game.press(ENTER)                                          # the second one opens
+        text = shown(rig)
+        assert "[-] STORM" in text and "Duration (s)" in text and "[acid_storm] duration" in text, text[:900]
+        assert "A status effect has one length" in text
+    finally:
+        rig.close()
+
+
+def check_armor(mutate=None):
+    # FS-37 Ravager is the first kit of the game's file: 23 pieces light (0), two of them heavy (2); its
+    # passive is Engineering Kit (6). Med-Kit is the fourth passive block: +2 stims at +64, 2 s at +80.
+    rig = Rig("[armor: fs_37_ravager]\nweight = 1\npassive = 7\n[armor_passive: med_kit]\neffect_extra_stims = 6\n"
+              "[armor: helldiver]\nspeed_sprint = 7\n", mutate)
+    try:
+        status = rig.settle()
+        assert first_line(status) == "OK - 28 values applied", status[:1200]   # the weight: once per piece
+        kit = rig.blocks["HelldiverCustomizationKit"][0] + 24
+        pieces = [152 + 96 * n for n in range(25)]
+        assert [rig.mem.peek(kit + at, "<I") for at in pieces] == [1] * 25      # every piece, the heavy ones too
+        assert rig.mem.peek(kit + 28, "<I") == 7
+        other = rig.blocks["HelldiverCustomizationKit"][2] + 24                 # another armor: untouched
+        assert rig.mem.peek(other + 152, "<I") == 2 and rig.mem.peek(other + 28, "<I") == 3
+        med = rig.blocks["HelldiverCustomizationPassiveBonusSettings"][3] + 24
+        assert rig.mem.peek(med + 64, "<f") == 6.0 and rig.mem.peek(med + 80, "<f") == 2.0
+        assert rig.mem.peek(rig.keyed_field("AvatarComponentData", 0x4D1C334D294DFA97, 20), "<f") == 7.0
+        # taken out of the file: every piece gets its own class back, not all the same one
+        rig.game.write_config("")
+        rig.game.press(F10)
+        rig.game.frames(300)
+        back = [rig.mem.peek(kit + at, "<I") for at in pieces]
+        assert back.count(0) == 23 and back.count(2) == 2 and back[14] == 2, back
+        assert rig.mem.peek(kit + 28, "<I") == 6 and rig.mem.peek(med + 64, "<f") == 2.0
+        # what another mod has changed is left alone
+        rig.mem.poke(med + 80, "<f", 9.0)
+        rig.game.write_config("[armor_passive: med_kit]\neffect_stim_seconds = 4\neffect_extra_stims = 3\n")
+        rig.game.press(F10)
+        rig.game.frames(300)
+        assert rig.mem.peek(med + 80, "<f") == 9.0 and rig.mem.peek(med + 64, "<f") == 3.0
+        assert "unexpected content" in rig.game.status()
+        # the menu: two lists of their own
+        rig.game.lua.execute(FAKE_ENGINE)
+        rig.game.press(F9)
+        for _ in range(7):
+            rig.game.press(RIGHT)
+        text = shown(rig)
+        assert "Armor 122" in text and "* Helldiver\n" in text and "A-9 Helljumper" in text, text[:900]
+        assert "[+] MOVEMENT, STAMINA" in text and "[+] BODY" in text   # the helldiver: how it moves, and its own body
+        rig.game.press(RIGHT)
+        text = shown(rig)
+        assert "Passives 31" in text and "Engineering Kit  (6)" in text, text[:900]
+    finally:
+        rig.close()
+
+
+def check_packs_turrets_attachments(mutate=None):
+    JUMP, GATLING = 0x59C5CA839449B379, int(catalog_stat("gatling_turret", "turn_speed_h")[0]["entity"], 16)
+    rig = Rig("[backpack: jumppack_backpack]\npack_recharge_seconds = 2\npack_launch_force = 80\n"
+              "[backpack: hover_backpack]\npack_hover_seconds = 30\n"
+              "[backpack: displacement_backpack]\nwarp_distance = 40\n"
+              "[stratagem_weapon: gatling_turret]\nturn_speed_h = 360\nsearch_seconds_min = 0.1\n"
+              "[attachment: vertical_grip]\nmod_recoil_v = 0.1\n"
+              "[throwable: frag_grenade]\nblast_shrapnel_velocity = 90\n"
+              "[stratagem_weapon: eagle_500kg_bomb]\nexplosion_delay = 3\n"
+              "[weapon: assault_rifle]\nreload_seconds = 1\n", mutate)
+    try:
+        status = rig.settle()
+        assert first_line(status) == "OK - 10 values applied", status[:1500]
+        # the Liberator reloads in the 3 s its magazine says (its own record says 0): the magazine's number is set
+        _rifle, reload = catalog_stat("assault_rifle", "reload_seconds")
+        assert reload["original"] == 0.0 and reload["default_attachment"]["value"] == 3.0, reload
+        assert rig.mem.peek(rig.blocks["ComponentEntityDeltaStorage"][0] + 24
+                            + reload["default_attachment"]["delta_data_offset"], "<f") == 1.0
+        # the 500 kg bomb goes off 0.8 s after it lands: now 3 s
+        _bomb, fuse = catalog_stat("eagle_500kg_bomb", "explosion_delay")
+        assert fuse["original"] == 0.8
+        assert rig.mem.peek(rig.row_field("ProjectileSettings", int(fuse["key"]), fuse["offset"]), "<f") == 3.0
+        assert rig.mem.peek(rig.keyed_field("RechargeComponentData", JUMP, 0), "<f") == 2.0
+        assert rig.mem.peek(rig.keyed_field("JumppackComponentData", JUMP, 0), "<f") == 80.0
+        assert rig.mem.peek(rig.keyed_field("JumppackComponentData", JUMP, 24), "<f") == 0.5        # takeoff: as it was
+        assert rig.mem.peek(rig.keyed_field("JumppackComponentData", 0x5EC80F4F1CDB66CF, 156), "<f") == 30.0
+        assert rig.mem.peek(rig.keyed_field("DisplacementComponentData", 0xB49756795D9B0E68, 120), "<f") == 40.0
+        assert rig.mem.peek(rig.keyed_field("TurretComponentData", GATLING, 12), "<f") == 360.0
+        assert rig.mem.peek(rig.keyed_field("TurretComponentData", GATLING, 8), "<f") == 50.0       # up and down: as it was
+        assert abs(rig.mem.peek(rig.keyed_field("DetectorComponentData", GATLING, 0), "<f") - 0.1) < 1e-6
+        # the grip's number is in the delta storage's data, at the place the generator names
+        import gen_tuner_data
+        grip = next(s["offset"] for it in gen_tuner_data.attachment_items()[0] if it["path"].endswith("/vertical_grip")
+                    for s in it["stats"] if s["id"] == "mod_recoil_v")
+        storage = rig.blocks["ComponentEntityDeltaStorage"][0] + 24
+        data_at = rig.mem.peek(storage + 64, "<Q")
+        assert abs(rig.mem.peek(data_at + grip, "<f") - 0.1) < 1e-6
+        # the pieces of a frag grenade: their speed is in their own projectile row
+        assert rig.mem.peek(rig.row_field("ProjectileSettings", 201, 32), "<f") == 90.0
+        # the Jump Pack has no hovering to set
+        rig.game.write_config("[backpack: jumppack_backpack]\npack_hover_seconds = 5\n")
+        rig.game.press(F10)
+        rig.game.frames(300)
+        assert 'has no stat "pack_hover_seconds"' in rig.game.status()
+        assert rig.mem.peek(rig.keyed_field("TurretComponentData", GATLING, 12), "<f") == 80.0      # and all is back
+        rig.game.lua.execute(FAKE_ENGINE)
+        rig.game.press(F9)
+        for _ in range(9):
+            rig.game.press(RIGHT)
+        text = shown(rig)
+        assert "Attach. 46" in text and "items, one section each" in text and "[+] " in text, text[:900]   # families
+        rig.game.press(TAB)
+        rig.game.press(ENTER)                                          # the first load of the first family
+        assert "[-] ON THE WEAPON IT IS FITTED TO" in shown(rig)
+    finally:
+        rig.close()
+
+
+def check_one_row_for_one_thing(mutate=None):
+    rig = Rig("", mutate)
+    try:
+        rig.settle()
+        rig.game.lua.execute(FAKE_ENGINE)
+        rig.game.press(F9)
+        rig.game.press(F3)
+        typed(rig, b"VOTELESS")
+        rig.game.press(ENTER)
+        text = shown(rig)
+        # three bodies and the claws: one row of the list, and the value list says which is which
+        assert "Voteless  [enemy]" in text and "1 of 1" in text and "Voteless (unit" not in text, text[:900]
+        assert "4 items, one section each" in text and "[+] BODY: HEAVY" in text and "[+] BODY: LIGHT" in text, text[:1500]
+        assert "Health" not in text                                    # every member is a closed drop-down at first
+        rig.game.press(TAB)
+        rig.game.press(ENTER)                                          # the first one opens: its values, under its headings
+        text = shown(rig)
+        assert "[-] BODY: HEAVY" in text and "[-] BODY\n" in text, text[:1500]
+        assert "[cha_corrupted_v3] health" in text                     # whose value it is, by its own name
+        rig.game.press(ESCAPE)                                         # the back key closes the heading one is in,
+        text = shown(rig)
+        assert "[+] BODY\n" in text and "[cha_corrupted_v3] health" not in text, text[:1500]
+        rig.game.press(ESCAPE)                                         # then the member it belongs to,
+        assert "[+] BODY: HEAVY" in shown(rig)
+        rig.game.press(RIGHT)                                          # and Right opens a closed one like Enter does
+        rig.game.press(RIGHT)
+        assert "[cha_corrupted_v3] health" in shown(rig)
+        rig.game.press(ENTER)
+        typed(rig, b"7")
+        rig.game.press(ENTER)
+        rig.game.frames(40)
+        saved = rig.game.read_out("presets/Default.txt")
+        assert "cha_corrupted_v3" in saved and "cha_corrupted_v2" not in saved, saved   # the heavy one only
+        heavy = rig.keyed_field("HealthComponentData", int(catalog_stat("cha_corrupted_v3", "health")[0]["entity"], 16),
+                                catalog_stat("cha_corrupted_v3", "health")[1]["offset"])
+        medium = rig.keyed_field("HealthComponentData", int(catalog_stat("cha_corrupted_v2", "health")[0]["entity"], 16),
+                                 catalog_stat("cha_corrupted_v2", "health")[1]["offset"])
+        rig.game.frames(300)
+        assert rig.mem.peek(heavy, "<I") == 7 and rig.mem.peek(medium, "<I") == 130
+        # the last value of the list is the claws': another item of the same row
+        for _ in range(12):
+            rig.game.press(0x22)                                       # Page Down
+        rig.game.press(ENTER)
+        text = shown(rig)
+        assert "[-] SWIPE AND CLAW (MELEE)" in text and "[melee_voteless_swipe_and_claw] " in text, text[-900:]
+        rig.game.press(DELETE)                                         # resets that value, not the body's
+        rig.game.frames(40)
+        assert "cha_corrupted_v3" in rig.game.read_out("presets/Default.txt")
+    finally:
+        rig.close()
+
+
+def check_sections_start_closed(mutate=None):
+    rig = Rig("", mutate, auto=True, closed=True)                      # (the other menu checks ask for them open)
+
+    def last(text):
+        return text.rsplit("BALANCE YOUR OWN GAME", 1)[1]
+
+    def find(name):
+        rig.game.press(F3)
+        for _ in range(12):
+            rig.game.press(BACKSPACE)
+        typed(rig, name)
+        rig.game.press(ENTER)
+        rig.game.press(TAB)
+        return last(shown(rig))
+    try:
+        rig.settle()
+        rig.game.lua.execute(FAKE_ENGINE)
+        rig.game.press(F9)
+        text = find(b"SCORCHER")
+        assert "[+] DAMAGE" in text and "[+] AMMO" in text and "[-] " not in text, text[:900]
+        assert "\nDamage\n" not in text                               # nothing but headings until one is opened
+        # the reload: the Scorcher's record says 0, and the wiki's time stands beside it
+        closed = [line for line in text.split("\n") if line.startswith("[+] ")]
+        for _ in range(closed.index("[+] AMMO")):
+            rig.game.press(DOWN)
+        rig.game.press(ENTER)
+        text = last(shown(rig))
+        assert "[-] AMMO" in text and "0 (wiki 2.5)" in text and "[+] DAMAGE" in text, text[:1500]
+        # a heading that has been opened is open on the next item too
+        rig.game.press(TAB)
+        text = find(b"PURIFIER")
+        assert "[-] AMMO" in text and "[+] DAMAGE" in text, text[:900]
     finally:
         rig.close()
 
@@ -2092,7 +2416,7 @@ class Startup(unittest.TestCase):
     def test_attachment_values_point_into_the_delta_storage(self):
         blob, _stats = gen_tuner_data.generate()
         flagged = [x.split("|") for x in blob.splitlines() if x.startswith("F|") and x.endswith("|A")]
-        self.assertEqual(len(flagged), 73)
+        self.assertEqual(len(flagged), 107)       # 18: the reload set by the magazine; 3: what a suppressor sets
         self.assertTrue(all(f[3] == "ComponentEntityDeltaStorage" and f[4] == "data" for f in flagged))
         data_start = __import__("deltas")._load()["xo"]
         _it, s = catalog_stat("assault_rifle", "capacity")
@@ -2102,8 +2426,8 @@ class Startup(unittest.TestCase):
     def test_magazine_and_census_data(self):
         blob, stats = gen_tuner_data.generate()
         lines = blob.splitlines()
-        self.assertEqual(stats["own_magazines"], 17)
-        self.assertEqual(len([x for x in lines if x.startswith("H|")]), 68)
+        self.assertEqual(stats["own_magazines"], 19)
+        self.assertEqual(len([x for x in lines if x.startswith("H|")]), 76)
         # one magazine is the default of three rifles: the same run for all three
         self.assertEqual(len([x for x in lines if x.startswith("G|") and x.endswith("|7BE1E04A7738E673")]), 3)
         self.assertFalse([x for x in lines if x[:2] in ("C|", "Q|", "Y|")])      # research lines: gone
@@ -2117,7 +2441,7 @@ class Startup(unittest.TestCase):
         self.assertIn("P|ExplosionSettings|40,44,48,52", lines)
         own = [x for x in lines if x.startswith("B|") and x.split("|")[5] == "1"]
         borrow = [x for x in lines if x.startswith("B|") and x.split("|")[5] == "0"]
-        self.assertEqual((len(own), len(borrow)), (56, 43))       # hand weapons, throwables, stratagem weapons
+        self.assertEqual((len(own), len(borrow)), (80, 112))       # hand weapons, throwables, stratagem weapons
         # every row that may be borrowed, and every row copied into one, ships with its stock bytes
         for row in [x for x in lines if x.startswith("S|")][0].split("|")[2].split(","):
             self.assertTrue([x for x in lines if x.startswith("W|ExplosionSettings|%s|" % row)], row)
@@ -2251,8 +2575,8 @@ MUTATIONS = [
      "    if true then\n        local category = MENU_CATEGORIES[menu.tab]",
      check_menu_search_finds_items_of_every_category),
     ("menu: search looks at the internal names only",
-     "                if (item.display or ''):lower():find(menu.filter, 1, true) or internal:find(menu.filter, 1, true)\n",
-     "                if internal:find(menu.filter, 1, true)\n",
+     "                    or (item.display or ''):lower():find(menu.filter, 1, true) or internal:find(menu.filter, 1, true)\n",
+     "                    or internal:find(menu.filter, 1, true)\n",
      check_menu_search_finds_items_of_every_category),
     ("more ammunition than a resupply fills is not reported",
      "    local RESUPPLY_LIMIT = 1023\n",
@@ -2263,12 +2587,12 @@ MUTATIONS = [
      "            if false then yellow('! '",
      check_more_ammunition_than_a_resupply_fills_is_said),
     ("menu: a value is shown by its short name",
-     "                    row(menu_label(stat), 460, y, 728 - 16, here, focused, 34)\n",
-     "                    row(stat, 460, y, 728 - 16, here, focused, 34)\n",
+     "                    row(menu_label(stat), 460, y, 728 - 16, here, focused, 34, function()\n",
+     "                    row(stat, 460, y, 728 - 16, here, focused, 34, function()\n",
      check_menu_changes_a_value_and_remembers_it),
     ("menu: the name config.txt takes is not shown",
-     "            if stats[at] then gray(menu_clip(stats[at], 60) .. '   ('",
-     "            if stats[at] then gray(menu_clip(menu_label(stats[at]), 60) .. '   ('",
+     "                gray(menu_clip((item.members and ('[' .. owner.name .. '] ') or '') .. stats[at], 60) .. '   ('",
+     "                gray(menu_clip((item.members and ('[' .. owner.name .. '] ') or '') .. menu_label(stats[at]), 60) .. '   ('",
      check_menu_changes_a_value_and_remembers_it),
     ("menu: the menu's keys also work while a box is typed into",
      "    if menu.mode == 'text' then\n        menu_box_input(now)\n    elseif menu.mode == 'capture' then",
@@ -2286,6 +2610,86 @@ MUTATIONS = [
      "                        text('= ' .. menu.box.text .. '_', 800, y + 3, 17, 255, c, c, c)\n",
      "                        text(menu.box.text .. '_', 800, y + 3, 17, 255, c, c, c)\n",
      check_a_value_can_be_typed),
+    ("menu: the row \"explodes like\" is missing",
+     "    if menu.takes_blast(item) then\n        local label, rank = menu_group('blast_from')",
+     "    if false then\n        local label, rank = menu_group('blast_from')",
+     check_explodes_like_is_a_row_of_the_menu),
+    ("menu: a number can be typed where the name of an item belongs",
+     "        if stat and stat ~= 'blast_from' and menu_act('accept', now, true) then",
+     "        if stat and menu_act('accept', now, true) then",
+     check_explodes_like_is_a_row_of_the_menu),
+    ("keys: Insert and End are gone (the keys the testers and the notes of v1.1 know)",
+     "            if a[1] == action and a[4] and menu_key_pressed(a[4], now, no_repeat) then pressed = true end\n",
+     "",
+     check_keys_go_to_the_box_only),
+    ("attachments: their numbers are filed as an effect of a passive",
+     "    if stat:sub(1, 4) == 'mod_' then return 'ON THE WEAPON IT IS FITTED TO', 720 end\n",
+     "",
+     check_packs_turrets_attachments),
+    ("drop-downs: the headings start open",
+     "                closed = menu.is_closed(heading_key, not config.sections_open)\n",
+     "                closed = menu.is_closed(heading_key, false)\n",
+     check_sections_start_closed),
+    ("drop-downs: a heading opened on one item is closed on the next",
+     "        values(item, 'every item', 1)\n",
+     "        values(item, item.category .. '|' .. item.name, 1)\n",
+     check_sections_start_closed),
+    ("menu: what the wiki says about a reload is not shown",
+     "                    if owner.hints and owner.hints[stat] then stock = stock .. ' (' .. owner.hints[stat] .. ')' end\n",
+     "",
+     check_sections_start_closed),
+    ("drop-downs: the members of a group are open from the start",
+     "            local closed = menu.is_closed(key, true)\n",
+     "            local closed = menu.is_closed(key, false)\n",
+     check_one_row_for_one_thing),
+    ("drop-downs: the back key does not close the heading one is in",
+     "                menu.toggle(item, row.parent, true)\n",
+     "                menu.toggle(item, row.parent, false)\n",
+     check_one_row_for_one_thing),
+    ("drop-downs: Right does not open a closed heading",
+     "            elseif stats[at] == false and side > 0 then\n",
+     "            elseif false then\n",
+     check_one_row_for_one_thing),
+    ("groups: a value of a group is set on the group's first member",
+     "    return item.menu_owners and item.menu_owners[n] or item\n",
+     "    return item.members and item.members[1] or item\n",
+     check_one_row_for_one_thing),
+    ("groups: the members of a group are rows of their own as well",
+     "            if item.group then\n",
+     "            if item.group and false then\n",
+     check_one_row_for_one_thing),
+    ("armor: a value kept once per piece is set for the first piece only",
+     "            for _, extra in ipairs(entry.more or {}) do\n",
+     "            for _, extra in ipairs({}) do\n",
+     check_armor),
+    ("armor: a number another mod has changed is overwritten",
+     "            if SPECS[f[4]] and SPECS[f[4]].shape == 'S' then field.exact = true end\n",
+     "",
+     check_armor),
+    ("armor: the record of a block is not asked for by its id",
+     "            block.records_at, block.index, block.count, block.limit = payload, { [id] = 0 }, 1, payload + block.size\n",
+     "            block.records_at, block.index, block.count, block.limit = payload, { [0] = 0, [id + 1] = 0 }, 1, payload + block.size\n",
+     check_armor),
+    ("mouse: a click is taken although the mouse never moved",
+     "    if mouse and menu.mouse_used then\n",
+     "    if mouse then\n",
+     check_the_mouse),
+    ("mouse: a click is taken while a box is typed into",
+     "        if button and not menu.mouse_down and menu.mode == 'list' then\n",
+     "        if button and not menu.mouse_down then\n",
+     check_the_mouse),
+    ("mouse: a held button clicks every frame",
+     "        if button and not menu.mouse_down and menu.mode == 'list' then\n",
+     "        if button and menu.mode == 'list' then\n",
+     check_the_mouse),
+    ("mouse: a click on a number does not open the box",
+     "                        if mouse and mouse.x >= 790 and stat ~= 'blast_from' then\n",
+     "                        if false then\n",
+     check_the_mouse),
+    ("mouse: a click on a list page confirms at once",
+     "            if current == n then menu.click_accept = true else set(n) end\n",
+     "            menu.click_accept = true\n            set(n)\n",
+     check_the_mouse),
     ("menu: a typed value may leave the range",
      "    value = math.max(range.min, math.min(range.max, value))\n",
      "",
@@ -2426,6 +2830,10 @@ MUTATIONS = [
      "            if config.research and research.pending then\n",
      "            if research.pending then\n",
      check_research_can_be_switched_off),
+    ("own bullet: the other places that name the round are left as they were",
+     "        for _, s in ipairs(t.fresh and item.switches or {}) do\n",
+     "        for _, s in ipairs({}) do\n",
+     check_a_round_loaded_weapon_is_switched_where_it_takes_its_round_from),
     ("menu: the values of an item are not grouped",
      "        if x.rank ~= y.rank then return x.rank < y.rank end\n        if x.first ~= y.first",
      "        if x.first ~= y.first",

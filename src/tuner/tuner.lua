@@ -426,6 +426,17 @@ local function build_api()
     -- The game's window (the one in front, when it is ours), whether this thread owns it, and its thread.
     local current_thread = resolve(K, 'GetCurrentThreadId', 'uint32_t (*)(void)')
     local function handle(p) return tonumber(ffi.cast('uintptr_t', p)) end
+    -- The mouse pointer inside a window: x, y from the top left corner of what the window shows, and the
+    -- width and height of that.
+    local cursor_pos = resolve(U, 'GetCursorPos', 'int (*)(void *)')
+    local to_client = resolve(U, 'ScreenToClient', 'int (*)(void *, void *)')
+    local client_rect = resolve(U, 'GetClientRect', 'int (*)(void *, void *)')
+    local point, rect_ = ffi.new('int32_t[2]'), ffi.new('int32_t[4]')
+    function a.mouse(window)
+        if cursor_pos(point) == 0 or to_client(ffi.cast(void, window), point) == 0 then return nil end
+        if client_rect(ffi.cast(void, window), rect_) == 0 then return nil end
+        return point[0], point[1], rect_[2], rect_[3]
+    end
     function a.game_window()
         local window = foreground_window()
         if window == nil then return nil end
@@ -596,10 +607,28 @@ local function field_key(table_name, key, offset) return table_name .. '|' .. ke
 
 local function parse_data()
     local count = 0
-    for line in DATA:gmatch('[^\n]+') do
-        local kind = line:sub(1, 1)
-        local f = {}
-        for part in (line .. '|'):gmatch('([^|]*)|') do f[#f + 1] = part end
+    -- Read straight out of the one big string: no string per line, and no copy of it. Sixty thousand
+    -- strings thrown away at once made the interpreter's table of strings grow and shrink in one piece,
+    -- a 20 ms frame (v2.0.0, measured offline).
+    -- The collector rests meanwhile. A collection that finishes while the big tables are still being
+    -- filled has to walk, in one piece, everything added to them since it marked them: one line then cost
+    -- a 10 - 15 ms frame (v2.0.0, measured offline). Started when the data is in, it finds them at rest.
+    collectgarbage('stop')
+    local f, had = {}, 0
+    local at, size = 1, #DATA
+    while at <= size do
+        local stop = DATA:find('\n', at, true) or size + 1
+        local n = 0
+        while at <= stop do
+            local bar = DATA:find('|', at, true)
+            if not bar or bar > stop then bar = stop end
+            n = n + 1
+            f[n] = DATA:sub(at, bar - 1)
+            at = bar + 1
+        end
+        for k = n + 1, had do f[k] = nil end
+        had = n
+        local kind = f[1]
         if kind == 'V' then
             BUILDS[#BUILDS + 1] = { label = f[2], exe = f[3], dll = f[4] }
         elseif kind == 'T' then
@@ -612,6 +641,15 @@ local function parse_data()
                            display = f[6] ~= '' and f[6] or nil, stats = {}, stat_order = {} }
             ITEMS[item.index] = item
             ITEM_BY_NAME[item.category .. ':' .. item.name:lower()] = item
+        elseif kind == 'K' then
+            -- something the tables do not hold, shown beside the game's value (a reload's length, from the wiki)
+            local item = ITEMS[tonumber(f[2])]
+            item.hints = item.hints or {}
+            item.hints[f[3]] = f[4]
+        elseif kind == 'J' then
+            -- the menu shows the items of a group as one row (a Hunter: its bodies, its claws)
+            local item = ITEMS[tonumber(f[2])]
+            item.group, item.section, item.section_order = f[3], f[4], tonumber(f[5])
         elseif kind == 'F' then
             local item = ITEMS[tonumber(f[2])]
             local key = field_key(f[4], f[5], tonumber(f[6]))
@@ -623,8 +661,18 @@ local function parse_data()
                 field_count = field_count + 1
             end
             field.users[#field.users + 1] = item.name .. '.' .. f[3]
-            if not item.stats[f[3]] then item.stat_order[#item.stat_order + 1] = f[3] end
-            item.stats[f[3]] = { field = field, attachment = f[9] == 'A' }
+            -- one record per block (armor kits, armor passives): nothing but the game's own number is
+            -- ever overwritten there, so that what another mod has changed is left alone
+            if SPECS[f[4]] and SPECS[f[4]].shape == 'S' then field.exact = true end
+            if f[9] == 'M' then
+                -- one more place of a value the game keeps several times (an armor's weight: once per piece)
+                local entry = item.stats[f[3]]
+                entry.more = entry.more or {}
+                entry.more[#entry.more + 1] = field
+            else
+                if not item.stats[f[3]] then item.stat_order[#item.stat_order + 1] = f[3] end
+                item.stats[f[3]] = { field = field, attachment = f[9] == 'A' }
+            end
         elseif kind == 'R' then
             RANGES[f[2]] = { min = tonumber(f[3]), max = tonumber(f[4]), integer = f[5] == '1' }
         elseif kind == 'A' then
@@ -674,8 +722,9 @@ local function parse_data()
             for offset in f[3]:gmatch('%d+') do LIVE_WORDS[f[2]][tonumber(offset)] = true end
         end
         count = count + 1
-        if count % 50 == 0 then pause() end
+        if count % 16 == 0 then pause() end
     end
+    collectgarbage('restart')
     log('data: ' .. #BUILDS .. ' builds, ' .. #SPEC_ORDER .. ' tables, ' .. (#ITEMS + 1) .. ' items, '
         .. field_count .. ' fields')
 end
@@ -920,6 +969,16 @@ local function parse_block(block)
     state.step = 'reading table ' .. block.spec.name
     local ok, why
     if block.spec.shape == 'K' then ok, why = parse_keyed(block)
+    elseif block.spec.shape == 'S' then
+        -- one record: the block is the record, and the arrays it points to follow it. Its id says which.
+        local payload = block.address + 24
+        local id = A.u32(payload + block.spec.id_at)
+        if id == nil then
+            ok, why = nil, 'the id is unreadable'
+        else
+            block.records_at, block.index, block.count, block.limit = payload, { [id] = 0 }, 1, payload + block.size
+            ok = true
+        end
     elseif block.spec.shape == 'D' then ok, why = parse_delta_storage(block)
     else ok, why = parse_rows(block) end
     if not ok then
@@ -941,7 +1000,7 @@ local function field_address(block, field)
         return address
     end
     local key = field.record
-    if block.spec.shape == 'R' then key = tonumber(key) end
+    if block.spec.shape == 'R' or block.spec.shape == 'S' then key = tonumber(key) end
     local record = block.index[key]
     if record == nil then return nil end
     local address = block.records_at + record * block.spec.stride + field.offset
@@ -1283,7 +1342,7 @@ end
 local BLAST_ON_IMPACT = 144      -- ProjectileInfo.explosion_type_on_impact
 local function resolve_blast_from(request, item, own_bullet)
     local source, wanted = nil, trim(request.expression):lower()
-    for _, category in ipairs({ 'weapon', 'throwable', 'stratagem_weapon' }) do
+    for _, category in ipairs({ 'weapon', 'throwable', 'stratagem_weapon', 'enemy_weapon', 'unknown_weapon' }) do
         source = source or ITEM_BY_NAME[category .. ':' .. wanted]
     end
     if not source or not source.blasts then
@@ -1372,6 +1431,11 @@ local function resolve_request(request, own_bullet)
                 end
             end
             request.targets[#request.targets + 1] = target
+            -- a value the game keeps in several places: every one of them gets it
+            for _, extra in ipairs(entry.more or {}) do
+                request.targets[#request.targets + 1] = { stat = stat, field = extra, value = value,
+                                                          text = show(value, extra.storage) }
+            end
         elseif not alias then
             request.status = 'rejected'
             request.reason = 'this ' .. request.category .. ' has no stat "' .. stat .. '" (see catalog.txt)'
@@ -1428,6 +1492,8 @@ local function build_desired(text)
     config.menu_key, config.menu_vk = 'F9', 0x78
     -- the research file is only written when config.txt asks for it (`[settings] research = true`)
     config.research = false
+    -- the headings of the menu's value list start closed; `[settings] menu_sections = open` starts them open
+    config.sections_open = false
     config.auto_reload, config.rescan, config.own_rows = 0, DEFAULT_RESCAN_SECONDS, true
     local section, line_number = nil, 0
     local by_stat = {}   -- 'category:item:stat' -> request (a later line replaces an earlier one)
@@ -1469,6 +1535,8 @@ local function build_desired(text)
                         -- research settings of the test builds: gone. Accepted, so that an old config is no problem.
                     elseif key == 'research' and parse_bool(value) ~= nil then
                         config.research = parse_bool(value)
+                    elseif key == 'menu_sections' and (value:lower() == 'open' or value:lower() == 'closed') then
+                        config.sections_open = value:lower() == 'open'
                     elseif key == 'own_rows' and (value:lower() == 'auto' or parse_bool(value) ~= nil) then
                         config.own_rows = value:lower() == 'auto' or parse_bool(value) == true
                     else
@@ -2313,9 +2381,12 @@ local function build_status()
     for _, name in ipairs(names) do
         local spec = SPECS[name]
         add(name .. ' copies=' .. #spec.blocks)
-        for _, block in ipairs(spec.blocks) do
-            add(string.format('  %s size=%d origin=%s%s', hex(block.address), block.size, tostring(block.origin),
-                              block.problem and (' PROBLEM: ' .. block.problem) or ''))
+        for n, block in ipairs(spec.blocks) do
+            -- (armor kits and passives are a block each, hundreds of them: the first few say enough)
+            if spec.shape ~= 'S' or n <= 4 or block.problem then
+                add(string.format('  %s size=%d origin=%s%s', hex(block.address), block.size, tostring(block.origin),
+                                  block.problem and (' PROBLEM: ' .. block.problem) or ''))
+            end
         end
     end
     if #names == 0 then add('none') end
@@ -2433,31 +2504,36 @@ local function write_catalog()
     for index = 0, #ITEMS do
         local item = ITEMS[index]
         if item then
-            local L = { '[' .. item.category .. ': ' .. item.name .. ']'
-                            .. (item.display and ('   # ' .. item.display) or '') }
-            for _, stat in ipairs(item.stat_order) do
+            -- (written piece by piece: a string built only to be written is one more string for the
+            -- interpreter to keep track of, and there would be thirty thousand of them)
+            handle:write('[', item.category, ': ', item.name, ']', item.display and '   # ' or '', item.display or '', '\r\n')
+            for n, stat in ipairs(item.stat_order) do
+                -- (an enemy with all its parts has 180 values)
+                if n % 12 == 0 then pause() end
                 local entry, range = item.stats[stat], RANGES[stat]
-                local notes = {}
+                handle:write('  ', stat, ' = ', show(entry.field.stock, entry.field.storage), '   (', show(range.min, 'f32'),
+                             ' .. ', show(range.max, 'f32'), range.integer and ', whole numbers)' or ')')
+                local shared = #entry.field.users > 1
                 if entry.attachment then
-                    notes[#notes + 1] = 'value of the default attachment: another attachment on the weapon replaces it'
+                    handle:write('   # value of the default attachment: another attachment on the weapon replaces it',
+                                 shared and '; ' or '')
+                elseif shared then
+                    handle:write('   # ')
                 end
-                if #entry.field.users > 1 then notes[#notes + 1] = 'shared with ' .. (#entry.field.users - 1) .. ' other' end
-                L[#L + 1] = string.format('  %s = %s   (%s .. %s%s)%s', stat, show(entry.field.stock, entry.field.storage),
-                    show(range.min, 'f32'), show(range.max, 'f32'), range.integer and ', whole numbers' or '',
-                    #notes > 0 and ('   # ' .. table.concat(notes, '; ')) or '')
+                if shared then handle:write('shared with ', tostring(#entry.field.users - 1), ' other') end
+                handle:write('\r\n')
             end
             if item.takeover or (item.blasts and item.blasts[1].kind == 'C') then
-                L[#L + 1] = '  blast_from = <item>   # explode like another item, by its name (frag_grenade, '
-                    .. 'gas_grenade, grenade_launcher...)'
+                handle:write('  blast_from = <item>   # explode like another item, by its name (frag_grenade, '
+                    .. 'gas_grenade, grenade_launcher...)\r\n')
             end
             if item.takeover then
-                L[#L + 1] = '  own_bullet = false   (' .. (item.takeover.new_projectile ~= 0 and 'true / ' or '')
-                    .. 'false / new)   # happens by itself when a projectile or damage stat of this weapon is set: '
+                handle:write('  own_bullet = false   (', item.takeover.new_projectile ~= 0 and 'true / ' or '',
+                    'false / new)   # happens by itself when a projectile or damage stat of this weapon is set: '
                     .. 'the weapon gets rows of its own, so the change reaches this weapon only. false: keep the '
-                    .. 'shared rows (the change then also reaches every weapon listed under "also affects")'
+                    .. 'shared rows (the change then also reaches every weapon listed under "also affects")\r\n')
             end
-            L[#L + 1] = ''
-            handle:write(table.concat(L, '\r\n') .. '\r\n')
+            handle:write('\r\n')
             -- hand every item to the system at once: one large flush at the end cost a 9..15 ms frame in game
             handle:flush()
         end
@@ -2738,8 +2814,8 @@ end
 for code = 0x41, 0x5A do
     MENU_TYPED[#MENU_TYPED + 1] = { string.char(code), string.char(code):lower(), string.char(code) }
 end
--- The actions of the menu and the keys they start with. None of the defaults is a key the game gives a
--- meaning in a mission by default (Enter opens the chat, Escape the game's own menu).
+-- The actions of the menu and the keys they start with. While the menu is open the game gets no keys
+-- (the message filter), so Enter and Escape can be what one expects them to be.
 local MENU_ACTIONS = {
     { 'toggle', 'F9', 'Open / close the menu' },
     { 'up', 'UP', 'Up' }, { 'down', 'DOWN', 'Down' }, { 'left', 'LEFT', 'Left / lower the value' },
@@ -2750,19 +2826,24 @@ local MENU_ACTIONS = {
     { 'fast', 'SHIFT', 'Hold: ten times the step' },
     { 'reset', 'DELETE', "Back to the game's value" },
     { 'search', 'F3', 'Search' },
-    { 'accept', 'INSERT', 'Select / search / type a value / confirm' },
-    { 'back', 'END', 'Cancel / clear the search' },
+    -- (v1.1: Insert and End, because the game still read the keys then; small keyboards have neither.
+    -- They stay as a second key for as long as the action has not been given a key of the user's own.)
+    { 'accept', 'ENTER', 'Select / search / type a value / confirm', 'INSERT' },
+    { 'back', 'ESCAPE', 'Cancel / clear the search', 'END' },
 }
 local MENU_PAGES = { 'Items', 'Presets', 'Keys', 'Language' }
 local MENU_CATEGORIES = { 'weapon', 'throwable', 'stratagem_weapon', 'stratagem', 'backpack', 'shield', 'vehicle',
-                          'status' }
-local MENU_CATEGORY_NAME = { weapon = 'Weapons', throwable = 'Throwables', stratagem_weapon = 'Strat. weapons',
+                          'armor', 'armor_passive', 'attachment', 'enemy_weapon', 'unknown_weapon', 'status' }
+local MENU_CATEGORY_NAME = { weapon = 'Weapons', throwable = 'Throwables', stratagem_weapon = 'Strat. guns',
                              stratagem = 'Stratagems', backpack = 'Backpacks', shield = 'Shields',
-                             vehicle = 'Vehicles', status = 'Status effects' }
+                             vehicle = 'Vehicles', status = 'Status', enemy_weapon = 'Enemies',
+                             unknown_weapon = 'Unknown', armor = 'Armor', armor_passive = 'Passives',
+                             attachment = 'Attach.' }
 -- the short form, beside a hit of the search
 local MENU_CATEGORY_TAG = { weapon = 'weapon', throwable = 'throwable', stratagem_weapon = 'strat. weapon',
                             stratagem = 'stratagem', backpack = 'backpack', shield = 'shield', vehicle = 'vehicle',
-                            status = 'status' }
+                            status = 'status', enemy_weapon = 'enemy', unknown_weapon = 'unknown',
+                            armor = 'armor', armor_passive = 'passive', attachment = 'attachment' }
 local MENU_ROWS = 18
 local MENU_FONTS = { 'core/performance_hud/debug', 'core/editor_slave/gui/arial', 'gui/fonts/arial' }
 -- fonts of the game that may hold Chinese glyphs (names from the community's list of resource names);
@@ -2778,7 +2859,7 @@ local MENU_PRESET_ACTIONS = { 'Activate', 'Rename', 'Duplicate', 'Delete' }
 local menu = { open = false, state = 'closed', page = 1, tab = 1, focus = 'items', item = {}, stat = {}, keys = {},
                toggle_down = false, loaded = false, filter = '', mode = 'list', bind = {}, lang = 'en',
                lang_saved = 'en', block = true, block_saved = true, presets = {}, preset_row = 1, preset_action = 1, key_row = 1,
-               lang_row = 1, zh_fonts = {}, zh_font = nil }
+               lang_row = 1, zh_fonts = {}, zh_font = nil, fold = {}, fold_version = 1 }
 
 local function menu_key_of(item, stat) return item.category .. ':' .. item.name:lower() .. ':' .. stat end
 
@@ -2817,8 +2898,9 @@ end
 -- ---- language
 local MENU_ZH = {
     ['Items'] = '物品', ['Presets'] = '预设', ['Keys'] = '按键', ['Language'] = '语言',
-    ['Weapons'] = '武器', ['Throwables'] = '投掷物', ['Strat. weapons'] = '战备武器', ['Stratagems'] = '战备',
-    ['Backpacks'] = '背包', ['Shields'] = '护盾', ['Vehicles'] = '载具', ['Status effects'] = '状态效果',
+    ['Weapons'] = '武器', ['Throwables'] = '投掷物', ['Strat. guns'] = '战备武器', ['Stratagems'] = '战备',
+    ['Backpacks'] = '背包', ['Shields'] = '护盾', ['Vehicles'] = '载具', ['Status'] = '状态效果', ['Enemies'] = '敌方武器', ['Unknown'] = '未识别', ['Armor'] = '护甲', ['Passives'] = '被动', ['items, one section each'] = '个条目，各占一节', ['Attach.'] = '配件',
+    ['Explodes like'] = '爆炸效果取自', ['its own'] = '自身',
     ['Preset'] = '预设', ['value'] = '当前值', ['game'] = '游戏原值', ['Search'] = '搜索',
     ['search'] = '搜索', ['of'] = '/', ['name in config.txt'] = 'config.txt 中的名称',
     ['reading the built-in data ...'] = '正在读取内置数据……', ['Saved to'] = '已保存到',
@@ -2853,7 +2935,7 @@ local MENU_ZH = {
     ['DAMAGE'] = '伤害', ['STATUS EFFECTS'] = '状态效果', ['EXPLOSION'] = '爆炸', ['EXPLOSION ON EXPIRY'] = '到期爆炸',
     ['EXPLOSION: STATUS EFFECTS'] = '爆炸：状态效果', ['EXPLOSION ON EXPIRY: STATUS EFFECTS'] = '到期爆炸：状态效果',
     ['PROJECTILE'] = '弹丸', ['FIRE'] = '射击', ['HEAT'] = '热量', ['AMMO'] = '弹药', ['HANDLING'] = '操控',
-    ['THROW'] = '投掷', ['STRATAGEM'] = '战备', ['SHIELD'] = '护盾', ['VEHICLE'] = '载具', ['STATUS'] = '状态',
+    ['THROW'] = '投掷', ['STRATAGEM'] = '战备', ['SHIELD'] = '护盾', ['BODY'] = '机体', ['CHARGE'] = '蓄力', ['STATUS'] = '状态',
     ['OTHER'] = '其他', ['PART'] = '部件',
     -- the values
     ['Damage'] = '伤害', ['Durable damage'] = '耐久伤害',
@@ -2876,6 +2958,16 @@ local MENU_ZH = {
     ['Rounds per resupply'] = '每次补给弹药数', ['Rounds, most carried'] = '最大携带弹药数',
     ['Charges, most carried'] = '最大携带次数', ['Charges at start'] = '初始次数', ['Charges per resupply'] = '每次补给次数',
     ['Amount at start'] = '初始数量', ['Amount, most carried'] = '最大携带数量', ['Amount per resupply'] = '每次补给数量',
+    ['Reload time (s, 0 = as animated)'] = '换弹时间（秒，0 = 按动画）',
+    ['Spin-up time (s)'] = '预热时间（秒）', ['Spin-down time (s)'] = '停转时间（秒）',
+    ['Charge time, shortest (s)'] = '蓄力时间，最短（秒）', ['Charge time, full (s)'] = '蓄力时间，满蓄（秒）',
+    ['Charge time, overcharged (s)'] = '蓄力时间，过载（秒）',
+    ['Speed at the shortest charge (x)'] = '最短蓄力时的速度倍率', ['Speed when overcharged (x)'] = '过载时的速度倍率',
+    ['Damage at the shortest charge (x)'] = '最短蓄力时的伤害倍率', ['Damage when overcharged (x)'] = '过载时的伤害倍率',
+    ['Penetration at the shortest charge (x)'] = '最短蓄力时的穿甲倍率',
+    ['Penetration when overcharged (x)'] = '过载时的穿甲倍率',
+    ['Arc speed'] = '电弧速度', ['Arc chain length'] = '电弧连锁长度', ['Arc chain split'] = '电弧连锁分裂',
+    ['Beam range'] = '光束射程', ['Beam radius'] = '光束半径',
     ['Recoil drift, horizontal'] = '后坐偏移（水平）', ['Recoil drift, vertical'] = '后坐偏移（垂直）',
     ['Recoil climb, horizontal'] = '后坐上扬（水平）', ['Recoil climb, vertical'] = '后坐上扬（垂直）',
     ['Spread, horizontal'] = '散布（水平）', ['Spread, vertical'] = '散布（垂直）', ['Sway'] = '晃动',
@@ -2904,7 +2996,7 @@ for id, name in ipairs({ 'Blind', 'Bleed', 'Deaf', 'Confusion', 'Fire', 'Fire_Pa
     'Cactus', 'Barbwire', 'BushSmall', 'BushLarge', 'Pure Damage', 'Stim Fx', 'Stim Stamina', 'Stim Heal',
     'Stim Pistol Heal', 'Stim Combat Drugs', 'Stim Cooldown', 'BurningLight', 'BurningHeavy', 'RadiationLight',
     'RadiationHeavy', 'Electric', 'Hidden', 'Stun Small', 'Stun Medium', 'Stun Large', 'Stun Massive',
-    'Stun Illuminate', 'Gas', 'Gas', 'Gas_Confusion', 'Gas_Confusion', 'Inverted_Aim_Assist', 'Flashlighted',
+    'Stun Illuminate', 'Gas', 'Gas Mk2', 'Gas Confusion', 'Gas Confusion Mk2', 'Inverted_Aim_Assist', 'Flashlighted',
     'Smoke_Covered', 'Backpack Chemicals', 'Intense Heat', 'Extreme Cold', 'Tremor', 'Sandstorm', 'Blizzard',
     'Acid Storm', 'Weather Insulated', 'TornadoStun', 'Dark Fluid', 'Death March', 'Hotshot Laser Rifle',
     'Hotshot Laser Rifle', 'Hotshot Laser Rifle', 'Illuminate Scrambler', 'Constitution',
@@ -2938,7 +3030,19 @@ local function menu_key_pressed(key, now, no_repeat)
     end
     return false
 end
-local function menu_act(action, now, no_repeat) return menu_key_pressed(menu_bound(action), now, no_repeat) end
+local function menu_act(action, now, no_repeat)
+    local pressed = menu_key_pressed(menu_bound(action), now, no_repeat)
+    if action == 'accept' and menu.accept_now then
+        menu.accept_now = nil                           -- a click of the mouse (menu_draw)
+        pressed = true
+    end
+    if not menu.bind[action] then
+        for _, a in ipairs(MENU_ACTIONS) do
+            if a[1] == action and a[4] and menu_key_pressed(a[4], now, no_repeat) then pressed = true end
+        end
+    end
+    return pressed
+end
 -- the key of two actions, when two share one
 local function menu_key_clash()
     local seen = {}
@@ -3116,11 +3220,30 @@ local function menu_lists()
     if ITEMS[0] == nil then return nil end                -- the built-in data is still being read
     local lists = {}
     for _, category in ipairs(MENU_CATEGORIES) do lists[category] = {} end
+    local groups = {}
     for index = 0, #ITEMS do
         local item = ITEMS[index]
         if item and lists[item.category] and #item.stat_order > 0 then
-            lists[item.category][#lists[item.category] + 1] = item
+            if item.group then
+                -- several items that are one thing: one row of the list, its values in sections
+                local key = item.category .. '|' .. item.group
+                local group = groups[key]
+                if not group then
+                    group = { members = {}, display = item.group, name = item.group, category = item.category,
+                              stat_order = { true }, haystack = item.group:lower() }
+                    groups[key] = group
+                    lists[item.category][#lists[item.category] + 1] = group
+                end
+                group.members[#group.members + 1] = item
+                group.haystack = group.haystack .. '\n' .. (item.display or ''):lower() .. '\n' .. item.name:lower()
+                    .. '\n' .. (item.name:lower():gsub('_', ' '))
+            else
+                lists[item.category][#lists[item.category] + 1] = item
+            end
         end
+    end
+    for _, group in pairs(groups) do
+        table.sort(group.members, function(x, y) return x.section_order < y.section_order end)
     end
     for _, list in pairs(lists) do
         table.sort(list, function(x, y) return (x.display or x.name):lower() < (y.display or y.name):lower() end)
@@ -3135,17 +3258,31 @@ for rank, group in ipairs({
     { 'DAMAGE', 'damage durable_damage ap_direct ap_slight ap_large ap_extreme demolition stagger push ap_bonus '
                 .. 'durable_ap_bonus bonus2 durable_bonus2' },
     { 'PROJECTILE', 'pellets velocity mass calibre drag gravity life_time penetration_slowdown arming_distance '
-                    .. 'speed_multiplier' },
-    { 'FIRE', 'rpm rpm_low rpm_high arc_rpm arc_range' },
-    { 'HEAT', 'overheat_temperature temp_gain_per_shot temp_gain_per_second temp_loss_per_second' },
+                    .. 'speed_multiplier explosion_delay explosion_proximity explosion_proximity_filter' },
+    { 'FIRE', 'rpm rpm_low rpm_high arc_rpm arc_range arc_speed arc_chain_length arc_chain_split beam_range beam_radius '
+              .. 'windup_seconds winddown_seconds rpm_burst burst_rounds fire_mode_1 fire_mode_2 fire_mode_3 fire_mode_4 '
+              .. 'suppressed silenced_sound' },
+    { 'CHARGE', 'charge_time_min charge_time_full charge_time_over charge_speed_min charge_speed_over '
+                .. 'charge_damage_min charge_damage_over charge_penetration_min charge_penetration_over' },
+    { 'HEAT', 'overheat_temperature temp_gain_per_shot temp_gain_per_second temp_loss_per_second '
+              .. 'heat_charge_needed heat_charge_per_second heat_charge_loss_per_second' },
     { 'AMMO', 'capacity mags_start mags_supply mags_max rounds_start rounds_supply rounds_max charges charges_start '
-              .. 'charges_refill start_amount max_amount refill_amount' },
+              .. 'charges_refill start_amount max_amount refill_amount reload_seconds' },
     { 'HANDLING', 'recoil_drift_h recoil_drift_v recoil_climb_h recoil_climb_v spread_h spread_v sway ergonomics' },
     { 'THROW', 'throw_distance_max arming_delay fuse' },
     { 'STRATAGEM', 'cooldown uses lifetime_seconds sight_range proximity_range' },
     { 'STATUS', 'duration' },
     { 'SHIELD', 'shield_health shield_radius shield_recharge_delay shield_broken_delay shield_recharge_rate' },
-    { 'VEHICLE', 'health armor durable_resistance explosion_damage_multiplier constitution constitution_rate' },
+    { 'BODY', 'health armor durable_resistance explosion_damage_multiplier constitution constitution_rate' },
+    { 'TURRET', 'turn_speed_h turn_speed_v search_seconds_min search_seconds_max' },
+    { 'PACK', 'pack_recharge_seconds pack_launch_force pack_takeoff_seconds pack_forward_share pack_landing_force '
+              .. 'pack_landing_seconds pack_steering pack_hover_seconds warp_distance warp_reach_up warp_reach_down '
+              .. 'warp_heat_safe warp_heat_unsafe warp_heat_per_warp warp_cooling' },
+    { 'ARMOR', 'weight passive' },
+    { 'MOVEMENT', 'speed_walk speed_jog speed_sprint speed_sprint_exerted speed_crouch_walk speed_crouch_sprint '
+                  .. 'speed_prone' },
+    { 'STAMINA', 'sprint_stamina_decay_duration jog_stamina_decay_duration stamina_recover_time_stand '
+                 .. 'stamina_recover_time_crouch stamina_recover_time_prone stamina_recover_delay' },
 }) do
     for stat in group[2]:gmatch('%S+') do MENU_GROUP_OF[stat] = { group[1], rank * 10 } end
 end
@@ -3172,21 +3309,80 @@ local MENU_LABEL = {
     rounds_max = 'Rounds, most carried', charges = 'Charges, most carried', charges_start = 'Charges at start',
     charges_refill = 'Charges per resupply', start_amount = 'Amount at start', max_amount = 'Amount, most carried',
     refill_amount = 'Amount per resupply',
+    reload_seconds = 'Reload time (s, 0 = as animated)',
+    windup_seconds = 'Spin-up time (s)', winddown_seconds = 'Spin-down time (s)',
+    charge_time_min = 'Charge time, shortest (s)', charge_time_full = 'Charge time, full (s)',
+    charge_time_over = 'Charge time, overcharged (s)',
+    charge_speed_min = 'Speed at the shortest charge (x)', charge_speed_over = 'Speed when overcharged (x)',
+    charge_damage_min = 'Damage at the shortest charge (x)', charge_damage_over = 'Damage when overcharged (x)',
+    charge_penetration_min = 'Penetration at the shortest charge (x)',
+    charge_penetration_over = 'Penetration when overcharged (x)',
+    arc_speed = 'Arc speed', arc_chain_length = 'Arc chain length', arc_chain_split = 'Arc chain split',
+    beam_range = 'Beam range', beam_radius = 'Beam radius',
     recoil_drift_h = 'Recoil drift, horizontal', recoil_drift_v = 'Recoil drift, vertical',
     recoil_climb_h = 'Recoil climb, horizontal', recoil_climb_v = 'Recoil climb, vertical',
     spread_h = 'Spread, horizontal', spread_v = 'Spread, vertical', sway = 'Sway', ergonomics = 'Ergonomics',
-    throw_distance_max = 'Throw distance, longest', arming_delay = 'Arming delay', fuse = 'Fuse',
+    throw_distance_max = 'Throw distance, longest', arming_delay = 'Arming delay (s)', fuse = 'Fuse time (s)',
+    explosion_delay = 'Fuse time after the hit (s)', explosion_proximity = 'Explodes this near a target (m)',
     cooldown = 'Cooldown (s)', uses = 'Uses', lifetime_seconds = 'Lifetime (s)', sight_range = 'Sight range',
     proximity_range = 'Proximity range',
     shield_health = 'Shield health', shield_radius = 'Shield radius',
     shield_recharge_delay = 'Recharge delay, shield intact', shield_broken_delay = 'Recharge delay, shield broken',
     shield_recharge_rate = 'Recharge rate',
     health = 'Health', armor = 'Armor', durable_resistance = 'Durable resistance',
+    mod_ergonomics = 'Ergonomics, added', mod_sway = 'Sway, times',
+    mod_recoil_h = 'Recoil sideways, times', mod_recoil_h_alt = 'Recoil sideways, times (other hold)',
+    mod_recoil_v = 'Recoil upward, times', mod_recoil_v_alt = 'Recoil upward, times (other hold)',
+    mod_recoil_climb_h = 'Recoil climb sideways, times', mod_recoil_climb_h_alt = 'Recoil climb sideways, times (other hold)',
+    mod_recoil_climb_v = 'Recoil climb upward, times', mod_recoil_climb_v_alt = 'Recoil climb upward, times (other hold)',
+    mod_spread_h = 'Spread sideways, times', mod_spread_h_alt = 'Spread sideways, times (other hold)',
+    mod_spread_v = 'Spread upward, times', mod_spread_v_alt = 'Spread upward, times (other hold)',
+    heat_charge_needed = 'Charge a shot needs', heat_charge_per_second = 'Charge gained a second (trigger held)',
+    heat_charge_loss_per_second = 'Charge lost a second (trigger released)',
+    explosion_proximity_filter = 'What counts as near (2878794200 = enemies, as the Airburst)',
+    rpm_burst = 'Fire rate in burst mode (rpm, 0 = the ordinary rate)', burst_rounds = 'Rounds of a burst',
+    fire_mode_1 = 'Fire mode 1 (1 auto, 2 single, 3 burst, 4/5 charge)', fire_mode_2 = 'Fire mode 2 (0 = none)',
+    fire_mode_3 = 'Fire mode 3 (0 = none)', fire_mode_4 = 'Fire mode 4 (0 = none)',
+    suppressed = 'Suppressed (0 no, 1 yes)', silenced_sound = 'Sounds suppressed (0 no, 1 yes)',
+    fire_type = 'Fire left on the ground (0 none .. 6)', lingering_status = 'Status volume left behind (0 none .. 30)',
+    lingering_seconds = 'Status volume lasts (s)',
+    turn_speed_h = 'Turn speed, sideways (deg/s)', turn_speed_v = 'Turn speed, up and down (deg/s)',
+    search_seconds_min = 'Looks for a target every (s), shortest', search_seconds_max = 'Looks for a target every (s), longest',
+    pack_recharge_seconds = 'Recharge (s)', pack_launch_force = 'Launch force', pack_takeoff_seconds = 'Takeoff (s)',
+    pack_forward_share = 'Forward share of the launch (0-1)', pack_landing_force = 'Landing thrust',
+    pack_landing_seconds = 'Landing thrust (s)', pack_steering = 'Steering in the air', pack_hover_seconds = 'Hovering (s)',
+    warp_distance = 'Warp distance (m)', warp_reach_up = 'Reach upward (m)', warp_reach_down = 'Reach downward (m)',
+    warp_heat_safe = 'Heat: safe below', warp_heat_unsafe = 'Heat: unsafe above', warp_heat_per_warp = 'Heat per warp',
+    warp_cooling = 'Cooling per second', shrapnel_velocity = 'Shrapnel speed',
+    weight = 'Weight class (0 light, 1 medium, 2 heavy)', passive = 'Passive (its number in the Passives list)',
+    speed_walk = 'Walking speed', speed_jog = 'Jogging speed', speed_sprint = 'Sprinting speed',
+    speed_sprint_exerted = 'Sprinting speed, out of stamina', speed_crouch_walk = 'Crouched walking speed',
+    speed_crouch_sprint = 'Crouched sprinting speed', speed_prone = 'Crawling speed',
+    sprint_stamina_decay_duration = 'Seconds of sprinting on full stamina',
+    jog_stamina_decay_duration = 'Seconds of jogging on full stamina',
+    stamina_recover_time_stand = 'Seconds to recover stamina, standing',
+    stamina_recover_time_crouch = 'Seconds to recover stamina, crouched',
+    stamina_recover_time_prone = 'Seconds to recover stamina, prone',
+    stamina_recover_delay = 'Seconds before stamina recovers',
+    effect_armor_rating = 'Armor rating bonus (1 = one class)', effect_recoil_crouched = 'Recoil, crouched or prone',
+    effect_extra_grenades = 'Extra grenades', effect_extra_stims = 'Extra stims',
+    effect_stim_seconds = 'Stim lasts longer by (seconds)', effect_explosive_damage_taken = 'Explosive damage taken',
+    effect_fire_damage_taken = 'Fire damage taken', effect_gas_damage_taken = 'Gas damage taken',
+    effect_arc_damage_taken = 'Arc damage taken', effect_elemental_damage_taken = 'Fire, gas, acid, arc damage taken',
+    effect_scan_seconds = 'Map marker scans every (seconds)', effect_detection_range = 'Range at which enemies notice',
+    effect_melee_damage = 'Melee damage', effect_chest_damage_taken = 'Chest damage taken',
+    effect_chest_bleed = 'Chest bleeding', effect_death_save = 'Chance to survive a lethal hit (1.5 = 50%)',
+    effect_throw_range = 'Throwing range', effect_limb_health = 'Limb health', effect_noise = 'Noise made',
+    effect_ergonomics_bonus = 'Ergonomics bonus',
+    gun_flinch = 'Flinch when hit', gun_ammo_capacity = 'Ammo capacity', gun_primary_reload = 'Primary reload speed',
+    gun_sidearm_reload = 'Sidearm reload speed', gun_sidearm_draw = 'Sidearm draw speed',
+    gun_sidearm_recoil = 'Sidearm recoil',
     explosion_damage_multiplier = 'Explosion damage multiplier', constitution = 'Constitution',
     constitution_rate = 'Constitution change rate',
     inner_radius = 'Inner radius', outer_radius = 'Outer radius', stagger_radius = 'Stagger radius',
     shrapnel_count = 'Shrapnel count',
     duration = 'Duration (s)',
+    from = 'Explodes like',
     to_main = 'Damage passed on to the vehicle', overflow_cap = 'Stops passing damage when destroyed',
 }
 local function menu_label(stat)
@@ -3200,6 +3396,12 @@ local function menu_label(stat)
         end
     else
         rest = stat:match('^blast_(.+)$') or stat:match('^expiry_(.+)$') or stat   -- the heading says which explosion
+    end
+    -- a piece of shrapnel has the values of a hit of its own
+    local piece = rest:match('^shrapnel_(.+)$')
+    if piece and not MENU_LABEL[rest] then
+        local label = menu_label(piece)
+        return label ~= piece and (L('Shrapnel') .. ': ' .. label) or stat
     end
     local slot, what = rest:match('^status(%d)_(%a+)$')
     if slot then return L(what == 'type' and 'Status effect %s: type' or 'Status effect %s: strength'):format(slot) end
@@ -3227,14 +3429,47 @@ local function menu_group(stat)
         return label, explosion == 'blast' and 24 or 27
     end
     if stat:find('^status%d_') then return 'STATUS EFFECTS', 15 end
+    if stat == 'duration' then return 'STATUS', 5 end
+    if stat:sub(1, 7) == 'effect_' then return 'EFFECTS', 700 end
+    if stat:sub(1, 4) == 'gun_' then return 'WEAPONS IN HAND', 710 end
+    if stat:sub(1, 4) == 'mod_' then return 'ON THE WEAPON IT IS FITTED TO', 720 end
     local known = MENU_GROUP_OF[stat]
     if known then return known[1], known[2] end
     return 'OTHER', 990
 end
 
+-- `blast_from` (the item explodes like another one) is not a number of a record but the name of an item:
+-- in the value list it is a row of its own, and Left / Right walk through the items that explode.
+function menu.takes_blast(item)
+    return item.takeover ~= nil or (item.blasts ~= nil and item.blasts[1] ~= nil and item.blasts[1].kind == 'C')
+end
+function menu.donors()
+    if menu.donor_list then return menu.donor_list end
+    local list, seen = {}, {}
+    -- the order of resolve_blast_from: a name that two categories have means the first one
+    for _, category in ipairs({ 'weapon', 'throwable', 'stratagem_weapon', 'enemy_weapon', 'unknown_weapon' }) do
+        for index = 0, #ITEMS do
+            local it = ITEMS[index]
+            if it and it.category == category and it.blasts and not seen[it.name:lower()] then
+                seen[it.name:lower()] = true
+                list[#list + 1] = it
+            end
+        end
+    end
+    table.sort(list, function(x, y) return (x.display or x.name):lower() < (y.display or y.name):lower() end)
+    menu.donor_list = list
+    return list
+end
+function menu.donor_shown(name)
+    for _, it in ipairs(menu.donors()) do
+        if it.name:lower() == tostring(name):lower() then return it.display or it.name end
+    end
+    return tostring(name)
+end
+
 -- The rows of the value list of an item: headings and values, and the values alone in that order.
-local function menu_rows(item)
-    if item.menu_rows then return item.menu_rows, item.menu_stats end
+function menu.base_rows(item)
+    if item.base_rows then return item.base_rows, item.base_stats end
     local entries, first_seen, groups = {}, {}, 0
     for index, stat in ipairs(item.stat_order) do
         local label, rank = menu_group(stat)
@@ -3243,6 +3478,11 @@ local function menu_rows(item)
             first_seen[label] = groups
         end
         entries[#entries + 1] = { stat = stat, label = label, rank = rank, first = first_seen[label], index = index }
+    end
+    if menu.takes_blast(item) then
+        local label, rank = menu_group('blast_from')
+        entries[#entries + 1] = { stat = 'blast_from', label = label, rank = rank, first = first_seen[label] or groups + 1,
+                                  index = 0 }
     end
     table.sort(entries, function(x, y)
         if x.rank ~= y.rank then return x.rank < y.rank end
@@ -3258,8 +3498,87 @@ local function menu_rows(item)
         stats[#stats + 1] = entry.stat
         rows[#rows + 1] = { stat = entry.stat, n = #stats }
     end
-    item.menu_rows, item.menu_stats = rows, stats
+    item.base_rows, item.base_stats = rows, stats
     return rows, stats
+end
+
+-- The value list as it is shown: every heading is a drop-down, closed or open. In a group each member is a
+-- drop-down too (closed until it is opened), with its own headings inside.
+-- -> rows { heading / stat, key, closed, level, parent, owner, n }, and what can be selected: stats[n] is
+-- the name of a value, or false for a closed heading. An open heading is not selected, it is walked past.
+function menu.is_closed(key, by_default)
+    local set = menu.fold[key]
+    if set == nil then return by_default end
+    return set
+end
+local function menu_rows(item)
+    if item.menu_rows and item.menu_version == menu.fold_version then return item.menu_rows, item.menu_stats end
+    local rows, stats, owners, picks = {}, {}, {}, {}
+    local function pick(row, stat, owner)
+        stats[#stats + 1] = stat
+        owners[#stats], picks[#stats], row.n = owner, row, #stats
+    end
+    local function values(member, under, level)
+        local closed, heading_key = false, under
+        for _, entry in ipairs(menu.base_rows(member)) do
+            if entry.heading then
+                heading_key = under .. '|' .. entry.heading
+                closed = menu.is_closed(heading_key, not config.sections_open)
+                local row = { heading = entry.heading, key = heading_key, closed = closed, level = level,
+                              parent = level == 2 and under or nil }
+                rows[#rows + 1] = row
+                if closed then pick(row, false, member) end
+            elseif not closed then
+                local row = { stat = entry.stat, owner = member, parent = heading_key }
+                rows[#rows + 1] = row
+                pick(row, entry.stat, member)
+            end
+        end
+    end
+    if item.members then
+        for _, member in ipairs(item.members) do
+            local key = item.category .. '|' .. item.name .. '|' .. member.name
+            local closed = menu.is_closed(key, true)
+            local row = { heading = member.section, section = true, key = key, closed = closed, level = 1 }
+            rows[#rows + 1] = row
+            if closed then pick(row, false, member) else values(member, key, 2) end
+        end
+    else
+        -- (one key for a heading whatever the item: DAMAGE opened on one weapon is open on the next)
+        values(item, 'every item', 1)
+    end
+    item.menu_rows, item.menu_stats, item.menu_owners, item.menu_picks = rows, stats, owners, picks
+    item.menu_version = menu.fold_version
+    return rows, stats
+end
+
+-- Opens or closes the drop-down `key` of `item`, and puts the selection where one expects it: on the
+-- heading that has just closed, on the first value of the one that has just opened.
+function menu.toggle(item, key, close)
+    local rows = menu_rows(item)
+    local now_closed = close
+    for _, row in ipairs(rows) do
+        if row.key == key and row.heading then
+            if now_closed == nil then now_closed = not row.closed end
+        end
+    end
+    if now_closed == nil then return end
+    menu.fold[key] = now_closed
+    menu.fold_version = menu.fold_version + 1
+    rows = menu_rows(item)
+    local seen = false
+    for _, row in ipairs(rows) do
+        if row.key == key and row.heading then seen = true end
+        if seen and row.n then
+            menu.stat[item] = row.n
+            return
+        end
+    end
+end
+
+-- the item a value of the list belongs to: the member of a group, or the item itself
+function menu.owner(item, n)
+    return item.menu_owners and item.menu_owners[n] or item
 end
 
 -- what the engine has to say about the selected value (the WARNING of its line), or nil
@@ -3276,10 +3595,22 @@ end
 -- the value shown for a stat: the menu's own, else the game's. -> value, changed?
 local function menu_value(item, stat)
     local expression = overrides[menu_key_of(item, stat)]
+    if stat == 'blast_from' then return expression, expression ~= nil end       -- the name of an item, or nil
     return tonumber(expression) or item.stats[stat].field.stock, expression ~= nil
 end
 
 local function menu_change(item, stat, direction, big, now)
+    if stat == 'blast_from' then
+        -- 0 = its own explosion, then the items that explode, by name
+        local list, key, at = menu.donors(), menu_key_of(item, stat), 0
+        for n, it in ipairs(list) do
+            if it.name:lower() == tostring(overrides[key]):lower() then at = n end
+        end
+        at = math.max(0, math.min(#list, at + direction * (big and 10 or 1)))
+        overrides[key] = at > 0 and list[at].name or nil
+        menu.dirty_at = now
+        return
+    end
     local entry, range = item.stats[stat], RANGES[stat]
     if not range then return end
     local whole = range.integer or entry.field.storage ~= 'f32'
@@ -3311,7 +3642,8 @@ local function menu_current(lists)
             for _, item in ipairs(lists[category]) do
                 -- an internal name has '_' where one types a space: "minigun b" finds minigun_backpack
                 local internal = (item.name:lower():gsub('_', ' '))
-                if (item.display or ''):lower():find(menu.filter, 1, true) or internal:find(menu.filter, 1, true)
+                if (item.haystack and item.haystack:find(menu.filter, 1, true))
+                    or (item.display or ''):lower():find(menu.filter, 1, true) or internal:find(menu.filter, 1, true)
                     or item.name:lower():find(menu.filter, 1, true) then
                     found[#found + 1] = item
                 end
@@ -3636,21 +3968,46 @@ local function menu_items_input(now, lists)
             if menu.filter == '' then menu.tab = (menu.tab - 1 + side) % #MENU_CATEGORIES + 1 end
         elseif item then
             local _rows, stats = menu_rows(item)
-            menu_change(item, stats[menu.stat[item] or 1], side, big, now)
+            local at = math.min(menu.stat[item] or 1, #stats)
+            if stats[at] then
+                menu_change(menu.owner(item, at), stats[at], side, big, now)
+            elseif stats[at] == false and side > 0 then
+                menu.toggle(item, item.menu_picks[at].key, false)       -- a closed heading: Right opens it
+            end
         end
     end
-    if menu_act('back', now, true) and menu.filter ~= '' then menu.filter = '' end
+    if menu_act('back', now, true) then
+        -- among the values: close the drop-down one is in (a value's heading; a closed heading's group
+        -- member). Where there is nothing to close, and in the item list, it clears the search.
+        local folded = false
+        if menu.focus == 'stats' and item then
+            local _rows, stats = menu_rows(item)
+            local row = item.menu_picks[math.min(menu.stat[item] or 1, #stats)]
+            if row and row.parent then
+                menu.toggle(item, row.parent, true)
+                folded = true
+            elseif row and row.stat and not row.parent then
+                folded = false
+            end
+        end
+        if not folded and menu.filter ~= '' then menu.filter = '' end
+    end
     if menu.focus == 'stats' and item then
         local _rows, stats = menu_rows(item)
-        local stat = stats[math.min(menu.stat[item] or 1, #stats)]
+        local chosen = math.min(menu.stat[item] or 1, #stats)
+        local stat, owner = stats[chosen], menu.owner(item, chosen)
+        if stat == false and menu_act('accept', now, true) then
+            menu.toggle(item, item.menu_picks[chosen].key, false)       -- a closed heading: the select key opens it
+            return
+        end
         if stat and menu_act('reset', now, true) then
-            overrides[menu_key_of(item, stat)] = nil
+            overrides[menu_key_of(owner, stat)] = nil
             menu.dirty_at = now
         end
-        if stat and menu_act('accept', now, true) then
+        if stat and stat ~= 'blast_from' and menu_act('accept', now, true) then
             menu_box_open('value', '', function(text, at)
                 local value = tonumber(text)
-                if value then menu_set(item, stat, value, at) end
+                if value then menu_set(owner, stat, value, at) end
             end)
         end
     elseif menu.focus == 'items' and menu_act('accept', now, true) then
@@ -3820,6 +4177,7 @@ end
 local function menu_input(now)
     local lists = menu_lists()
     if not lists or not A.game_in_front() then return end
+    menu.accept_now, menu.click_accept = menu.click_accept, nil
     if menu.mode == 'text' then
         menu_box_input(now)
     elseif menu.mode == 'capture' then
@@ -3886,7 +4244,30 @@ local function menu_draw(now)
     local function gray(str, x, y, size) text(str, x, y, size or 14, 255, 210, 210, 210) end
     local function yellow(str, x, y, size) text(str, x, y, size or 14, 255, 255, 214, 0) end
     -- a row of a list: a bar when it is the selected one, dark text on a bright bar
-    local function row(label, x, y, w_, here, focused, cells)
+    -- The mouse. The game hides its pointer, so the menu draws one. Where it is comes from Windows, in
+    -- the window's own pixels; the panel is laid out in the back buffer's, x from its left edge and y
+    -- from its top edge. It only counts once it has moved: a pointer that never moves is not in use.
+    local mouse, hot = nil, {}
+    local window = A.game_window()
+    if window then
+        local ok, cx, cy, cw, ch = pcall(A.mouse, window)
+        if ok and cx and cw and cw > 0 and ch > 0 then
+            mouse = { x = (cx * width / cw - left) / scale,
+                      y = (cy * height / ch - (height - bottom - PANEL_H * scale)) / scale }
+            if menu.mouse_at and (menu.mouse_at.x ~= cx or menu.mouse_at.y ~= cy) then menu.mouse_used = true end
+            menu.mouse_at = { x = cx, y = cy }
+        end
+    end
+    -- an area that does something when it is clicked; where two overlap, the one made later counts
+    local function area(x, y, w_, h_, action) hot[#hot + 1] = { x, y, w_, h_, action } end
+    -- on the pages that are plain lists: a click selects a row, a click on the selected row confirms it
+    local function pick(current, n, set)
+        return function()
+            if current == n then menu.click_accept = true else set(n) end
+        end
+    end
+    local function row(label, x, y, w_, here, focused, cells, on_click)
+        if on_click then area(x - 8, y, w_, 24, on_click) end
         if here then rect(x - 8, y, w_, 24, 255, focused and 255 or 70, focused and 214 or 70, focused and 0 or 60) end
         label = menu_clip(label, cells or 60)
         if not layers and here then label = '> ' .. label end
@@ -3904,6 +4285,7 @@ local function menu_draw(now)
     for n, page in ipairs(MENU_PAGES) do
         local label = L(page)
         local w_ = 22 + menu_cells(label) * 10
+        area(x, 50, w_, 26, function() menu.page = n end)
         if n == menu.page then
             rect(x, 50, w_, 26, 255, 255, 214, 0)
             if layers then text(label, x + 11, 54, 17, 255, 0, 0, 0) else yellow(label, x + 11, 54, 17) end
@@ -3928,13 +4310,14 @@ local function menu_draw(now)
         for n, category in ipairs(MENU_CATEGORIES) do
             local active = n == menu.tab and not searching
             local label = L(MENU_CATEGORY_NAME[category]) .. (active and (' ' .. #lists[category]) or '')
-            local w_ = 16 + menu_cells(label) * 9
+            local w_ = 10 + menu_cells(label) * 9                -- (thirteen of them have to fit)
+            area(x, 88, w_, 24, function() menu.tab, menu.filter, menu.focus = n, '', 'items' end)
             if active then
                 rect(x, 88, w_, 24, 255, 70, 70, 60)
-                yellow(label, x + 8, 92, 16)
+                yellow(label, x + 5, 92, 16)
             else
                 local c = searching and 120 or 255
-                text(label, x + 8, 92, 16, 255, c, c, c)
+                text(label, x + 5, 92, 16, 255, c, c, c)
             end
             x = x + w_ + 4
         end
@@ -3952,13 +4335,19 @@ local function menu_draw(now)
                     label = menu_clip(label, 24) .. '  [' .. MENU_CATEGORY_TAG[entry.category] .. ']'
                 end
                 row(label, 24, TOP + at * 26, 400, here, here and menu.focus == 'items' and menu.mode == 'list',
-                    category == 'search' and 42 or 38)
+                    category == 'search' and 42 or 38, function()
+                        menu.item[category], menu.focus = first + at, 'items'
+                    end)
             end
         end
         local under = TOP + MENU_ROWS * 26 + 6
         gray(string.format('%d %s %d', #list > 0 and selected or 0, L('of'), #list), 330, under)
         -- the search box, above the item list
         local box_y = TOP - 26
+        area(16, box_y - 3, 400, 22, function()
+            menu.focus = 'items'
+            menu_box_open('search', menu.filter)
+        end)
         if menu.box and menu.box.kind == 'search' then
             rect(16, box_y - 3, 400, 22, 255, 255, 214, 0)
             if layers then text(L('search') .. ': ' .. menu.box.text .. '_', 24, box_y, 16, 255, 0, 0, 0)
@@ -3973,7 +4362,8 @@ local function menu_draw(now)
         end
         -- values of the selected item
         if item then
-            gray(item.display and (item.name .. '   (' .. L('name in config.txt') .. ')') or '', 444, TOP - 22, 15)
+            gray(item.members and (#item.members .. ' ' .. L('items, one section each'))
+                 or (item.display and (item.name .. '   (' .. L('name in config.txt') .. ')') or ''), 444, TOP - 22, 15)
             gray(L('value'), 800, TOP - 22, 15)
             gray(L('game'), 980, TOP - 22, 15)
             local rows, stats = menu_rows(item)
@@ -3989,39 +4379,70 @@ local function menu_draw(now)
                 local stat = entry and entry.stat
                 local y = TOP + n * 26
                 if entry and entry.heading then
-                    rect(436, y + 21, 728, 1, 255, 120, 100, 0)
-                    yellow(menu_heading(entry.heading), 444, y + 5, 14)
+                    -- a drop-down: [+] closed, [-] open; a click opens or closes it
+                    local label = (entry.closed and '[+] ' or '[-] ')
+                        .. (entry.section and entry.heading:upper() or menu_heading(entry.heading))
+                    local inset = (item.members and entry.level == 2) and 20 or 0
+                    local toggle = function()
+                        menu.focus = 'stats'
+                        menu.toggle(item, entry.key)
+                    end
+                    if entry.n then
+                        local here = entry.n == at
+                        row(menu_clip(label, 76), 444 + inset, y, 728 - inset, here,
+                            here and menu.focus == 'stats' and menu.mode ~= 'capture', 76, toggle)
+                    else
+                        area(436, y, 728, 26, toggle)
+                        rect(436, y + 21, 728, 1, 255, 120, 100, 0)
+                        yellow(menu_clip(label, 76), 444 + inset, y + 5, 14)
+                    end
                 end
                 if stat then
-                    local value, changed = menu_value(item, stat)
-                    local field = item.stats[stat].field
+                    local owner = entry.owner or item
+                    local value, changed = menu_value(owner, stat)
+                    -- (`blast_from` has no field: its value is the name of an item)
+                    local field = owner.stats[stat] and owner.stats[stat].field
                     local here = entry.n == at
                     local focused = here and menu.focus == 'stats' and menu.mode ~= 'capture'
-                    row(menu_label(stat), 460, y, 728 - 16, here, focused, 34)
+                    row(menu_label(stat), 460, y, 728 - 16, here, focused, 34, function()
+                        -- on the name: select the value; on the number: type it
+                        menu.stat[item], menu.focus = entry.n, 'stats'
+                        if mouse and mouse.x >= 790 and stat ~= 'blast_from' then
+                            menu_box_open('value', '', function(typed, at_time)
+                                local number = tonumber(typed)
+                                if number then menu_set(owner, stat, number, at_time) end
+                            end)
+                        end
+                    end)
                     local dark = focused and layers
                     local c = dark and 0 or 255
-                    local shown = show(value, field.storage)
+                    local shown = field and show(value, field.storage) or (value and menu.donor_shown(value) or L('its own'))
                     if stat:find('status%d_type$') and MENU_STATUS[value] then shown = shown .. '  ' .. MENU_STATUS[value] end
                     if here and menu.box and menu.box.kind == 'value' then
                         -- never a text that is nothing but "_": the one thing the frame did in which the
                         -- game stopped answering (v1.1.10) and no other frame does
                         text('= ' .. menu.box.text .. '_', 800, y + 3, 17, 255, c, c, c)
                     elseif changed and not dark then
-                        text(menu_clip(shown, 17), 800, y + 3, 17, 255, 255, 214, 0)
+                        text(menu_clip(shown, field and 17 or 34), 800, y + 3, 17, 255, 255, 214, 0)
                     else
-                        text(menu_clip(shown, 17), 800, y + 3, 17, 255, c, c, c)
+                        text(menu_clip(shown, field and 17 or 34), 800, y + 3, 17, 255, c, c, c)
                     end
-                    local stock = show(field.stock, field.storage)
-                    if stat:find('status%d_type$') and MENU_STATUS[field.stock] then
+                    local stock = field and show(field.stock, field.storage) or ''
+                    if owner.hints and owner.hints[stat] then stock = stock .. ' (' .. owner.hints[stat] .. ')' end
+                    if field and stat:find('status%d_type$') and MENU_STATUS[field.stock] then
                         stock = stock .. '  ' .. MENU_STATUS[field.stock]
                     end
-                    if dark then text(menu_clip(stock, 17), 980, y + 3, 17, 255, 0, 0, 0)
-                    else gray(menu_clip(stock, 17), 980, y + 3, 17) end
+                    if dark then text(menu_clip(stock, 22), 980, y + 3, 17, 255, 0, 0, 0)
+                    else gray(menu_clip(stock, 22), 980, y + 3, 17) end
                 end
             end
             gray(string.format('%d %s %d', at, L('of'), #stats), 444, under)
-            if stats[at] then gray(menu_clip(stats[at], 60) .. '   (' .. L('name in config.txt') .. ')', 560, under) end
-            local warning = stats[at] and menu_warning(item, stats[at])
+            local owner = menu.owner(item, at)
+            if stats[at] then
+                gray(menu_clip((item.members and ('[' .. owner.name .. '] ') or '') .. stats[at], 60) .. '   ('
+                     .. L('name in config.txt') .. ')', 560, under)
+            end
+            local warning = stats[at] and menu_warning(owner, stats[at])
             if item.category == 'status' then
                 warning = warning or L('A status effect has one length: it is the same for every weapon and enemy that applies it')
             end
@@ -4034,7 +4455,7 @@ local function menu_draw(now)
             hint(key('left') .. '/' .. key('right'), 'change'); hint(key('fast'), 'x10')
             hint(key('reset'), 'reset')
             if menu.focus == 'items' then hint(key('accept') .. '/' .. key('search'), 'search')
-            else hint(key('accept'), 'type'); hint(key('search'), 'search') end
+            else hint(key('accept'), 'type / open'); hint(key('back'), 'close'); hint(key('search'), 'search') end
         end
     elseif menu.page == 2 then
         for n, name in ipairs(menu.presets) do
@@ -4047,11 +4468,15 @@ local function menu_draw(now)
                     for _ in pairs(overrides) do count = count + 1 end
                     label = name .. '   (' .. L('active') .. ', ' .. count .. ' ' .. L('values') .. ')'
                 end
-                row(label, 24, y, 620, here, here and menu.mode == 'list', 58)
+                row(label, 24, y, 620, here, here and menu.mode == 'list', 58,
+                    pick(menu.preset_row, n, function(k) menu.preset_row = k end))
                 if here then
                     local ax = 660
                     for a, action in ipairs(MENU_PRESET_ACTIONS) do
                         local label_a = L(action)
+                        area(ax, y, 24 + menu_cells(label_a) * 10, 24, function()
+                            menu.preset_action, menu.click_accept = a, true
+                        end)
                         if a == menu.preset_action then yellow('[' .. label_a .. ']', ax, y + 3, 17)
                         else gray(label_a, ax + 6, y + 3, 17) end
                         ax = ax + 30 + menu_cells(label_a) * 10
@@ -4063,7 +4488,8 @@ local function menu_draw(now)
             local index = #menu.presets + n
             local y = TOP + (index - 1) * 26
             if y < PANEL_H - 100 then row(L(label), 24, y, 620, index == menu.preset_row, index == menu.preset_row
-                                          and menu.mode == 'list', 58) end
+                                          and menu.mode == 'list', 58,
+                                          pick(menu.preset_row, index, function(k) menu.preset_row = k end)) end
         end
         if menu.box and menu.box.kind == 'name' then
             rect(16, PANEL_H - 104, 520, 24, 255, 255, 214, 0)
@@ -4084,7 +4510,8 @@ local function menu_draw(now)
         for n, action in ipairs(MENU_ACTIONS) do
             local here = n == menu.key_row
             local y = TOP + (n - 1) * 26
-            row(L(action[3]), 24, y, 760, here, here and menu.mode == 'list', 44)
+            row(L(action[3]), 24, y, 760, here, here and menu.mode == 'list', 44,
+                pick(menu.key_row, n, function(k) menu.key_row = k end))
             local bound = key(action[1])
             local dark = here and menu.mode == 'list' and layers
             if dark then text(bound, 520, y + 3, 17, 255, 0, 0, 0)
@@ -4095,12 +4522,13 @@ local function menu_draw(now)
         local n = #MENU_ACTIONS + 1
         local state_text = menu.block_missing and L('not available in this game') or (menu.block and L('on') or L('off'))
         row(L('Block game input while the menu is open'), 24, y, 760, n == menu.key_row, n == menu.key_row
-            and menu.mode == 'list', 44)
+            and menu.mode == 'list', 44, pick(menu.key_row, n, function(k) menu.key_row = k end))
         if n == menu.key_row and menu.mode == 'list' and layers then text(state_text, 520, y + 3, 17, 255, 0, 0, 0)
         else gray(state_text, 520, y + 3, 17) end
         gray(L(menu.block_failed and 'switched off: the game closed when this was tried'
                or 'the game gets no keys and no mouse'), 800, y + 5)
-        row(L('Reset the keys'), 24, y + 26, 760, n + 1 == menu.key_row, n + 1 == menu.key_row and menu.mode == 'list', 44)
+        row(L('Reset the keys'), 24, y + 26, 760, n + 1 == menu.key_row, n + 1 == menu.key_row and menu.mode == 'list', 44,
+            pick(menu.key_row, n + 1, function(k) menu.key_row = k end))
         if menu.capture then
             yellow(L('Press the key for: %s   (%s cancels)'):format(L(menu.capture.label), key('back')), 24, PANEL_H - 101, 17)
         end
@@ -4110,7 +4538,8 @@ local function menu_draw(now)
         for n, name in ipairs(names) do
             local here = n == menu.lang_row
             local chosen = (n == 1) == (menu.lang == 'en')
-            row(name .. (chosen and '   *' or ''), 24, TOP + (n - 1) * 26, 620, here, here, 58)
+            row(name .. (chosen and '   *' or ''), 24, TOP + (n - 1) * 26, 620, here, here, 58,
+                pick(menu.lang_row, n, function(k) menu.lang_row = k end))
         end
         if menu.zh_failed then gray(L('Chinese is switched off: the game stopped when it was drawn'), 660, TOP + 26 + 5)
         elseif not menu.zh_font then gray(L('no font of the game can draw Chinese'), 660, TOP + 26 + 5) end
@@ -4125,6 +4554,21 @@ local function menu_draw(now)
     gray(menu_clip(tostring(state.verdict or ''), 110), 20, PANEL_H - 52)
     if menu.saved_at then gray(L('Saved to') .. ' "' .. tostring(preset_name) .. '"', 900, PANEL_H - 52) end
     gray(menu_clip(table.concat(hints, '    '), 150), 20, PANEL_H - 26)
+    -- the pointer, and what a click does. Only while the lists are in charge: a box that is being typed
+    -- into, a key that is being chosen and a question take no clicks.
+    local button = A.key_down(0x01)
+    if mouse and menu.mouse_used then
+        rect(mouse.x - 1, mouse.y - 1, 12, 12, 255, 0, 0, 0, 903)
+        rect(mouse.x, mouse.y, 10, 10, 255, 255, 214, 0, 904)
+        if button and not menu.mouse_down and menu.mode == 'list' then
+            local hit = nil
+            for _, h in ipairs(hot) do
+                if mouse.x >= h[1] and mouse.x < h[1] + h[3] and mouse.y >= h[2] and mouse.y < h[2] + h[4] then hit = h end
+            end
+            if hit then hit[5]() end
+        end
+    end
+    menu.mouse_down = button
     if not menu_trail.drawn then
         menu_trail.drawn = true
         log('menu: first frame drawn')

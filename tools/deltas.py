@@ -33,6 +33,7 @@ import hd2db  # noqa: E402
 
 COMPONENT_INDEX = {
     5: "WeaponMagazineComponent",
+    113: "WeaponReloadComponent",      # a magazine sets the reload's length at +56 (2.5 / 3.0 / 3.5 s by size)
     236: "WeaponDataComponent",
     266: "WeaponHeatComponent",
     271: "WeaponCustomizationComponent",

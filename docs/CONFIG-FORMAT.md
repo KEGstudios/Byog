@@ -96,6 +96,11 @@ uses, backpack charges, shield health, vehicle health; the stats added in v0.11.
 
 | Category | Items | Stats |
 |---|---|---|
+| `attachment` (v2.0.0, not yet tested in game) | 166 attachment items that change a weapon's handling, named after the game's internal name (`vertical_grip`, `combat_scope_4x`, `rifle_5_5x50mm_penetrator`...) | `mod_ergonomics` (added to the weapon's ergonomics), `mod_sway`, `mod_recoil_h`, `mod_recoil_v`, `mod_recoil_climb_h`, `mod_recoil_climb_v`, `mod_spread_h`, `mod_spread_v` (the weapon's value is multiplied by them) and their `_alt` twins (the weapon's other hold). The number belongs to the attachment: every weapon fitted with it gets it. Which number means what is read from the values and agrees with another stat editor's labels; not confirmed in game |
+| `armor` (v2.0.0, not yet tested in game) | 135 body armors, named after the game's name (`fs_37_ravager`, `b_01_tactical`; eight without a known name are `armor_` + their id), and `helldiver` | `weight` (0 light, 1 medium, 2 heavy; the game keeps it once per piece of the armor, and every piece is set), `passive` (the number of a passive: the Passives list shows it beside each name; a number without a passive there is not to be used). `helldiver` is the one record every helldiver moves by: `speed_walk`, `speed_jog`, `speed_sprint`, `speed_sprint_exerted`, `speed_crouch_walk`, `speed_crouch_sprint`, `speed_prone` (m/s), `sprint_stamina_decay_duration`, `jog_stamina_decay_duration`, `stamina_recover_time_stand` / `_crouch` / `_prone`, `stamina_recover_delay` (seconds) |
+| `armor_passive` (v2.0.0, not yet tested in game) | the 31 armor passives (`med_kit`, `fortified`, `siege_ready`...) | `effect_<name>`: a number of the passive (`effect_extra_stims`, `effect_explosive_damage_taken`...). The game stores an effect as a hash without a name; the names here are our reading of the game's description of the passive beside its numbers, and an effect we could not read is `effect_` + its hash. `gun_<name>`: what the passive multiplies on the weapon in hand (`gun_primary_reload`, `gun_sidearm_recoil`...). Whether a value is a multiplier (0.7 = 30 % less), an amount (+2) or seconds is the game's own choice per effect. A number is only changed while it still is the game's own: what another mod has changed is reported and left alone |
+| `enemy_weapon` (v1.2.0, not yet tested in game; flame weapons since v2.0.0: 52) | 44: every entity with a ProjectileWeaponComponent whose path is the enemies' (`soldier_machinegun`, `conscript_smg`, `cyborg_tank_turret_heavycannon`, `beamer_champion_gun`, `cha_scavenger_spitter`...). Some are the enemy unit itself, where the unit carries the component | as a weapon |
+| `unknown_weapon` (v1.2.0; 116 since v2.0.0, which also asks for beam, arc and flame weapons) | 92 entities with a ProjectileWeaponComponent whose path is not in the community's name list: `weapon_` + the first 8 hex digits of the entity. Newer weapons, underbarrel launchers and vehicle guns are among them | as a weapon |
 | `status` (v1.1.0; all 71 since v1.1.3; not yet tested in game) | the 71 rows of the game's status table, read in game by the research step of v1.1.2 (`tools/live_statuses.txt`): `fire`, `bleed`, `stun_small` .. `stun_massive`, `gas` (6 s), `gas_2` (10 s), `acid_storm`... | `duration` (seconds; +40 of the status record). One value per status: it holds for every weapon and enemy that applies it. For Acid Storm the armor loss is done by game code, not by this record: a longer duration may or may not lengthen it |
 | `stratagem` | 149 rows of the game's stratagem table, named after the game's own debug names (`eagle_500kg_bomb`, `orbital_laser`, `sentrys_machinegun`...) | `cooldown` (seconds), `uses` (4294967295 = unlimited) |
 | `backpack` | 18 backpacks (`recoilless_rifle_backpack`, `ammo_backpack`...) | `charges`, `charges_start` (-1 = start full), `charges_refill` |
@@ -268,3 +273,47 @@ is **rejected** (never clamped) and reported in STATUS.txt with the range.
 `%LOCALAPPDATA%\BYOG\STATUS.txt` — first line is the verdict; then build check, tables found,
 every config line as applied / rejected (with the reason) / waiting (its table is not loaded yet; some
 tables only load with a mission), read-back results and errors.
+
+## Added in v2.0.0 (none of it tested in game)
+
+* **Packs** (`backpack`): `jumppack_backpack`, `hover_backpack` — `pack_recharge_seconds`, `pack_launch_force`,
+  `pack_takeoff_seconds`, `pack_forward_share` (0..1), `pack_landing_force`, `pack_landing_seconds`,
+  `pack_steering`, and `pack_hover_seconds` on the Hover Pack. `displacement_backpack` (Warp Pack) —
+  `warp_distance`, `warp_reach_up`, `warp_reach_down`, `warp_heat_safe`, `warp_heat_unsafe`,
+  `warp_heat_per_warp`, `warp_cooling`. `pack_07327065` is a third jump pack whose owner is not known.
+  The type library gives these records offsets and types but no member names: what each number is was
+  read from the values (15 s recharge, 6 s of hovering) and agrees with another stat editor's labels.
+  A pack is expected to read its values when it is called in.
+* **Turrets** (sentries, emplacements, enemy turrets): `turn_speed_h`, `turn_speed_v` (degrees a second),
+  `search_seconds_min`, `search_seconds_max` (how often it looks for a target). Same source as the packs.
+* **Shrapnel**: beside `blast_shrapnel_count`, the pieces' own `blast_shrapnel_velocity`,
+  `blast_shrapnel_damage`, `blast_shrapnel_durable_damage`, `blast_shrapnel_ap_*`... The pieces are a
+  projectile row of their own; `frag_grenade`, `antitank_grenade`, `jet_rifle_phoenix` and `luring_mine`
+  share one, so a change of their shrapnel reaches all four (STATUS.txt says so).
+* **Solo Silo**: `[stratagem_weapon: mini_missile_silo]` is the missile (fuse and explosion).
+* **Fuses**: a round that explodes has `explosion_delay` (seconds between the hit and the blast: 0.8 for the
+  500 kg bomb) and `explosion_proximity` (metres: how near a target sets it off). Throwables keep `fuse`
+  and `arming_delay`. The enemies' grenades are items of `enemy_weapon` with the same two values.
+* **Melee hits of the enemies** (`[enemy_weapon: melee_hunter_serrated_slash]`...): 21 damage rows that carry
+  exactly the numbers the wiki gives for an attack (damage, durable damage, armor penetration, demolition,
+  stagger, push). No table of the game ties an enemy to the row its claws use, so this rests on the numbers.
+  The other damage rows no item uses are `[unknown_weapon: damage_row_<id>]`, shown with their damage.
+* **One row for one thing (menu only).** Items whose shown names say they are one thing - `Name (variant)`,
+  `Name: part` - are one row of the item list, and the value list is divided into a section per item
+  (a Hunter: its bodies by tier, its three attacks). config.txt is not affected: every value keeps its own
+  item, and the menu shows that item's name under the list while the value is selected.
+* **Reload time and magazines.** For 18 weapons the reload's length is set by the default magazine (2.5 / 3.0 /
+  3.5 s by its size) and the weapon's own record says 0. `reload_seconds` now shows and sets the magazine's
+  number, like `capacity`: it reaches every weapon that carries that magazine by default. Where the weapon's
+  record is 0 and no magazine sets it, 0 means "as long as the animation"; its length is not in the data.
+* **Everything with health** (v2.0.0): the helldiver's own body (`[armor: avatar_helldiver]`), what a hellpod
+  brings, SEAF troops, mission objects and the enemies' structures have `health`, `armor` and their parts.
+  A part of anything now has the five values a vehicle's part has. 268 more part names were found
+  (`tools/zone_names.txt`); a part whose name is not known is still `part_<hash>`.
+* **Drop-downs (menu).** Every heading of the value list opens and closes (Enter / Right opens a closed one,
+  the back key closes the one the selected value is in, a click toggles); the members of a group are closed
+  at first.
+* **Enemy names** are those of helldivers.wiki.gg (read 2026-10-08) where the wiki's numbers for the unit
+  or its weapon match our record; the internal names (`soldier_machinegun`) are what config.txt takes.
+* **Eagle rearm** is the stratagem `eagle_rearm` (`cooldown`); the Orbital Laser's beam is
+  `[stratagem_weapon: orbital_laser]`. Both were there before; listed here because they are asked for.

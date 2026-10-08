@@ -119,6 +119,19 @@ def stat(stats, sid, table, key, rtype, path, rec):
     return v
 
 
+def word_stat(stats, sid, table, key, rtype, path, rec):
+    """A choice or a yes / no of a record (an enum, a flag byte), offered as the whole 32-bit word it sits in.
+    A flag byte is only offered when the three bytes behind it are unused."""
+    try:
+        o, st = off(rtype, path)
+    except KeyError:
+        return
+    if st in ("UINT8", "ENUM_UINT8") and rec[o + 1:o + 4] != b"\0\0\0":
+        return
+    stats.append({"id": sid, "table": table, "key": key, "record": rtype, "field": path, "offset": o,
+                  "storage": "UINT32", "original": struct.unpack_from("<I", rec, o)[0]})
+
+
 def damage_stats(T, stats, prefix, dmg_id):
     row = T.dmg_ix.get(dmg_id)
     if not dmg_id or row is None:
@@ -150,10 +163,21 @@ def explosion_stats(T, stats, prefix, exp_id):
                       ("stagger_radius", "stagger_radius")):
         stat(stats, prefix + sid, "ExplosionSettings", exp_id, "ExplosionInfo", path, rec)
     damage_stats(T, stats, prefix, rd(rec, "ExplosionInfo", "damage_type"))
+    # what the explosion leaves behind: fire on the ground, and a volume that keeps applying a status
+    word_stat(stats, prefix + "fire_type", "ExplosionSettings", exp_id, "ExplosionInfo", "fire_template", rec)
+    word_stat(stats, prefix + "lingering_status", "ExplosionSettings", exp_id, "ExplosionInfo", "persistent_status_volume", rec)
+    stat(stats, prefix + "lingering_seconds", "ExplosionSettings", exp_id, "ExplosionInfo", "status_volume_effect_time", rec)
     n = rd(rec, "ExplosionInfo", "num_shrapnel_projectiles")
     if n:
         stat(stats, prefix + "shrapnel_count", "ExplosionSettings", exp_id, "ExplosionInfo",
              "num_shrapnel_projectiles", rec)
+        # the pieces themselves: a projectile row of their own, and the damage row that one names
+        piece = rd(rec, "ExplosionInfo", "shrapnel_projectile_type")
+        piece_row = T.proj_ix.get(piece)
+        if piece and piece_row is not None:
+            piece_rec = T.projectile.record(piece_row)
+            stat(stats, prefix + "shrapnel_velocity", "ProjectileSettings", piece, "ProjectileInfo", "speed", piece_rec)
+            damage_stats(T, stats, prefix + "shrapnel_", rd(piece_rec, "ProjectileInfo", "damage_info_type"))
 
 
 def projectile_stats(T, stats, proj_id):
@@ -166,6 +190,14 @@ def projectile_stats(T, stats, proj_id):
                       ("life_time", "life_time"), ("penetration_slowdown", "penetration_slowdown"),
                       ("arming_distance", "arming_distance")):
         stat(stats, sid, "ProjectileSettings", proj_id, "ProjectileInfo", path, rec)
+    if rd(rec, "ProjectileInfo", "explosion_type_on_impact") or rd(rec, "ProjectileInfo", "explosion_type_expire"):
+        # a round that explodes: how long after the hit, and how near a target sets it off
+        stat(stats, "explosion_delay", "ProjectileSettings", proj_id, "ProjectileInfo", "explosion_delay", rec)
+        stat(stats, "explosion_proximity", "ProjectileSettings", proj_id, "ProjectileInfo", "explosion_proximity", rec)
+        # what counts as "near": 960337176 on most rounds; the ones that burst beside an enemy (Airburst
+        # rocket, plasma Punisher) have 2878794200
+        stat(stats, "explosion_proximity_filter", "ProjectileSettings", proj_id, "ProjectileInfo",
+             "proximity_explosion_collision_filter", rec)
     damage_stats(T, stats, "", rd(rec, "ProjectileInfo", "damage_info_type"))
     explosion_stats(T, stats, "blast_", rd(rec, "ProjectileInfo", "explosion_type_on_impact"))
     exp2 = rd(rec, "ProjectileInfo", "explosion_type_expire")
@@ -203,7 +235,9 @@ def resolve_weapon(T, ent):
             source.append("projectile-from-attachment")
     if rounds:
         rp = struct.unpack_from("<I", rounds, off("WeaponRoundsComponent", "ammo_types")[0])[0]
-        if rp and not proj:
+        # A weapon loaded round by round fires what its rounds record names (seen in game: the Senator,
+        # v1.1.17). Where that differs from the weapon record / the attachment, the rounds record counts.
+        if rp and rp != proj:
             proj = rp
             source.append("projectile-from-rounds")
     if fire:
@@ -212,6 +246,18 @@ def resolve_weapon(T, ent):
             if v > 0:
                 stat(stats, sid, "ProjectileWeaponComponentData", key, "ProjectileWeaponComponent",
                      "rounds_per_minute[%d]" % i, fire)
+    if fire:
+        # a burst weapon fires at its own rate ("if above 0, the fire rate will be changed to this, when the
+        # weapon is set to Burst"), and the weapon's own sound flag for a suppressor
+        stat(stats, "rpm_burst", "ProjectileWeaponComponentData", key, "ProjectileWeaponComponent", "burst_fire_rate", fire)
+        word_stat(stats, "silenced_sound", "ProjectileWeaponComponentData", key, "ProjectileWeaponComponent", "silenced", fire)
+        data = T.weapon.record(ent)
+        if data is not None:
+            stat(stats, "burst_rounds", "WeaponDataComponentData", key, "WeaponDataComponent", "num_burst_rounds", data)
+            for n, path in enumerate(("primary_fire_mode", "secondary_fire_mode", "tertiary_fire_mode",
+                                      "QuaternaryFireMode")):
+                word_stat(stats, "fire_mode_%d" % (n + 1), "WeaponDataComponentData", key, "WeaponDataComponent", path, data)
+            word_stat(stats, "suppressed", "WeaponDataComponentData", key, "WeaponDataComponent", "is_suppressed", data)
     if fire:
         # Per-weapon addends. Both name sources call +128 "damage_addends" and +136 "ap_addends", but
         # in game (tuner v0.2.1 / v0.2.2) +128 / +132 changed armor penetration and never damage. The
@@ -231,6 +277,9 @@ def resolve_weapon(T, ent):
             source.append("beam:%d" % bt)
             brec = T.beam.record(row)
             damage_stats(T, stats, "", rd(brec, "BeamInfo", "damage_info_type"))
+            # the beam itself (a row of BeamSettings, shared by the weapons that fire this beam)
+            stat(stats, "beam_range", "BeamSettings", bt, "BeamInfo", "length", brec)
+            stat(stats, "beam_radius", "BeamSettings", bt, "BeamInfo", "radius", brec)
     aw = T.arc_weapon.record(ent)
     if aw:
         at = rd(aw, "ArcWeaponComponent", "arc_type")
@@ -240,6 +289,9 @@ def resolve_weapon(T, ent):
             arec = T.arc.record(row)
             stat(stats, "arc_rpm", "ArcWeaponComponentData", key, "ArcWeaponComponent", "rounds_per_minute", aw)
             stat(stats, "arc_range", "ArcSettings", at, "ArcInfo", "distance", arec)
+            stat(stats, "arc_speed", "ArcSettings", at, "ArcInfo", "speed", arec)
+            stat(stats, "arc_chain_length", "ArcSettings", at, "ArcInfo", "max_chain_length", arec)
+            stat(stats, "arc_chain_split", "ArcSettings", at, "ArcInfo", "max_chain_split", arec)
             damage_stats(T, stats, "", rd(arec, "ArcInfo", "damage_info_type"))
     sp = T.spray.record(ent)
     if sp:
@@ -259,6 +311,32 @@ def resolve_weapon(T, ent):
         for sid, path in (("rounds_max", "ammo_capacity"), ("rounds_supply", "ammo_refill"),
                           ("rounds_start", "ammo")):
             stat(stats, sid, "WeaponRoundsComponentData", key, "WeaponRoundsComponent", path, rounds)
+    # Weapons that spin up before they fire, and weapons that are charged. Field names and what they mean
+    # are the game's own, as FileDiver's structures record them ("Time until the weapon fully winds up",
+    # "Min-, Full-, and Over-Charged states", "The value to multiply the projectile damage with when at
+    # the smallest charge amount" ...).
+    wind = hd2db.table("WeaponWindUpComponentData").record(ent)
+    if wind:
+        for sid, path in (("windup_seconds", "wind_up_time"), ("winddown_seconds", "wind_down_time")):
+            stat(stats, sid, "WeaponWindUpComponentData", key, "WeaponWindUpComponent", path, wind)
+    charge = hd2db.table("WeaponChargeComponentData").record(ent)
+    if charge:
+        source.append("charge")
+        for n, state in enumerate(("min", "full", "over")):
+            stat(stats, "charge_time_" + state, "WeaponChargeComponentData", key, "WeaponChargeComponent",
+                 "charge_state_settings[%d].charge_time" % n, charge)
+        for sid, path in (("charge_speed_min", "speed_multiplier_min"), ("charge_speed_over", "speed_multiplier_overcharge"),
+                          ("charge_damage_min", "damage_multiplier_min"), ("charge_damage_over", "damage_multiplier_overcharge"),
+                          ("charge_penetration_min", "penetration_multiplier_min"),
+                          ("charge_penetration_over", "penetration_multiplier_overcharge")):
+            stat(stats, sid, "WeaponChargeComponentData", key, "WeaponChargeComponent", "proj_multipliers." + path, charge)
+    # reload time: the typelib has an f32 at +56 of WeaponReloadComponent, and FileDiver's structure names it
+    # Duration ("We scale the reload ability to match this duration. If 0, use the default ability duration")
+    reload_record = hd2db.table("WeaponReloadComponentData").record(ent)
+    if reload_record:
+        stats.append({"id": "reload_seconds", "table": "WeaponReloadComponentData", "key": key,
+                      "record": "WeaponReloadComponent", "field": "duration", "offset": 56, "storage": "FP32",
+                      "original": round(struct.unpack_from("<f", reload_record, 56)[0], 6)})
     mag = T.magazine.record(ent)
     if mag:
         for sid, path in (("capacity", "magazine_capacity"), ("mags_start", "magazines"),
@@ -270,7 +348,12 @@ def resolve_weapon(T, ent):
         for sid, path in (("overheat_temperature", "overheat_temperature"),
                           ("temp_gain_per_shot", "temp_gain_per_shot"),
                           ("temp_gain_per_second", "temp_gain_per_second"),
-                          ("temp_loss_per_second", "temp_loss_per_second")):
+                          ("temp_loss_per_second", "temp_loss_per_second"),
+                          # a weapon that charges through its heat (the Quasar): the charge a shot needs,
+                          # and how fast it builds and drains
+                          ("heat_charge_needed", "firing_charge"),
+                          ("heat_charge_per_second", "charge_gain_per_second"),
+                          ("heat_charge_loss_per_second", "charge_loss_per_second")):
             stat(stats, sid, "WeaponHeatComponentData", key, "WeaponHeatComponent", path, heat)
     wd = T.weapon.record(ent)
     if wd:
@@ -313,6 +396,65 @@ with open(os.path.join(HERE, "zone_names.txt"), encoding="utf-8") as _f:
     for _line in _f:
         if not _line.startswith("#") and "|" in _line:
             ZONE_NAMES[int(_line.split("|")[0], 16)] = _line.split("|")[1].strip()
+
+
+def raw_stat(stats, sid, table, key, offset, rec):
+    """A float of a record whose members the type library does not name: by its offset alone."""
+    record = table[:-4]
+    members = dict((m["offset"], m["storage"]) for m in gostructs.typelib()["types"][record]["members"])
+    assert members.get(offset) == "FP32", (table, offset, members.get(offset))
+    stats.append({"id": sid, "table": table, "key": key, "record": record, "field": "+%d" % offset,
+                  "offset": offset, "storage": "FP32", "original": round(struct.unpack_from("<f", rec, offset)[0], 6)})
+
+
+# JumppackComponent (Jump Pack, Hover Pack), RechargeComponent, DisplacementComponent (Warp Pack)
+JUMP_PACK = (("pack_launch_force", 0), ("pack_takeoff_seconds", 24), ("pack_forward_share", 32),
+             ("pack_landing_force", 36), ("pack_landing_seconds", 40), ("pack_steering", 60))
+WARP_PACK = (("warp_distance", 120), ("warp_reach_up", 128), ("warp_reach_down", 132), ("warp_heat_safe", 140),
+             ("warp_heat_unsafe", 144), ("warp_heat_per_warp", 148), ("warp_cooling", 152))
+
+
+def packs(T):
+    out = []
+    jump, recharge = hd2db.table("JumppackComponentData"), hd2db.table("RechargeComponentData")
+    warp = hd2db.table("DisplacementComponentData")
+    for ent in sorted(set(jump.index) | set(warp.index)):
+        path = hashnames.name(ent)
+        stats, key = [], "%016X" % ent
+        rec = jump.record(ent)
+        if rec is not None:
+            if recharge.record(ent) is not None:
+                raw_stat(stats, "pack_recharge_seconds", "RechargeComponentData", key, 0, recharge.record(ent))
+            for sid, offset in JUMP_PACK:
+                raw_stat(stats, sid, "JumppackComponentData", key, offset, rec)
+            if struct.unpack_from("<f", rec, 156)[0] > 0:             # -1: this pack does not hover
+                raw_stat(stats, "pack_hover_seconds", "JumppackComponentData", key, 156, rec)
+        rec = warp.record(ent)
+        if rec is not None:
+            for sid, offset in WARP_PACK:
+                raw_stat(stats, sid, "DisplacementComponentData", key, offset, rec)
+        name = path.rsplit("/", 1)[-1] if path else "pack_%08x" % (ent >> 32)
+        out.append({"category": "backpack", "entity": key, "path": "backpacks/" + name, "full_path": path,
+                    "sources": ["pack"], "stats": stats})
+    return out
+
+
+def turret_stats(items):
+    """How fast a turret turns (TurretComponent +12 sideways, +8 up and down, degrees a second) and how
+    often it looks for a target (DetectorComponent +0 / +4, seconds), for every listed thing that has them."""
+    turret, detector = hd2db.table("TurretComponentData"), hd2db.table("DetectorComponentData")
+    for it in items:
+        if it["category"] not in ("stratagem_weapon", "enemy_weapon", "unknown_weapon"):
+            continue
+        ent = int(it["entity"], 16)
+        rec = turret.record(ent)
+        if rec is not None:
+            raw_stat(it["stats"], "turn_speed_h", "TurretComponentData", it["entity"], 12, rec)
+            raw_stat(it["stats"], "turn_speed_v", "TurretComponentData", it["entity"], 8, rec)
+        rec = detector.record(ent)
+        if rec is not None:
+            raw_stat(it["stats"], "search_seconds_min", "DetectorComponentData", it["entity"], 0, rec)
+            raw_stat(it["stats"], "search_seconds_max", "DetectorComponentData", it["entity"], 4, rec)
 
 
 def resolve_equipment(T):
@@ -465,6 +607,148 @@ def stratagem_weapons(T, seen):
     return out
 
 
+def body_stats(items):
+    """Health, armor and the parts of every listed thing that has a HealthComponent and is not a vehicle
+    (those have theirs already): sentries, emplacements, guard dogs, and the enemy units that carry their
+    weapon component themselves. The same fields as for vehicles, whose offsets were confirmed in game."""
+    health = hd2db.table("HealthComponentData")
+    zones_at = off("HealthComponent", "damageable_zones")[0]
+    zone = next(m for m in _layouts["HealthComponent"]["members"] if m["offset"] == zones_at)
+    step = zone["size"] // zone["inline_array_len"]
+    name_at = off("DamageableZoneInfo", "zone_name")[0]
+    for it in items:
+        if it["category"] not in ("stratagem_weapon", "enemy_weapon", "unknown_weapon") and not it.get("body"):
+            continue
+        if any(s.get("id") == "health" for s in it["stats"]):
+            continue
+        rec = health.record(int(it["entity"], 16))
+        if rec is None:
+            continue
+        stats, key = it["stats"], it["entity"]
+        stat(stats, "health", "HealthComponentData", key, "HealthComponent", "health", rec)
+        stat(stats, "armor", "HealthComponentData", key, "HealthComponent", "default_damageable_zone_info.armor", rec)
+        for sid, field in (("durable_resistance", "default_damageable_zone_info.projectile_durable_resistance"),
+                           ("explosion_damage_multiplier", "default_damageable_zone_info.explosion_damage_multiplier")):
+            stat(stats, sid, "HealthComponentData", key, "HealthComponent", field, rec)
+            # (a sentry's explosion multiplier is the largest float there is: "not set". Not offered.)
+            if abs(stats[-1].get("original", 0)) > 1e30:
+                stats.pop()
+        for z in range(zone["inline_array_len"]):
+            name_hash = struct.unpack_from("<I", rec, zones_at + z * step + name_at)[0]
+            if not name_hash:
+                continue
+            part = ZONE_NAMES.get(name_hash, "%08x" % name_hash)
+            for sid, field in (("health", "health"), ("armor", "armor"),
+                               ("durable_resistance", "projectile_durable_resistance"),
+                               ("to_main", "affects_main_health"),
+                               ("overflow_cap", "main_health_affect_capped_by_zone_health")):
+                o, st = off("DamageableZoneInfo", field)
+                if st == "UINT8":
+                    # a flag byte followed by three unused bytes: written as one whole word
+                    if rec[zones_at + z * step + o + 1:zones_at + z * step + o + 4] != b"\0\0\0":
+                        continue
+                    st = "UINT32"
+                v = struct.unpack_from(_FMT[st], rec, zones_at + z * step + o)[0]
+                stats.append({"id": "part_%s_%s" % (part, sid), "table": "HealthComponentData", "key": key,
+                              "record": "HealthComponent", "field": "damageable_zones[%d].%s" % (z, field),
+                              "offset": zones_at + z * step + o, "storage": st,
+                              "original": round(v, 6) if st == "FP32" else v})
+
+
+def other_weapons(T, items):
+    """Every entity with a ProjectileWeaponComponent that the lists above did not reach.
+
+    The stratagem snapshot is older than the game, so the weapons of newer stratagems have no link from a
+    stratagem; and the enemies' weapons were never asked for by a list. An entity whose path is in the
+    community's name list is filed by that path; one without a name is offered as weapon_<8 hex digits>."""
+    have = set()
+    for it in items:
+        try:
+            have.add(int(it["entity"], 16))
+        except (TypeError, ValueError):
+            pass
+    taken = collections.Counter(it["path"].rsplit("/", 1)[-1] for it in items)
+    out = []
+    # (flame weapons have none of the first three: a SprayWeaponComponent is what makes them weapons)
+    pool = set(T.fire.index) | set(T.beam_weapon.index) | set(T.arc_weapon.index) | set(T.spray.index)
+    for ent in sorted(pool):
+        if ent in have:
+            continue
+        path = hashnames.name(ent)
+        if path is None:
+            category, name = "unknown_weapon", "weapon_%08x" % (ent >> 32)
+        elif "/tutorial/" in path or path.endswith("tutorial_turret"):
+            continue
+        elif "/fac_helldivers/" in path or "/fac_super_earth/" in path or "/obj_common/" in path:
+            category, name = "stratagem_weapon", path.rsplit("/", 1)[-1]
+        else:
+            category, name = "enemy_weapon", path.rsplit("/", 1)[-1]
+        r = resolve_weapon(T, ent)
+        if not any("error" not in s for s in r["stats"]):
+            continue
+        taken[name] += 1
+        if taken[name] > 1:
+            name += "_%d" % taken[name]
+        out.append({"category": category, "entity": "%016X" % ent, "path": category + "s/" + name,
+                    "full_path": path, **r})
+    return out
+
+
+# Damage rows of the enemies' melee hits, by the numbers the wiki gives for the attack (see MELEE below):
+# row id -> (internal name, what it is). "full": all six numbers are the wiki's; "near": its place among
+# the rows of the same enemy settled it where two rows carry the same numbers, or one number differs.
+MELEE = {
+    565: ("melee_brood_commander_bull_rush", "Brood Commander: Bull Rush"),
+    568: ("melee_charger_heavy_ram", "Charger: Heavy Ram"),
+    570: ("melee_charger_heavy_crush", "Charger: Heavy Crush"),
+    574: ("melee_hunter_serrated_slash", "Hunter: Serrated Slash"),
+    575: ("melee_hunter_acidic_lash", "Hunter: Acidic Lash"),
+    576: ("melee_hunter_leap", "Hunter: Leap"),
+    578: ("melee_impaler_momentous_slam", "Impaler: Momentous Slam"),
+    582: ("melee_warrior_claws", "Warrior / Brood Commander / Hive Guard: claws"),
+    585: ("melee_scavenger_tearing_pincers", "Scavenger: Tearing Pincers"),
+    588: ("melee_stalker_impaling_strike", "Stalker: Impaling Strike"),
+    589: ("melee_stalker_barbed_laceration", "Stalker: Barbed Laceration"),
+    591: ("melee_bile_titan_cataclysmic_slam", "Bile Titan: Cataclysmic Slam"),
+    593: ("melee_trooper_steel_fist", "Trooper: Steel Fist"),
+    594: ("melee_heat_blade", "Commissar / Brawler: Heat Blade"),
+    596: ("melee_hulk_heavy_rotary_saw", "Hulk: Heavy Rotary Saw"),
+    599: ("melee_heat_blade_2", "Commissar / Brawler: Heat Blade (second row)"),
+    601: ("melee_berserker_meatsaw_slash", "Berserker: Meatsaw Slash"),
+    602: ("melee_berserker_stomp", "Berserker: Stomp"),
+    609: ("melee_voteless_swipe_and_claw", "Voteless: Swipe and Claw"),
+    612: ("melee_overseer_bludgeon", "Overseer: Pathfinder Lightspear (bludgeon)"),
+    621: ("melee_fleshmob_swing_and_bludgeon", "Fleshmob: Swing and Bludgeon"),
+}
+
+
+def other_damage(T, items):
+    """Every damage row no listed item uses: the enemies' melee hits by name, the rest by number."""
+    used = set()
+    for it in items:
+        for s in it["stats"]:
+            if s.get("table") == "DamageSettings":
+                used.add(int(s["key"]))
+    out = []
+    for row_id in sorted(T.dmg_ix):
+        if not row_id or row_id in used:
+            continue
+        stats = []
+        damage_stats(T, stats, "", row_id)
+        if not any("error" not in s for s in stats):
+            continue
+        v = dict((s["id"], s.get("original")) for s in stats if "error" not in s)
+        if row_id in MELEE:
+            category, name, shown = "enemy_weapon", MELEE[row_id][0], MELEE[row_id][1] + " (melee)"
+        else:
+            category, name = "unknown_weapon", "damage_row_%d" % row_id
+            shown = "Damage row %d: %d / %d, AP %d" % (row_id, v.get("damage", 0), v.get("durable_damage", 0),
+                                                       v.get("ap_direct", 0))
+        out.append({"category": category, "entity": "%016X" % row_id, "path": category + "s/" + name,
+                    "sources": ["damage row"], "shown": shown, "stats": stats})
+    return out
+
+
 def live_stratagems():
     """Stratagem rows as read in game (tools/live_stratagems.txt): the table is not in the offline data.
     Offsets: uses +80, call-in time +84 and cooldown +104 of StratagemInfo, settled by comparing the rows
@@ -490,14 +774,14 @@ def live_stratagems():
     return out
 
 
-def live_statuses():
+def live_statuses(T=None):
     """Status effect rows as read in game (tools/live_statuses.txt): the table is not in the offline data."""
     out, seen = [], {}
     with open(os.path.join(HERE, "live_statuses.txt"), encoding="utf-8") as f:
         for line in f:
             if line.startswith("#") or not line.strip():
                 continue
-            row_id, name, _a, _b, duration = line.rstrip("\n").split("|")
+            row_id, name, _a, _b, duration, damage_row = line.rstrip("\n").split("|")
             slug = "_".join("".join(c.lower() if c.isalnum() else " " for c in name).split())
             seen[slug] = seen.get(slug, 0) + 1
             if seen[slug] > 1:
@@ -507,6 +791,10 @@ def live_statuses():
                             {"table": "StatusEffectSettings", "key": int(row_id), "record": "StatusEffectInfo",
                              "id": "duration", "field": "+40", "offset": 40, "storage": "FP32",
                              "original": float(duration)}]})
+            # what the effect does each time it ticks: its damage row (shared by everything that causes
+            # this effect, the enemies included)
+            if int(damage_row) and T is not None:
+                damage_stats(T, out[-1]["stats"], "", int(damage_row))
     return out
 
 
@@ -588,6 +876,81 @@ def main():
             r = resolve_throwable(T, ent) if cat == "throwable" else resolve_weapon(T, ent)
             items.append({"category": cat, "entity": "%016X" % ent, "path": path, **r})
     items += stratagem_weapons(T, seen) + resolve_equipment(T)
+    # the charge of the C4 pack: a throwable like the others, but its entity is filed with the backpacks
+    for ent in sorted(T.throwable.index):
+        path = hashnames.name(ent)
+        if path and path.endswith("/c4_charge_backpack/c4_charge") and ent not in seen:
+            seen.add(ent)
+            items.append({"category": "throwable", "entity": "%016X" % ent, "path": path, **resolve_throwable(T, ent)})
+    # the missile of the Solo Silo: no weapon fires it, it is the thing itself (an explosive)
+    for ent in sorted(hd2db.table("SeekingMissileComponentData").index):
+        path = hashnames.name(ent)
+        if path and path.endswith("/mini_missile_silo/mini_missile_silo") and ent not in seen:
+            seen.add(ent)
+            r = resolve_throwable(T, ent)
+            items.append({"category": "stratagem_weapon", "entity": "%016X" % ent,
+                          "path": "stratagem_weapons/mini_missile_silo", "full_path": path, **r})
+    items += other_weapons(T, items)
+    # what the enemies throw or carry that explodes: an explosive of its own, with a fuse
+    for ent in sorted(T.explosive.index):
+        path = hashnames.name(ent)
+        if path and ("/fac_cyborgs/" in path or "/fac_illuminate/" in path or "/fac_bugs/" in path) \
+                and not any(it["entity"] == "%016X" % ent for it in items):
+            r = resolve_throwable(T, ent)
+            if any("error" not in s for s in r["stats"]):
+                items.append({"category": "enemy_weapon", "entity": "%016X" % ent,
+                              "path": "enemy_weapons/" + path.rsplit("/", 1)[-1], "full_path": path, **r})
+    # every other enemy: the ones without a weapon record (they bite), and the bodies of the ones whose
+    # gun is an entity of its own. Health, armor and parts come from body_stats below.
+    listed = set(it["path"].rsplit("/", 1)[-1] for it in items)
+    for ent in sorted(hd2db.table("HealthComponentData").index):
+        path = hashnames.name(ent)
+        if path and ("/fac_cyborgs/" in path or "/fac_illuminate/" in path or "/fac_bugs/" in path) \
+                and not any(it["entity"] == "%016X" % ent for it in items):
+            name = path.rsplit("/", 1)[-1]
+            if name in listed:
+                name += "_%08x" % (ent >> 32)
+            listed.add(name)
+            items.append({"category": "enemy_weapon", "entity": "%016X" % ent, "path": "enemy_weapons/" + name,
+                          "full_path": path, "sources": ["unit"], "stats": []})
+    # everything else that has health and a name: the helldiver's own body, what a hellpod brings, equipment,
+    # SEAF troops, mission objects, what stands in the enemies' bases
+    for ent in sorted(hd2db.table("HealthComponentData").index):
+        path = hashnames.name(ent)
+        if not path or any(it["entity"] == "%016X" % ent for it in items) or "/tutorial/" in path:
+            continue
+        short = path.replace("content/", "")
+        if short.startswith("fac_helldivers/cha_avatar/"):
+            category = "armor"
+        elif short.startswith("fac_helldivers/hellpod/") or short.startswith("fac_helldivers/equipment/"):
+            category = "stratagem_weapon"
+        elif any(short.startswith(p) for p in ("objectives/obj_cyborgs", "objectives/obj_bugs", "objectives/obj_illuminate",
+                                               "env_cyborg", "env_bugs", "env_illuminate")):
+            category = "enemy_weapon"
+        else:
+            category = "vehicle"            # the helldivers' side: vehicle pieces, SEAF troops, mission objects
+        name = path.rsplit("/", 1)[-1]
+        if name in listed:
+            name += "_%08x" % (ent >> 32)
+        listed.add(name)
+        items.append({"category": category, "entity": "%016X" % ent, "path": category + "s/" + name,
+                      "full_path": path, "sources": ["health"], "body": True, "stats": []})
+    # and the records of the health table whose name nobody knows (the community's list of names does not
+    # have their path): listed by what they are made of, so that they can be recognised
+    for ent in sorted(hd2db.table("HealthComponentData").index):
+        if hashnames.name(ent) is None and not any(it["entity"] == "%016X" % ent for it in items):
+            items.append({"category": "unknown_weapon", "entity": "%016X" % ent,
+                          "path": "unknown_weapons/body_%08x" % (ent >> 32), "sources": ["health"], "body": True,
+                          "stats": []})
+    items += packs(T)
+    body_stats(items)
+    items[:] = [it for it in items if not it.get("body") or any("error" not in s for s in it["stats"])]
+    for it in items:
+        if it.get("body") and it["category"] == "unknown_weapon":
+            v = dict((s["id"], s.get("original")) for s in it["stats"] if "error" not in s)
+            parts = sum(1 for k in v if k.startswith("part_") and k.endswith("_health"))
+            it["shown"] = "Body without a name: health %d, armor %d, %d parts" % (v.get("health", 0), v.get("armor", 0), parts)
+    turret_stats(items)
     # How long a deployed thing stays before it removes itself: HellpodPayloadComponent.life_time, by the
     # game's own field name. Sentries 150 s, mortar sentries 180 s, Tesla tower 150 s, shield relay 40 s;
     # 0 on things that stay (emplacements, mine deployers).
@@ -615,7 +978,8 @@ def main():
                                     "field": "+0", "offset": 0, "storage": "FP32",
                                     "original": round(struct.unpack_from("<f", rec, 0)[0], 6)})
     items += live_stratagems()
-    items += live_statuses()
+    items += live_statuses(T)
+    items += other_damage(T, items)
     unnamed = sorted("%016X" % e for e in T.weapon.index if hashnames.name(e) is None)
     cat = {"snapshot": {"source": "FileDiver datalibrary mirror", "projectile_rows": T.projectile.count,
                         "damage_rows": T.damage.count, "explosion_rows": T.explosion.count},

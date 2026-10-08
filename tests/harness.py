@@ -270,7 +270,9 @@ KEYED_TABLES = ["WeaponDataComponentData", "ProjectileWeaponComponentData", "Wea
                 "ShieldComponentData", "HealthComponentData", "VehicleComponentData",
                 "WeaponCustomizationComponentData", "AvatarComponentData",
                 "BombardmentComponentData", "EagleComponentData", "OrbitalAbilityComponentData",
-                "HellpodPayloadComponentData", "SensorEyeComponentData", "SensorProximityComponentData"]
+                "HellpodPayloadComponentData", "SensorEyeComponentData", "SensorProximityComponentData",
+                "JumppackComponentData", "RechargeComponentData", "DisplacementComponentData",
+                "TurretComponentData", "DetectorComponentData"]
 
 _cache = {}
 
@@ -325,7 +327,7 @@ def build_world(cooldown_at=104, second_copy=True, corrupt=None, corrupt_copy=No
     with open(os.path.join(ROOT, "tools", "live_statuses.txt"), encoding="utf-8") as f:
         for line in f:
             if not line.startswith("#") and line.strip():
-                row_id, name, _a, _b, duration = line.rstrip("\n").split("|")
+                row_id, name, _a, _b, duration = line.rstrip("\n").split("|")[:5]
                 live[int(row_id)] = (name, float(duration))
     rows = []
     for i in range(max(len(status), max(live) + 1)):
@@ -583,6 +585,20 @@ F['user32.dll'] = {
     end,
     GetClassNameA = function(window, buffer, size) pointer(window, 'window'); ffi.copy(buffer, 'GameWindow'); return 10 end,
     IsHungAppWindow = function(window) pointer(window, 'window'); return py.hung() and 1 or 0 end,
+    -- the mouse: Python holds where it is, in the pixels of the window (which is at the screen's corner)
+    GetCursorPos = function(point)
+        pointer(point, 'point')
+        local p = ffi.cast('int32_t *', point)
+        p[0], p[1] = py.mouse_x(), py.mouse_y()
+        return 1
+    end,
+    ScreenToClient = function(window, point) pointer(window, 'window'); pointer(point, 'point'); return 1 end,
+    GetClientRect = function(window, rect)
+        pointer(window, 'window'); pointer(rect, 'rect')
+        local r = ffi.cast('int32_t *', rect)
+        r[0], r[1], r[2], r[3] = 0, 0, 2560, 1440
+        return 1
+    end,
     SetWindowsHookExA = function(kind, proc, module, thread)
         pointer(proc, 'proc')
         if module ~= nil then error('a hook inside the own process takes no module', 2) end
@@ -671,6 +687,7 @@ class Game:
         self.window_hung, self.focus_calls, self.sent_to_hung = False, 0, 0
         self.helper_enabled, self.has_helper = False, True
         self.hooks, self.hook_refused = [], False
+        self.mouse = (0, 0)
         if config is not None:
             self.write_config(config)
         self.working_set_fails = working_set_fails
@@ -688,6 +705,7 @@ class Game:
             b"set_focus": self._set_focus, b"attach": self._attach, b"hung": lambda: self.window_hung,
             b"enable": self._enable, b"enabled": lambda window: int(window) != 0x555 or self.helper_enabled,
             b"has_helper": lambda: self.has_helper,
+            b"mouse_x": lambda: self.mouse[0], b"mouse_y": lambda: self.mouse[1],
             b"hook": self._hook, b"window_thread": lambda: self.window_thread, b"clock": self._clock, b"module": self._module,
             b"module_path": self._module_path, b"file_open": self._file_open,
             b"file_size": self._file_size, b"file_read": self._file_read, b"file_close": self._file_close,
@@ -809,6 +827,15 @@ class Game:
     def filter_flag(self):
         """The address of the byte the installed filter looks at (it is in its code, at +6)."""
         return self.memory.peek(self.hooks[0][1] + 6, "<Q")
+
+    def click(self, x, y):
+        """Moves the mouse to a place of the menu's panel (x from its left edge, y from its top edge, in the
+        panel's own units) and presses the left button."""
+        scale = 1440 / 1080
+        left, top = (2560 - 1180 * scale) / 2, (1440 - 726 * scale) / 2
+        self.mouse = (int(left + x * scale), int(top + y * scale))
+        self.frames(2)                                    # it has moved: the pointer is in use
+        self.press(0x01)
 
     def game_gets_keys(self):
         """The game's window gets key messages unless a filter is installed and switched on."""

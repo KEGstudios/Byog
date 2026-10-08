@@ -2,6 +2,7 @@
 # Written by hand from the names the game shows; config.txt keeps using the internal names.
 # An item that is not listed is shown by its internal name. Corrections and additions are welcome:
 # one line per item, category|internal name|name in the game
+# Since v2.0.0 also from the item table of the SHODAN Stat Editor v2.1.0 (public domain), matched by entity id.
 weapon|air_burst_rocket_launcher|RL-77 Airburst Rocket Launcher
 weapon|arc_shotgun|ARC-12 Blitzer
 weapon|arc_thrower|ARC-3 Arc Thrower
@@ -78,7 +79,7 @@ weapon|pistol_nacho|M6C/SOCOM Pistol
 weapon|pistol_shark|P/40-K Bolt Pistol
 weapon|plasma_blaster|PLAS-45 Epoch
 weapon|plasma_pistol|PLAS-15 Loyalist
-weapon|plasma_rifle|PLAS-45 Epoch
+weapon|plasma_rifle|PLAS-1 Scorcher
 weapon|plasma_rifle_charge|PLAS-101 Purifier
 weapon|pump_grenade_launcher|GL-15 Evictor
 weapon|pump_shotgun|SG-8 Punisher
@@ -96,7 +97,7 @@ weapon|shotgun_nacho|M90A Shotgun
 weapon|sledge_hammer|CQC-20 Breaching Hammer
 weapon|smart_pistol|P-92 Warrant
 weapon|smart_pistol_missile|P-33 Missile Pistol
-weapon|smg_defender|SMG-37 Defender
+weapon|smg_defender|MP-98 Knight
 weapon|smg_flamer|SMG/FLAM-34 Stoker
 weapon|smg_helghast|StA-11 SMG
 weapon|smg_nacho|M7S SMG
@@ -108,8 +109,8 @@ weapon|standard_pistol|P-2 Peacemaker
 weapon|stim_pistol|P-11 Stim Pistol
 weapon|stun_baton|CQC-30 Stun Baton
 weapon|stun_spear|CQC-19 Stun Lance
-weapon|survival_shovel|CQC-72 Entrenchment Tool
-weapon|survival_shovel_trench|Trench Shovel
+weapon|survival_shovel|CQC-73 Entrenchment Tool (pickup)
+weapon|survival_shovel_trench|CQC-73 Entrenchment Tool
 weapon|triple_barrel_breakshotgun|SG-22 Bushwhacker
 weapon|volley_gun|VG-70 Variable
 throwable|arc_grenade|G-31 Arc
@@ -123,7 +124,7 @@ throwable|frag_grenade|G-6 Frag
 throwable|gas_grenade|G-4 Gas
 throwable|he_grenade|G-12 High Explosive
 throwable|impact_grenade|G-16 Impact
-throwable|impact_smoke_grenade|G-3 Smoke
+throwable|impact_smoke_grenade|G-89 Smokescreen
 throwable|incendiary_grenade|G-10 Incendiary
 throwable|incendiary_impact_grenade|G-13 Incendiary Impact
 throwable|luring_mine|TM-1 Lure Mine
@@ -135,14 +136,14 @@ throwable|sticky_grenade|G-123 Thermite
 throwable|sticky_stun_grenade|G-109 Urchin
 throwable|throwing_knife|K-2 Throwing Knife
 throwable|zipper_grenade|G-142 Pyrotech
-stratagem_weapon|turret_machinegun_gpmg|Machine Gun Sentry (gun)
-stratagem_weapon|gatling_turret|Gatling Sentry (gun)
-stratagem_weapon|mortar_turret|Mortar Sentry (gun)
-stratagem_weapon|mortar_turret_staticfield|EMS Mortar Sentry (gun)
-stratagem_weapon|rocket_turret|Rocket Sentry (gun)
-stratagem_weapon|sentrys_autocannon_weapon|Autocannon Sentry (gun)
-stratagem_weapon|tesla_turret|Tesla Tower
-stratagem_weapon|manned_turret|HMG Emplacement (gun)
+stratagem_weapon|turret_machinegun_gpmg|A/MG-43 Machine Gun Sentry
+stratagem_weapon|gatling_turret|A/G-16 Gatling Sentry
+stratagem_weapon|mortar_turret|A/M-12 Mortar Sentry
+stratagem_weapon|mortar_turret_staticfield|A/M-23 EMS Mortar Sentry
+stratagem_weapon|rocket_turret|A/MLS-4X Rocket Sentry
+stratagem_weapon|sentrys_autocannon_weapon|A/AC-8 Autocannon Sentry
+stratagem_weapon|tesla_turret|A/ARC-3 Tesla Tower
+stratagem_weapon|manned_turret|E/MG-101 HMG Emplacement
 stratagem_weapon|orbital_precision_strike|Orbital Precision Strike (shell)
 stratagem_weapon|orbital_railcannon|Orbital Railcannon Strike (shell)
 stratagem_weapon|orbital_laser|Orbital Laser (beam)
@@ -150,7 +151,7 @@ stratagem_weapon|orbital_gas_strike|Orbital Gas Strike (shell)
 stratagem_weapon|orbital_airburst_strike|Orbital Airburst Strike (shell)
 stratagem_weapon|orbital_smoke_strike|Orbital Smoke Strike (shell)
 vehicle|combat_walker|EXO-45 Patriot Exosuit
-vehicle|frv|M-102 Fast Recon Vehicle
+vehicle|frv|M-102 Gunner FRV
 shield|energy_shield_backpack|SH-32 Shield Generator Pack
 shield|directional_energy_shield|SH-51 Directional Shield
 shield|energy_shield|FX-12 Shield Generator Relay
@@ -201,10 +202,10 @@ status|stun_medium|Stun Medium
 status|stun_large|Stun Large
 status|stun_massive|Stun Massive
 status|stun_illuminate|Stun Illuminate
-status|gas|Gas (6 s)
-status|gas_2|Gas (10 s)
-status|gas_confusion|Gas Confusion (5 s)
-status|gas_confusion_2|Gas Confusion (9 s)
+status|gas|Gas
+status|gas_2|Gas Mk2
+status|gas_confusion|Gas Confusion
+status|gas_confusion_2|Gas Confusion Mk2
 status|inverted_aim_assist|Inverted Aim Assist
 status|flashlighted|Flashlighted
 status|smoke_covered|Smoke Covered
@@ -231,3 +232,246 @@ status|gloom|Gloom
 status|dark_fluid_2|Dark Fluid
 status|poison|Poison
 status|poisonvulnerability|PoisonVulnerability
+weapon|team_weapons_chem_gun_weapon|TX-41 Sterilizer
+stratagem_weapon|antitank_emplacement|E/AT-12 Anti-Tank Emplacement
+stratagem_weapon|combat_walker_anti_tank_cannon|Exosuit: anti-tank cannon
+stratagem_weapon|combat_walker_flak_cannon|Exosuit: flak cannon
+stratagem_weapon|frv_mg|FRV: machine gun
+stratagem_weapon|lav_autocannon|LAV autocannon
+stratagem_weapon|tank_storm_maingun|Storm tank: main gun
+stratagem_weapon|tank_storm_silo|Storm tank: missile silo
+stratagem_weapon|tank_storm_smoke|Storm tank: smoke launcher
+stratagem_weapon|eagle_gunpods|Eagle gun pods
+stratagem_weapon|eagle_gunpod|Eagle gun pod (single)
+stratagem_weapon|seaf_gun|SEAF artillery gun
+stratagem_weapon|sam_site|SAM site
+stratagem_weapon|idle_sam_site|SAM site (idle)
+stratagem_weapon|manned_turret_discoverable|HMG Emplacement found on the map (gun)
+stratagem_weapon|power_generated_gatling_turret|Gatling turret (powered by a generator)
+weapon|marksman_rifle_justice|R-72 Censor
+unknown_weapon|weapon_2b3c367b|LAS-7 Dagger (stripped copy)
+unknown_weapon|weapon_5c54e81a|EAT-17 Expendable Anti-Tank (stripped copy)
+weapon|grenade_launcher_tactical|GL-52 De-Escalator
+unknown_weapon|weapon_1980d92b|LAS-98 Laser Cannon (crewed mount)
+unknown_weapon|weapon_b43235db|M-105 Stalwart (mounted)
+unknown_weapon|weapon_b9606c5a|M-105 Stalwart (mounted, AI-aimed 1)
+unknown_weapon|weapon_d53ee034|M-105 Stalwart (mounted, AI-aimed 2)
+unknown_weapon|weapon_cd00bdc1|MG-206 Heavy Machine Gun (mounted B)
+unknown_weapon|weapon_587878fb|MG-43 Machine Gun (non-player copy)
+weapon|shotgun_doublebarrel|SG-88 Break-Action Shotgun
+unknown_weapon|weapon_299c0d3d|A/GM-17 Gas Mortar Sentry
+stratagem_weapon|laser_cannon_turret|A/LAS-98 Laser Sentry
+unknown_weapon|weapon_1d594330|E/GL-21 Grenadier Battlement
+weapon|laser_rifle_charge|LAS-22 Shear
+throwable|c4_charge|B/MD C4 Pack (the charge)
+stratagem_weapon|flamethrower_turret|A/FLAM-40 Flame Sentry
+stratagem_weapon|drone_flamethrower_mount|AX/FLAM-75 Hot Dog (gun)
+stratagem_weapon|combat_walker_flamethrower|Exosuit: flamethrower
+stratagem_weapon|frv_flamethrower|FRV: flamethrower
+unknown_weapon|weapon_992b6f65|SMG/FLAM-34 Stoker (its flamethrower)
+backpack|jumppack_backpack|LIFT-850 Jump Pack
+backpack|hover_backpack|LIFT-860 Hover Pack
+backpack|displacement_backpack|LIFT-182 Warp Pack
+stratagem_weapon|mini_missile_silo|MS-11 Solo Silo (the missile)
+# Enemies: the names of helldivers.wiki.gg (2026-10-08), where its numbers match our record.
+enemy_weapon|conscript_smg|Trooper / Marauder: Fusion SMG
+enemy_weapon|conscript_smg_flm|Trooper (Incineration Corps): Fusion SMG
+enemy_weapon|conscript_handgun|Commissar: Fusion Pistol
+enemy_weapon|conscript_handgun_flm|Commissar (Incineration Corps): Fusion Pistol
+enemy_weapon|conscript_flaregun|Trooper: flare (calls a Bot Drop)
+enemy_weapon|conscript_lmg|MG Raider: Light Fusion Repeater
+enemy_weapon|conscript_lmg_flm|MG Raider (Incineration Corps): Light Fusion Repeater
+enemy_weapon|conscript_cannon|Rocket Raider: Portable Launcher
+enemy_weapon|conscript_flamer|Pyro Trooper: flamethrower
+enemy_weapon|soldier_standard_rifle|Devastator: Fusion Assault Cannon
+enemy_weapon|soldier_standard_rifle_flm|Devastator (Incineration Corps): Fusion Assault Cannon
+enemy_weapon|soldier_machinegun|Heavy Devastator: Fusion Repeater
+enemy_weapon|soldier_machinegun_flm|Incendiary MG Devastator: Fusion Repeater
+enemy_weapon|soldier_flamer|Conflagration Devastator: flamethrower
+enemy_weapon|cha_soldier_rpg|Rocket Devastator (unit)
+enemy_weapon|cha_soldier_rpg_assassinate|Rocket Devastator (unit, mission target)
+enemy_weapon|cha_soldier_rpg_ivory_legion|Rocket Devastator (unit, ivory legion)
+enemy_weapon|cha_cyborg_elite|Agitator (unit)
+enemy_weapon|cha_cyborg_elite_female|Agitator (unit, female)
+enemy_weapon|cha_cyborg_elite_rusher|Radical (unit)
+enemy_weapon|cha_cyborg_elite_rusher_female|Radical (unit, female)
+enemy_weapon|cyborg_assault_walker|War Strider (unit)
+enemy_weapon|cyborg_siege_engine|Vox Engine (unit)
+enemy_weapon|cyborg_big_walker_turret_cannon|Factory Strider: Fusion Repeater Cannon
+enemy_weapon|cyborg_tank_turret_heavycannon|Annihilator Tank: Fusion Battle Cannon
+enemy_weapon|cyborg_tank_turret_base|Annihilator Tank: turret (base)
+enemy_weapon|cyborg_tank_hull_mg|Annihilator Tank: Co-Axial Fusion Cycler
+enemy_weapon|cyborg_tank_turret_autocannons|Shredder Tank: Quad Heavy Fusion Cycler
+enemy_weapon|cyborg_tank_turret_rocketlauncher|Barrager Tank: rocket launcher
+enemy_weapon|cyborg_turret_heavycannon|Cannon Turret: Fusion Battle Cannon
+enemy_weapon|cyborg_turret_base|Cannon Turret (base)
+enemy_weapon|cyborg_turret_mortar|Mortar Emplacement
+enemy_weapon|cyborg_emplacement_mg|MG Emplacement (MG)
+enemy_weapon|cyborg_emplacement_hmg|MG Emplacement (HMG)
+enemy_weapon|pathfinder_lightspear|Overseer: Pathfinder Lightspear
+enemy_weapon|jet_champion_rifle|Elevated Overseer: Plasma Storm Rifle
+enemy_weapon|beamer_champion_gun|Crescent Overseer: Plasma Bombard (indirect)
+enemy_weapon|beamer_champion_gun_direct|Crescent Overseer: Plasma Bombard (direct)
+enemy_weapon|il_turret_01|Gazer
+enemy_weapon|il_turret_tactical_obj|Gazer (objective)
+enemy_weapon|illuminate_turret_wm_cannon|Harvester: cannon
+enemy_weapon|illuminate_turret_wm_cannon_head_l|Harvester: cannon (head, left)
+enemy_weapon|illuminate_turret_wm_cannon_head_r|Harvester: cannon (head, right)
+enemy_weapon|cha_scavenger_spitter|Bile Spitter (unit)
+enemy_weapon|cha_strider|Bile Titan (unit)
+enemy_weapon|cha_strider_gloom|Bile Titan (unit, gloom variant)
+enemy_weapon|conscript_grenade_he|Trooper: HE Grenade
+enemy_weapon|conscript_grenade_incendiary|Pyro Trooper: incendiary grenade
+enemy_weapon|jet_champion_grenade_he|Elevated Overseer: Plasma Detonator
+enemy_weapon|conscript_backpack_lmg|MG Raider: Backpack Overload
+unknown_weapon|weapon_543ad246|Radical: Plasma Scattergun
+enemy_weapon|cha_conscript_tier_3|Trooper (unit, tier 3)
+enemy_weapon|cha_illuminate_guy_staff_tier_2|Overseer (unit, tier 2)
+enemy_weapon|cha_charger_burrower|Rupture Charger (unit)
+enemy_weapon|cha_corrupted_v2|Voteless (unit, medium)
+enemy_weapon|cha_warrior_acid|Bile Warrior (unit)
+enemy_weapon|cha_lieutenant_suppressor|Hulk (unit, suppressor)
+enemy_weapon|cha_lieutenant_ivory_legion_assault|Hulk (unit, ivory legion assault)
+enemy_weapon|cha_charger|Charger (unit)
+enemy_weapon|cha_lieutenant_artillery|Hulk (unit, artillery)
+enemy_weapon|cha_hunter_gloom|Hunter (unit, gloom)
+enemy_weapon|cha_exomech_melee|Veracitor (unit)
+enemy_weapon|cha_conscript_commander_jump|Commissar (unit, jump)
+enemy_weapon|cha_conscript_shotgun|Trooper (unit, shotgun)
+enemy_weapon|cha_conscript_scout|Trooper (unit, scout)
+enemy_weapon|cha_warrior_tier_2|Warrior (unit, tier 2)
+enemy_weapon|cha_boomer|Bile Spewer (unit)
+enemy_weapon|cha_charger_bull|Charger Behemoth (unit)
+enemy_weapon|cha_hunter_tier_1|Hunter (unit, tier 1)
+enemy_weapon|cha_lieutenant_assault|Hulk (unit, assault)
+enemy_weapon|cha_conscript_tier_1|Trooper (unit, tier 1)
+enemy_weapon|cha_corrupted_v3|Voteless (unit, heavy)
+enemy_weapon|cha_exomech_ranged|Gatekeeper (unit)
+enemy_weapon|cha_warrior_tier_1_captive|Warrior (unit, tier 1 captive)
+enemy_weapon|cha_scavenger_tier_1|Scavenger (unit, tier 1)
+enemy_weapon|cha_berserker_iron_fleet|Berserker (unit, iron fleet)
+enemy_weapon|cha_soldier_ivory_legion|Devastator (unit, ivory legion)
+enemy_weapon|cha_soldier_mg_ivory_legion|Heavy Devastator (unit, ivory legion)
+enemy_weapon|cha_hunter_tier_2|Hunter (unit, tier 2)
+enemy_weapon|cha_boomer_nurser_mission|Nursing Spewer (unit, mission)
+enemy_weapon|cha_jet_champion|Elevated Overseer (unit)
+enemy_weapon|cha_shrieker|Shrieker (unit)
+enemy_weapon|cha_conscript_tier_2|Trooper (unit, tier 2)
+enemy_weapon|cha_impaler_tentacle|Impaler (unit, tentacle)
+enemy_weapon|cha_meatglue|Fleshmob (unit)
+enemy_weapon|cha_charger_acid|Spore Charger (unit)
+enemy_weapon|cha_lieutenant_ivory_legion|Hulk (unit, ivory legion)
+enemy_weapon|cha_warrior_gloom|Warrior (unit, gloom)
+enemy_weapon|cha_corrupted|Voteless (unit, light)
+enemy_weapon|cha_conscript_elite|Trooper (unit, elite)
+enemy_weapon|cha_conscript_base|Trooper (unit)
+enemy_weapon|cha_conscript_flamer|Pyro Trooper (unit)
+enemy_weapon|cha_conscript_jump_melee|Trooper (unit, jump melee)
+enemy_weapon|cha_hunter_tier_3|Hunter (unit, tier 3)
+enemy_weapon|cha_scavenger_base|Scavenger (unit)
+enemy_weapon|cha_bodyhorror_helmetguy|Crusher (unit)
+enemy_weapon|cha_dragon|Dragonroach (unit)
+enemy_weapon|cha_tripod|Harvester (unit)
+enemy_weapon|cha_lieutenant_base|Hulk (unit)
+enemy_weapon|cha_scavenger_tier_2|Scavenger (unit, tier 2)
+enemy_weapon|cha_conscript_ivory_legion|Trooper (unit, ivory legion)
+enemy_weapon|cha_charger_tier2|Charger Behemoth (unit, tier 2)
+enemy_weapon|cha_warrior_plus|Hive Guard (unit)
+enemy_weapon|cha_warrior_burrower|Rupture Warrior (unit)
+enemy_weapon|cha_boomer_burrower|Rupture Spewer (unit)
+enemy_weapon|cha_berserker|Berserker (unit)
+enemy_weapon|cha_conscript_commander|Commissar (unit)
+enemy_weapon|cha_scavenger_predator|Scavenger (unit, predator)
+enemy_weapon|cha_observer|Watcher (unit)
+enemy_weapon|cha_soldier|Devastator (unit)
+enemy_weapon|cha_conscript_jump|Trooper (unit, jump)
+enemy_weapon|cha_warrior_tier_2_guard|Warrior (unit, tier 2 guard)
+enemy_weapon|cha_berserker_ivory_legion|Berserker (unit, ivory legion)
+enemy_weapon|cha_soldier_mg|Heavy Devastator (unit)
+enemy_weapon|cha_warrior_tier_1|Warrior (unit, tier 1)
+enemy_weapon|cha_soldier_jumppack|Devastator (unit, jumppack)
+enemy_weapon|cha_soldier_iron_fleet|Devastator (unit, iron fleet)
+enemy_weapon|cha_bodyhorror_bladed|Wretch (unit)
+enemy_weapon|cha_boomer_nurser|Nursing Spewer (unit)
+enemy_weapon|cha_boomer_tier_2|Bile Spewer (unit, tier 2)
+enemy_weapon|cha_hive_lord|Hive Lord (unit)
+enemy_weapon|cha_warrior_big|Brood Commander (unit)
+enemy_weapon|cha_berserker_jumppack|Berserker (unit, jumppack)
+enemy_weapon|cha_tripod_tier_2|Harvester (unit, tier 2)
+enemy_weapon|cha_conscript_melee|Brawler (unit)
+enemy_weapon|cha_hunter_base|Hunter (unit)
+enemy_weapon|cha_illuminate_guy_staff|Overseer (unit)
+enemy_weapon|cha_scavenger_gloom|Scavenger (unit, gloom)
+enemy_weapon|cha_impaler|Impaler (unit)
+enemy_weapon|cha_scavenger_tier_1_captive|Scavenger (unit, tier 1 captive)
+enemy_weapon|cha_soldier_shotgun_ivory_legion|Devastator (unit, shotgun ivory legion)
+enemy_weapon|cha_conscript_ivory_legion_tier_2|Trooper (unit, ivory legion tier 2)
+enemy_weapon|cha_beamer_champion|Crescent Overseer (unit)
+enemy_weapon|cha_warrior_base|Warrior (unit)
+enemy_weapon|cha_shrieker_gloom|Shrieker (unit, gloom)
+enemy_weapon|cha_illuminate_guy_staff_fake|Overseer (unit, fake)
+enemy_weapon|cha_stalker|Stalker (unit)
+enemy_weapon|cha_warrior_big_tier2|Alpha Commander (unit)
+enemy_weapon|cha_soldier_mg_assassinate|Heavy Devastator (unit, assassinate)
+enemy_weapon|cha_conscript_scout_walker_rider|Trooper (unit, scout walker rider)
+enemy_weapon|cyborg_tank_heavycannon|Annihilator Tank (hull)
+enemy_weapon|cyborg_tank_autocannons|Shredder Tank (hull)
+enemy_weapon|cyborg_tank_rocketlauncher|Barrager Tank (hull)
+enemy_weapon|cyborg_walker_scout|Scout Strider (unit)
+enemy_weapon|cyborg_spawner|Factory Strider (unit)
+enemy_weapon|cyborg_spawner_jammer|Factory Strider (unit, jammer)
+enemy_weapon|cyborg_gunship|Gunship (unit)
+enemy_weapon|cyborg_dropship|Dropship (unit)
+enemy_weapon|soldier_shield|Heavy Devastator: shield
+enemy_weapon|soldier_shield_ivory_legion|Heavy Devastator: shield (ivory legion)
+stratagem_weapon|combat_walker_missle_launcher|Exosuit: missile launcher
+stratagem_weapon|combat_walker_turret|Exosuit: turret
+stratagem_weapon|combat_walker_autocannon_left|Exosuit: autocannon (left)
+stratagem_weapon|combat_walker_autocannon_right|Exosuit: autocannon (right)
+armor|avatar_helldiver|* Helldiver: body
+armor|helldiver_dummy|* Helldiver: training dummy
+armor|helldiver_dummy_rts|* Helldiver: training dummy (rts)
+armor|helldiver_dummy_shouting|* Helldiver: training dummy (shouting)
+vehicle|combat_walker_shield|Exosuit shield
+# The wiki's names (helldivers.wiki.gg, 2026-10-08) for things that were listed by their internal names.
+vehicle|tank|TD-220 Bastion MK XVI
+vehicle|tank_storm|TD-110 Maelstrom
+vehicle|frv_supply|M-103 Supply FRV
+vehicle|frv_flamer|M-104 Incinerator FRV
+vehicle|combat_walker_obsidian|EXO-49 Emancipator Exosuit
+vehicle|combat_walker_breacher|EXO-55 Breakthrough Exosuit
+vehicle|combat_walker_lumberer|EXO-51 Lumberer Exosuit
+backpack|drone_assault_rifle_backpack|AX/AR-23 Guard Dog
+backpack|drone_laser_rifle_backpack|AX/LAS-5 Rover
+backpack|drone_flamethrower_backpack|AX/FLAM-75 Hot Dog
+backpack|drone_gas_projector_backpack|AX/TX-13 Dog Breath
+backpack|guard_dog_stun_backpack|AX/ARC-3 K-9
+backpack|bomb_backpack|B-100 Portable Hellbomb
+stratagem_weapon|drone_laser_rifle_mount|AX/LAS-5 Rover (gun)
+stratagem_weapon|drone_gas_projector_mount|AX/TX-13 Dog Breath (gun)
+stratagem_weapon|drone_stun_gun_mount|AX/ARC-3 K-9 (gun)
+throwable|contact_mine|MD-6 Anti-Personnel Mine
+throwable|incendiary_mine|MD-I4 Incendiary Mine
+throwable|gas_mine|MD-8 Gas Mine
+# Enemy ships, towers and nests: the wiki's names (2026-10-08), by main health or by the gun's numbers.
+enemy_weapon|illuminate_attack_ship|Stingray (unit)
+enemy_weapon|illuminate_war_machine|Leviathan (unit)
+enemy_weapon|illuminate_dropship|Warp Ship (unit)
+enemy_weapon|il_mothership|Illuminate Overship (unit)
+enemy_weapon|il_city_cannon|Illuminate Overship: cannon
+enemy_weapon|bug_spawner_shrieker|Shrieker Nest
+enemy_weapon|bug_fog_generator|Spore Spewer
+enemy_weapon|bug_fog_generator_large|Spore Spewer (large)
+enemy_weapon|bug_fog_generator_tcs|Spore Spewer (tcs)
+enemy_weapon|cyborg_spawner_factory_conscript_base|Automaton Fabricator
+enemy_weapon|cyborg_spawner_factory_conscript_standard|Automaton Fabricator (standard)
+enemy_weapon|cyborg_spawner_factory_conscript_assault|Automaton Fabricator (assault)
+enemy_weapon|cyborg_spawner_factory_conscript_airborne|Automaton Fabricator (airborne)
+enemy_weapon|cyborg_spawner_factory_conscript_phalanx|Automaton Fabricator (phalanx)
+enemy_weapon|cyborg_turret_autocannons|Anti-Air Emplacement: Quad Heavy Fusion Cyclers
+enemy_weapon|cyborg_command_bunker|Command Bunker
+enemy_weapon|cyborg_command_bunker_side|Command Bunker (side)
+enemy_weapon|cyborg_command_bunker_top|Command Bunker (top)
+enemy_weapon|cyborg_turret_command_bunker_hmg|Command Bunker: turret
+enemy_weapon|cyborg_landed_dropship|Dropship (landed)
+enemy_weapon|cyborg_tank_base|Automaton tank (hull, base)

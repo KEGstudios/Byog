@@ -6,7 +6,7 @@ A Helldivers 2 mod that lets you change the numbers of the game from inside the 
 penetration, fire rate, recoil, magazines, explosions, stratagem cooldowns, sentry lifetime, backpack
 charges, shield and vehicle health, and more. Every value is set on its own, for one item at a time.
 
-Download: [`dist/BYOG-v1.1.17.zip`](dist/BYOG-v1.1.17.zip)
+Download: [`dist/BYOG-v2.0.0.zip`](dist/BYOG-v2.0.0.zip)
 
 ## What you need
 
@@ -16,7 +16,7 @@ Download: [`dist/BYOG-v1.1.17.zip`](dist/BYOG-v1.1.17.zip)
 
 ## Install
 
-1. Add `BYOG-v1.1.17.zip` to your mod manager, enable it, deploy.
+1. Add `BYOG-v2.0.0.zip` to your mod manager, enable it, deploy.
 2. Start the game. Press **F9**.
 
 To remove it: disable the mod in the manager. Your settings stay in `%LOCALAPPDATA%\BYOG`; delete that
@@ -35,8 +35,8 @@ the menu always shows the keys that are in use.
 | **Up / Down**, **PageUp / PageDown** | move (ten rows) |
 | **Tab** | item list ↔ value list |
 | **Left / Right** | in the item list: category. In the value list: lower / raise the value (**Shift**: ten times the step) |
-| **Insert** | in the item list: open the search. On a value: type the number in. Confirms what was typed |
-| **End** | cancel what is being typed; clear the search |
+| **Enter** (or Insert) | in the item list: open the search. On a value: type the number in. Confirms what was typed |
+| **Esc** (or End) | cancel what is being typed; clear the search |
 | **Delete** | back to the game's value |
 | **F3** | search in every category |
 
@@ -68,14 +68,28 @@ it. The translation was not checked by a native speaker.
 
 | Category | Items | Values |
 |---|---|---|
-| `weapon` | 114 primary, secondary, support and melee weapons | damage, durable damage, armor penetration per angle, demolition, stagger, push, fire rate, projectile speed / drag / gravity, pellets, blast radius and blast damage, magazine size and counts, recoil, spread, sway, ergonomics, heat, status effects |
-| `throwable` | 31 grenades and mines | amounts, fuse, throw distance, blast radius and damage |
-| `stratagem_weapon` | 53: sentry, emplacement, drone, exosuit and Eagle guns; orbital and Eagle shells | the same values as a weapon; lifetime and sight range of sentries |
+| `weapon` | 113 primary, secondary, support and melee weapons | damage, durable damage, armor penetration per angle, demolition, stagger, push, fire rate, projectile speed / drag / gravity, pellets, blast radius and blast damage, magazine size and counts, recoil, spread, sway, ergonomics, heat, status effects |
+| `throwable` | 32 grenades, mines and the C4 charge | amounts, fuse, throw distance, blast radius and damage |
+| `stratagem_weapon` | 76: sentry, emplacement, drone, exosuit and Eagle guns (the flame ones too); orbital and Eagle shells | the same values as a weapon; lifetime and sight range of sentries |
 | `stratagem` | 149 | cooldown, uses |
-| `backpack` | 18 | charges, starting charges, refill |
+| `backpack` | 22 | charges, starting charges, refill; Jump Pack and Hover Pack: recharge, launch force, takeoff, steering, hovering time; Warp Pack: distance, reach, heat |
 | `shield` | 4 | health, radius, recharge delay and rate, lifetime of the relay |
 | `vehicle` | 14 | health, armor, and for every part its own health, armor and how much of its damage reaches the vehicle |
-| `status` | 71 status effects (fire, gas, stun, acid, bleed...) | how long the effect lasts |
+| `status` | 71 status effects (fire, gas, stun, acid, bleed...) | how long the effect lasts, and the damage it does |
+| `armor` (v2.0.0, not yet tested in game) | 135 body armors, and `helldiver` | per armor: weight class (light / medium / heavy) and which passive it has. `helldiver`: walking, jogging, sprinting and crawling speed, stamina (for every armor) |
+| `attachment` (v2.0.0, not yet tested in game) | 166 optics, muzzles, underbarrels and ammunition types | what the attachment does to the weapon it is fitted to: ergonomics, sway, recoil, spread. It holds for every weapon that carries it |
+| `armor_passive` (v2.0.0, not yet tested in game) | the 31 armor passives (Med-Kit, Fortified, Siege-Ready...) | every number of the passive: extra stims and grenades, damage taken by kind, recoil, reload speed... |
+| `enemy_weapon` | 189: every enemy unit (health, armor and its parts: Hunter, Charger, Hulk, Voteless...), the weapons and grenades of the enemies, and 21 of their melee hits, the faction in front of the name (`Automaton: soldier machinegun`): automaton rifles and tank turrets, illuminate weapons, the bile spitter... | the same values as a weapon |
+| `unknown_weapon` | 116 weapons whose name is not known (`weapon_1a2b3c4d`) and 333 damage rows no item uses (`damage_row_571`) | the same values as a weapon. Tell us what they are: the damage, fire rate and magazine size usually give it away |
+
+New in v2.0.0, none of it run in the game yet: the **mouse** works in the menu (the menu draws its own
+pointer; a click selects, a click on a number opens the box to type it); charge-up weapons (charge times
+and what a half or an over-charge does), wind-up, beam range and width, arc speed and chain; health and
+armor of sentries, emplacements and enemy units that carry their weapon; the damage of a status effect;
+how fast a sentry turns and how often it looks for a target; the pieces of shrapnel (their number,
+speed and damage); the Solo Silo's missile; attachments;
+armors and armor passives. Armors and passives are changed only where the game's own number is still
+there: what another armor mod has changed is left alone.
 
 Many weapons share one round in the game's data (the Liberator and the Stalwart, a sentry and the
 MG-43). BYOG gives a weapon data of its own the moment you change it, so a change reaches that weapon

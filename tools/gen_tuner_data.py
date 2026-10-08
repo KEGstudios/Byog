@@ -9,7 +9,9 @@ Line format ('|' separated):
 
   V|label|exe_sha256|game_dll_sha256
       a game build this data was verified on (reports/..., docs/STAT-MAP.md §0).
-  T|name|type_hash_hex|shape|stride|id_at          shape: R rows, K keyed
+  K|item|stat|text                                 shown beside the game's value of that stat
+  J|item|group|section|order                       the menu shows the items of a group as one row, in sections
+  T|name|type_hash_hex|shape|stride|id_at          shape: R rows, K keyed, S one record per block
   I|index|category|name|entity16|display name
       display name: the game's own name of the item (tools/display_names.txt), empty when not known.
       Shown in the menu and in catalog.txt; config.txt uses `name`.
@@ -84,7 +86,238 @@ INDEXES = {
 
 CATEGORY = {"primary": "weapon", "secondary": "weapon", "support": "weapon", "melee": "weapon",
             "throwable": "throwable", "backpack": "backpack", "shield": "shield", "vehicle": "vehicle",
-            "stratagem": "stratagem", "stratagem_weapon": "stratagem_weapon", "status": "status"}
+            "stratagem": "stratagem", "stratagem_weapon": "stratagem_weapon", "status": "status",
+            "enemy_weapon": "enemy_weapon", "unknown_weapon": "unknown_weapon",
+            "armor": "armor", "armor_passive": "armor_passive", "attachment": "attachment"}
+# WeaponStatModifierType, as far as attachments use it. 0 is added to the weapon's ergonomics, the others
+# multiply; each has a twin (the next number) for the weapon's alternate hold. 18 is an empty slot.
+# (The enum's member names are not in the type library: read from the values - an "Explosive" load has
+# 14 and 16 at 6, a vertical grip lowers 2..5 - and the same as the SHODAN Stat Editor labels them.)
+MODIFIERS = {0: "ergonomics", 1: "sway", 2: "recoil_h", 3: "recoil_h_alt", 4: "recoil_v", 5: "recoil_v_alt",
+             10: "recoil_climb_h", 11: "recoil_climb_h_alt", 12: "recoil_climb_v", 13: "recoil_climb_v_alt",
+             14: "spread_h", 15: "spread_h_alt", 16: "spread_v", 17: "spread_v_alt"}
+MODIFIERS_AT, MODIFIER_SLOTS, WEAPON_DATA = 956, 8, 236     # weapon_stat_modifiers; the component's delta index
+
+
+def attachment_items():
+    """Every attachment that changes a weapon's handling, with the numbers it changes."""
+    import build_catalog
+    assert build_catalog.off("WeaponDataComponent", "weapon_stat_modifiers")[0] == MODIFIERS_AT
+    assert deltas.COMPONENT_INDEX[WEAPON_DATA] == "WeaponDataComponent"
+    data_start = deltas._load()["xo"]
+    out, shown, used = [], {}, set()
+    for t in hd2db.table("WeaponCustomizationSettings"):
+        data, base = t.data, t.base
+        rows, count = struct.unpack_from("<QQ", data, base)
+        for i in range(count):
+            at = base + rows + i * 88
+            name_at, = struct.unpack_from("<Q", data, at)
+            name = data[base + name_at:data.index(b"\0", base + name_at)].decode("ascii", "replace").strip()
+            item_id, = struct.unpack_from("<I", data, at + 8)
+            resource, = struct.unpack_from("<Q", data, at + 32)
+            words = {}
+            for component, offset, size, raw, where in (deltas.resource_deltas(resource) or []) if resource else []:
+                if component == WEAPON_DATA:
+                    for k in range(0, size - size % 4, 4):
+                        words[offset + k] = (raw[k:k + 4], where + k)
+            stats = []
+            for slot in range(MODIFIER_SLOTS):
+                o = MODIFIERS_AT + slot * 8
+                if o in words and o + 4 in words:
+                    kind = struct.unpack("<I", words[o][0])[0]
+                    if kind in MODIFIERS:
+                        sid = "mod_" + MODIFIERS[kind]
+                        if sid in [s["id"] for s in stats]:
+                            continue                                  # the same value twice: the first counts
+                        stats.append({"id": sid, "table": "ComponentEntityDeltaStorage", "key": "data",
+                                      "offset": words[o + 4][1] - data_start, "storage": "FP32",
+                                      "original": round(struct.unpack("<f", words[o + 4][0])[0], 6)})
+            if not stats:
+                continue
+            short = slug(name) or "item_%08x" % item_id
+            if ("attachment", short) in used:
+                short = "%s_%08x" % (short, item_id)
+            used.add(("attachment", short))
+            shown[("attachment", short)] = " ".join(w.title() if w.isupper() and len(w) > 3 else w for w in name.split())
+            out.append({"category": "attachment", "path": "attachment/" + short, "entity": "%016X" % item_id,
+                        "stats": stats})
+    return out, shown
+# Tables that are one record per block (an armor kit, an armor passive): wrapper -> where the record's id is.
+SINGLE = {"HelldiverCustomizationKit": 0, "HelldiverCustomizationPassiveBonusSettings": 0}
+# What an effect of an armor passive does, by the id the game gives the effect. The game stores a hash
+# and no name: these are our reading of the game's own description of each passive beside its numbers
+# (Med-Kit: "+2 stims, +2 s" = add 2, time 2). An effect that is not listed is shown by its id.
+EFFECTS = {0xAFAE3B47: "armor_rating", 0xC36935A9: "recoil_crouched", 0xF6FA9626: "extra_grenades",
+           0x2875F44A: "extra_stims", 0x93EB16A7: "stim_seconds", 0x1F98D152: "explosive_damage_taken",
+           0x4DF29271: "fire_damage_taken", 0x6E99CCE5: "gas_damage_taken", 0x4BDF39C4: "arc_damage_taken",
+           0xB5A50096: "elemental_damage_taken", 0x21A7BA64: "scan_seconds", 0x14ECCE15: "detection_range",
+           0x2559B40D: "melee_damage", 0x2CFAECA3: "chest_damage_taken", 0xA68930C2: "chest_bleed",
+           0xCB814D05: "death_save", 0x26C969A1: "throw_range", 0x86A99BB9: "limb_health", 0xAF8B7112: "noise",
+           0xC8CCB6FA: "ergonomics_bonus"}
+# The weapon values a passive scales (the game's ModifiableStatType; 11 is named in its enum, the others
+# are read the same way as the effects above).
+GUN_STATS = {11: "flinch", 12: "ammo_capacity", 13: "primary_reload", 15: "sidearm_reload", 16: "sidearm_draw",
+             17: "sidearm_recoil"}
+
+
+STRATAGEM_FAMILIES = ("team_weapons", "president_rewards", "backpack", "consumables", "eagle", "emplacements",
+                      "missions", "orbital", "sentrys", "vehicles")
+
+
+def group_of(category, internal, shown):
+    """-> (group, section, order) of an item in the menu, or None: it is a row of its own.
+    The group is what the row of the item list says, the section what the value list says above its values."""
+    if category == "stratagem":
+        for family in STRATAGEM_FAMILIES:
+            if internal.startswith(family + "_"):
+                return family.replace("_", " ").capitalize(), internal[len(family) + 1:].replace("_", " "), 1
+        return None
+    if category == "attachment" and ". " in shown:
+        family, load = shown.split(". ", 1)
+        return family, load.strip(), 1
+    if category == "status":
+        words = re.sub(r"([a-z])([A-Z])", r"\1 \2", re.sub(r" \(.*\)$", "", shown)).split()
+        if words:
+            return words[0], " ".join(words[1:]) or "(plain)", (1 if len(words) > 1 else 0)
+    if not shown and category in ("stratagem_weapon", "vehicle"):
+        # what a hellpod brings and who fights beside the helldivers: families by their internal names
+        for prefix, family in (("weapon_rack", "Hellpod weapon racks"), ("drone_", "Guard Dog drones (bodies)"),
+                               ("mine_launcher", "Mine launchers"), ("expandable_cover", "Expandable cover"),
+                               ("ballistic_shield_backpack", "Ballistic shields (bodies)"), ("sos_beacon", "SOS beacon"),
+                               ("cha_battlefront_seaf", "SEAF troops"), ("cha_seaf", "SEAF civilians")):
+            if internal.startswith(prefix) and not re.search(r"_(mount|weapon)$", internal):
+                return family, internal[len(prefix):].strip("_").replace("_", " ") or "(plain)", 1
+    if not shown:
+        # no name of the game's: the shells and guns of one stratagem are numbered copies of one internal name
+        m = re.match(r"^(.+?)(?:_(shell\d|weapon(?:_\d)?|left|right|\d))$", internal)
+        if category == "stratagem_weapon":
+            return (m.group(1) if m else internal), (m.group(2).replace("_", " ") if m else "(plain)"), (1 if m else 0)
+        return None
+    m = re.match(r"^(Damage row) (\d+: .+)$", shown)
+    if m:
+        return "Damage rows no item uses", m.group(2), 1
+    m = re.match(r"^([^:(]+?)(?: \(([^)]*)\))?(?:: (.+))?$", shown)
+    if not m:
+        return None
+    if m.group(1) in ("Automaton", "Illuminate", "Terminid") and category == "enemy_weapon":
+        return m.group(1) + ": not identified", m.group(3) or internal, 1
+    names = [n.strip() for n in m.group(1).split(" / ")]
+    variant, part = m.group(2), m.group(3)
+    if part:
+        section, order = part + (" (%s)" % variant if variant else ""), 2
+    else:
+        words = [w.strip() for w in (variant or "").split(",") if w.strip() and w.strip() != "unit"]
+        if category == "enemy_weapon":
+            section = "Body: " + ", ".join(words) if words else "Body"
+        else:
+            section = ", ".join(words) if words else internal
+        order = 1 if words else 0
+    if len(names) > 1:
+        section += " (also %s)" % ", ".join(names[1:])
+    return names[0], section, order
+
+
+def menu_groups(items):
+    """Items of one category that are one thing, or one family: one row of the menu's item list.
+    -> ["J|item index|group|section|order"]"""
+    found = {}
+    for line in items:
+        _i, index, category, internal, _entity, shown = line.split("|", 5)
+        g = group_of(category, internal, shown)
+        if g:
+            found.setdefault((category, g[0]), []).append((g[2], g[1].lower(), g[1], int(index), internal))
+    out = []
+    for (category, group), members in sorted(found.items()):
+        if len(members) < 2:
+            continue
+        twice = collections.Counter(m[2] for m in members)
+        for n, (_order, _key, section, index, internal) in enumerate(sorted(members)):
+            if twice[section] > 1:
+                section = "%s [%s]" % (section, internal)      # two members under one word: the internal name tells
+            assert "|" not in group + section
+            out.append("J|%d|%s|%s|%d" % (index, group, section, n))
+    return out
+
+
+def slug(name):
+    return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
+
+
+def armor_items(cat):
+    """Armors, armor passives and the helldiver's own movement as items like the others.
+    -> [catalog-like item], {(category, short name): shown name}"""
+    names = {"passive": {}, "kit": {}}
+    with open(os.path.join(HERE, "armor_names.txt"), encoding="utf-8") as f:
+        for line in f:
+            if not line.startswith("#") and line.count("|") == 2:
+                kind, key, shown = line.rstrip("\n").split("|")
+                names[kind][int(key, 16) if kind == "kit" else int(key)] = shown
+    import build_catalog
+    KIT, PASSIVE = "HelldiverCustomizationKit", "HelldiverCustomizationPassiveBonusSettings"
+    assert build_catalog.off(KIT, "id")[0] == SINGLE[KIT] and build_catalog.off(PASSIVE, "passive_bonus")[0] == SINGLE[PASSIVE]
+    passive_at = build_catalog.off(KIT, "passive_bonus")[0]
+    out, shown, used = [], {}, set()
+
+    def stat(sid, table, key, offset, storage, original, more=()):
+        return {"id": sid, "table": table, "key": key, "offset": offset, "storage": storage, "original": original,
+                "more": list(more)}
+
+    def add(category, short, display, entity, stats):
+        assert (category, short) not in used, short
+        used.add((category, short))
+        shown[(category, short)] = display
+        out.append({"category": category, "path": category + "/" + short, "entity": "%016X" % entity, "stats": stats})
+
+    # the helldiver: one record for every armor (walking, running, stamina)
+    for av in cat["armor"]["avatar"]:
+        if av["path"].endswith("avatar_helldiver"):
+            add("armor", "helldiver", "* Helldiver: movement, stamina", int(av["entity"], 16),
+                [s for s in av["stats"] if "error" not in s])
+    # body armors: the weight class (kept once per piece of the armor) and the passive
+    data = hd2db.blob("generated_customization_armor_sets.dl_bin")
+    payload_of = {}
+    for magic, _typ, size in hd2db.instances(data):
+        rec = data[magic + hd2db.HEADER:magic + hd2db.HEADER + size]
+        payload_of[struct.unpack_from("<I", rec, SINGLE[KIT])[0]] = rec
+    for kit in cat["armor"]["kits"]:
+        if kit["type"] != 0 or not kit["weight_field_offsets"]:
+            continue
+        rec = payload_of[kit["id"]]
+        pieces = [(o, struct.unpack_from("<I", rec, o)[0]) for o in kit["weight_field_offsets"]]
+        most = collections.Counter(w for _o, w in pieces).most_common(1)[0][0]
+        pieces.sort(key=lambda p: (p[1] != most, p[0]))               # the armor's own class first
+        assert struct.unpack_from("<I", rec, passive_at)[0] == kit["passive"]
+        name = names["kit"].get(kit["id"])
+        short = slug(name) if name else "armor_%08x" % kit["id"]
+        if ("armor", short) in used:
+            short = "%s_%08x" % (short, kit["id"])
+        key = str(kit["id"])
+        add("armor", short, name or short, kit["id"], [
+            stat("weight", KIT, key, pieces[0][0], "UINT32", pieces[0][1], pieces[1:]),
+            stat("passive", KIT, key, passive_at, "UINT32", kit["passive"])])
+    # passives: every number of every effect
+    for p in cat["armor"]["passives"]:
+        number = p["passive_bonus"]
+        if number == 0:
+            continue                                                  # "no passive": nothing in it
+        name = names["passive"].get(number) or "passive %d" % number
+        stats, key = [], str(number)
+        for m in p["modifiers"]:
+            hashed = int(m["modifier_id"], 16)
+            if hashed == 0:
+                continue
+            sid = "effect_" + EFFECTS.get(hashed, "%08x" % hashed)
+            assert sid not in [s["id"] for s in stats], (name, sid)
+            stats.append(stat(sid, PASSIVE, key, m["value_offset"], "FP32", m["value"]))
+        for m in p["stat_modifiers"]:
+            sid = "gun_" + GUN_STATS.get(m["stat"], "stat%d" % m["stat"])
+            assert sid not in [s["id"] for s in stats], (name, sid)
+            stats.append(stat(sid, PASSIVE, key, m["offset"] + 8, "FP32", m["mul_value"]))
+        add("armor_passive", slug(name), "%s  (%d)" % (name, number), number, stats)
+    return out, shown
+# things a stratagem brings that are carried and fired like any weapon: listed with the weapons
+HAND_WEAPONS = {("stratagem_weapon", "team_weapons_chem_gun_weapon"): "weapon",
+                ("stratagem_weapon", "shotgun_doublebarrel"): "weapon"}
 ID_AT = {"StratagemSettings": 4}       # where a row keeps its id (0 unless listed)
 SKIP_STATS = {"mode"}          # enum fields are not numbers; id-type stats come in Stage 3
 
@@ -109,6 +342,40 @@ RANGES = [
     (r"^penetration_slowdown$", 0, 1, 0),
     (r"^arming_distance$", 0, 10000, 0),
     (r"^capacity$", 1, 9999, 1),
+    (r"^beam_(range|radius)$", 0, 5000, 0),
+    (r"^arc_speed$", 0, 100000, 0),
+    (r"^arc_chain_(length|split)$", 0, 100, 1),
+    (r"^wind(up|down)_seconds$", 0, 60, 0),
+    (r"^charge_time_(min|full|over)$", 0, 60, 0),
+    (r"^charge_(speed|damage|penetration)_(min|over)$", 0, 100, 0),
+    (r"^reload_seconds$", 0, 60, 0),               # 0 = the length of the reload animation as it is
+    (r"shrapnel_velocity$", 0, 20000, 0),
+    (r"^pack_(recharge|takeoff|landing|hover)_seconds$", 0, 600, 0),
+    (r"^pack_(launch|landing)_force$", 0, 1000, 0),
+    (r"^pack_forward_share$", 0, 1, 0),
+    (r"^pack_steering$", 0, 100, 0),
+    (r"^warp_(distance|reach_up|reach_down)$", 0, 1000, 0),
+    (r"^warp_(heat_safe|heat_unsafe|heat_per_warp|cooling)$", 0, 1000, 0),
+    (r"^turn_speed_[hv]$", 0, 3600, 0),
+    (r"^search_seconds_(min|max)$", 0, 60, 0),
+    (r"^mod_ergonomics$", -100, 100, 0),
+    (r"^mod_", 0, 100, 0),
+    (r"^explosion_delay$", 0, 60, 0),
+    (r"^explosion_proximity$", 0, 500, 0),
+    (r"^rpm_burst$", 0, 6000, 0),                  # 0 = the weapon's ordinary rate
+    (r"^burst_rounds$", 0, 100, 1),
+    (r"^fire_mode_\d$", 0, 9, 1),                  # 0 none, 1 auto, 2 single, 3 burst, 4 / 5 charge
+    (r"^(suppressed|silenced_sound)$", 0, 1, 1),
+    (r"_fire_type$", 0, 6, 1),
+    (r"_lingering_status$", 0, 30, 1),
+    (r"_lingering_seconds$", 0, 3600, 0),
+    (r"^heat_charge_", 0, 100000, 0),
+    (r"^explosion_proximity_filter$", 0, 4294967295, 1),
+    (r"^weight$", 0, 2, 1),                        # an armor's class: 0 light, 1 medium, 2 heavy
+    (r"^passive$", 0, 41, 1),                      # the number of an armor passive (the Passives list)
+    (r"^(effect|gun)_", -100000, 100000, 0),
+    (r"^speed_(walk|jog|sprint|sprint_exerted|crouch_walk|crouch_sprint|prone)$", 0, 100, 0),
+    (r"stamina", 0, 3600, 0),
     (r"^charges$", 1, 9999, 1),
     (r"^charges_start$", -1, 9999, 1),             # -1 = start full
     (r"^charges_refill$", 0, 9999, 1),
@@ -217,14 +484,32 @@ def generate(builds=None, indexes=None):
             display[(c, n)] = "%s (%s)" % (shown, n)
     data_start = deltas._load()["xo"]
     magazines = {}          # item index -> (catalog item, {stat: (stat entry, attachment entry)})
-    for it in cat["items"]:
+    armors, armor_shown = armor_items(cat)
+    display.update(armor_shown)
+    attached, attached_shown = attachment_items()
+    display.update(attached_shown)
+    for it in cat["items"] + armors + attached:
         category = CATEGORY.get(it["category"])
         if not category:
             continue
         index = len(items)
         short = it["path"].rsplit("/", 1)[-1]
+        category = HAND_WEAPONS.get((category, short), category)
         if (category, short) in hidden:
             continue
+        if short.startswith("damage_row_") and int(short[11:]) in [spec["damage"] for spec in TAKEOVERS.values()]:
+            continue                 # a row the mod borrows for a weapon's own bullet is not offered as an item
+        if it.get("shown") and (category, short) not in display:
+            display[(category, short)] = it["shown"]                   # (a damage row: named where it is listed)
+        if category == "enemy_weapon" and (category, short) not in display:
+            # the faction, from the entity's path (fac_cyborgs are the Automatons): a name of the game's own
+            # for the unit or its weapon is not known to us
+            full = it.get("full_path") or ""
+            faction = ("Automaton" if "cyborg" in full else "Illuminate" if "illuminate" in full or "/il_" in full
+                       else "Terminid" if "fac_bugs" in full or "obj_bugs" in full or "env_bugs" in full else "")
+            if faction:
+                display[(category, short)] = "%s: %s%s" % (faction, short.replace("cha_", "").replace("_", " "),
+                                                         " (unit)" if "/cha_" in full else "")
         items.append("I|%d|%s|%s|%s|%s" % (index, category, short, it["entity"], display.get((category, short), "")))
         cat_of[index] = it
         for s in it["stats"]:
@@ -248,6 +533,10 @@ def generate(builds=None, indexes=None):
             tables[s["table"]] = True
             fields.append("F|%d|%s|%s|%s|%d|%s|%s|%s" % (
                 index, s["id"], s["table"], s["key"], s["offset"], storage, num(s["original"], storage), flags))
+            # the same value kept in further places (an armor's weight class: once per piece)
+            for offset, original in s.get("more", ()):
+                fields.append("F|%d|%s|%s|%s|%d|%s|%s|M" % (
+                    index, s["id"], s["table"], s["key"], offset, storage, num(original, storage)))
     if unranged:
         raise ValueError("stats without a range: %s" % sorted(unranged))
     # takeovers
@@ -255,6 +544,8 @@ def generate(builds=None, indexes=None):
     P, Dm = hd2db.table("ProjectileSettings"), hd2db.table("DamageSettings")
     fire = hd2db.table("ProjectileWeaponComponentData")
     magazine_table = hd2db.table("WeaponMagazineComponentData")
+    rounds_table = hd2db.table("WeaponRoundsComponentData")
+    ROUNDS_AT = (64, 68)            # WeaponRoundsComponent: the two ammo types (u32 projectile ids)
     pattern_at = references.member_offsets("ProjectileType", "WeaponMagazineComponent")
     for index, line in enumerate(items):
         _i, _idx, _cat, name, entity_hex, _shown = line.split("|")
@@ -271,6 +562,13 @@ def generate(builds=None, indexes=None):
             base_projectile = struct.unpack_from("<I", record, 0)[0]
             override = deltas.default_overrides(ent).get(("ProjectileWeaponComponent", 0))
             src_projectile = struct.unpack("<I", override[0])[0] if override else base_projectile
+            # loaded round by round: the round that is fired is the one the rounds record names
+            loaded = rounds_table.record(ent)
+            first_round = struct.unpack_from("<I", loaded, ROUNDS_AT[0])[0] if loaded is not None else 0
+            if src_projectile in P.by_id() and first_round and first_round != src_projectile:
+                src_projectile = first_round
+                if override and struct.unpack("<I", override[0])[0] != src_projectile:
+                    override = None                       # the attachment names another round: left alone
         else:
             base_projectile, override, src_projectile = "-", None, shell["projectile"]
         if src_projectile not in P.by_id():
@@ -293,6 +591,10 @@ def generate(builds=None, indexes=None):
                 pid = struct.unpack_from("<I", belt, o)[0]
                 if pid:
                     places.append(("WeaponMagazineComponentData", o, pid))
+            for o in ROUNDS_AT if loaded is not None else []:
+                pid = struct.unpack_from("<I", loaded, o)[0]
+                if pid:
+                    places.append(("WeaponRoundsComponentData", o, pid))
         else:
             places = [(component + "Data", o, src_projectile) for component, o in shell["switches"]]
         for table, o, pid in places:
@@ -336,7 +638,8 @@ def generate(builds=None, indexes=None):
         own_magazines += 1
     # explosions: which items need a row of their own, and the rows that may be borrowed for it
     index_of = dict((line.split("|")[3], int(line.split("|")[1])) for line in items
-                    if line.split("|")[2] in ("weapon", "throwable", "stratagem_weapon"))
+                    if line.split("|")[2] in ("weapon", "throwable", "stratagem_weapon", "enemy_weapon",
+                                              "unknown_weapon"))
     with_rows = set(int(x.split("|")[1]) for x in extra if x.startswith("O|"))
     Xp = hd2db.table("ExplosionSettings")
     found, own_blasts = blasts.item_blasts(cat), 0
@@ -373,10 +676,25 @@ def generate(builds=None, indexes=None):
         if name == "ComponentEntityDeltaStorage":
             lines.append("T|%s|%08X|D|0|0" % (name, dlsum(name)))
             continue
+        if name in SINGLE:
+            lines.append("T|%s|%08X|S|0|%d" % (name, dlsum(name), SINGLE[name]))
+            continue
         _rt, stride, shape = hd2db.record_type(name)
         lines.append("T|%s|%08X|%s|%d|%d" % (name, dlsum(name), "R" if shape == "rows" else "K", stride,
                                              ID_AT.get(name, 0)))
-    lines += items + fields + extra
+    # what the tables do not hold and the wiki does: shown in the menu beside the game's own number
+    hints = {}
+    with open(os.path.join(HERE, "reload_times.txt"), encoding="utf-8") as f:
+        for line in f:
+            if not line.startswith("#") and line.count("|") == 1:
+                hints[line.split("|")[0]] = line.rstrip("\n").split("|")[1]
+    notes = []
+    for line in items:
+        _i, index, _category, _name, _entity, shown = line.split("|", 5)
+        if shown in hints and any(x.startswith("F|%s|reload_seconds|WeaponReloadComponentData|" % index)
+                                  and x.rstrip("|").endswith("|0.0") for x in fields):
+            notes.append("K|%s|reload_seconds|wiki %s" % (index, hints[shown]))
+    lines += items + menu_groups(items) + notes + fields + extra
     for stat in sorted(stats_seen):
         lo, hi, integer = stat_range(stat)
         lines.append("R|%s|%s|%s|%d" % (stat, repr(lo), repr(hi), integer))
