@@ -59,10 +59,13 @@ window thread (a Windows hook, 68 bytes of code inside the game's process) and b
 registration away for as long. If you would rather not have that, switch it off on the Keys page: the
 game then reads your keys while the menu is open, as it did in v1.0.
 
-**Language.** English and Simplified Chinese (menu texts and the names of the values; items keep their
-English names). Chinese is drawn with the game's own font for it, which the game only has loaded when the
+**Language.** English and Simplified Chinese, including item names, grouped sections, status effects,
+value labels, warnings and the verdict shown at the bottom of the menu. Known names follow the game's
+Simplified Chinese text; unidentified records retain their numeric or hash identifiers. Config keys,
+preset names and the English catalog/search aliases stay unchanged. Search accepts English names,
+internal names and model numbers as before. Chinese is drawn with the game's own font for it, which the game only has loaded when the
 game itself is set to Chinese: with another game language the Language page says that no font can draw
-it. The translation was not checked by a native speaker.
+it. A selected value's full Chinese description is shown above its config key below the value list.
 
 ## What can be changed
 
@@ -141,9 +144,14 @@ line of your config is listed with its result.
 python tools/build_catalog.py         # every value resolved from the game's data -> data/catalog.json
 python tools/pack_addon.py tuner      # -> build/tuner.lua, dist/BYOG-v<version>.zip
 python -m unittest tests.test_tuner tests.test_real_tuner tests.test_recon tests.test_real_ffi
+python -m unittest tests.test_localization -v  # display tests using the catalog in the shipped ZIP
 ```
 
-The tests need `lupa` (a LuaJIT runtime for Python) in a virtual environment. `data/`, `build/` and
+The tests need `lupa` (a LuaJIT runtime for Python) in a virtual environment. The localization suite
+uses private in-memory files and a fake Gui; it does not need the research data or a running game.
+It checks the entire shipped catalog, UTF-8 clipping, message counters, English rendering, preset
+identifiers, four screen sizes and the existing Chinese font guards. This is offline coverage, not
+in-game font, input or stability verification. `data/`, `build/` and
 `reference/` (third-party repositories read for research) are not part of the repository.
 
 Rules this project follows: game memory is only touched from inside the game, through the loader; no
