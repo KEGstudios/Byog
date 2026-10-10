@@ -2011,8 +2011,8 @@ def check_chinese(mutate=None):
             rig.game.press(DOWN)
         rig.game.press(TAB)
         text = shown(rig)
-        assert "伤害" in text and "穿甲加成" in text and "AR-23 Liberator" in text, text[:900]
-        assert "ap_bonus   (config.txt" in text                        # the name config.txt takes stays as it is
+        assert "伤害" in text and "穿甲加成" in text and "AR-23 解放者" in text, text[:900]
+        assert "ap_bonus (配置标识)" in text                          # the name config.txt takes stays as it is
         rig.game.press(F6)
         rig.game.press(UP)
         rig.game.press(INSERT)                                         # and back
