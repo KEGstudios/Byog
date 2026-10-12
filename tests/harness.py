@@ -272,7 +272,8 @@ KEYED_TABLES = ["WeaponDataComponentData", "ProjectileWeaponComponentData", "Wea
                 "BombardmentComponentData", "EagleComponentData", "OrbitalAbilityComponentData",
                 "HellpodPayloadComponentData", "SensorEyeComponentData", "SensorProximityComponentData",
                 "JumppackComponentData", "RechargeComponentData", "DisplacementComponentData",
-                "TurretComponentData", "DetectorComponentData"]
+                "TurretComponentData", "DetectorComponentData", "InventoryComponentData",
+                "LocomotionComponentData"]
 
 _cache = {}
 

@@ -280,6 +280,16 @@ def resolve_weapon(T, ent):
             # the beam itself (a row of BeamSettings, shared by the weapons that fire this beam)
             stat(stats, "beam_range", "BeamSettings", bt, "BeamInfo", "length", brec)
             stat(stats, "beam_radius", "BeamSettings", bt, "BeamInfo", "radius", brec)
+        # a beam that fires in pulses (the Trident: 300 a minute, the wiki's fire rate; 60 on the steady
+        # lasers). Three members the type library has no names for: by their offsets.
+        members = dict((m["offset"], m["storage"]) for m in gostructs.typelib()["types"]["BeamWeaponComponent"]["members"])
+        assert (members.get(104), members.get(108), members.get(112)) == ("INT32", "INT32", "FP32"), members
+        for sid, offset, storage, fmt in (("beam_rpm", 104, "INT32", "<i"), ("beam_mode", 108, "INT32", "<i"),
+                                          ("beam_pulse_seconds", 112, "FP32", "<f")):
+            v = struct.unpack_from(fmt, bw, offset)[0]
+            stats.append({"id": sid, "table": "BeamWeaponComponentData", "key": key, "record": "BeamWeaponComponent",
+                          "field": "+%d" % offset, "offset": offset, "storage": storage,
+                          "original": round(v, 6) if storage == "FP32" else v})
     aw = T.arc_weapon.record(ent)
     if aw:
         at = rd(aw, "ArcWeaponComponent", "arc_type")
@@ -440,6 +450,21 @@ def packs(T):
         out.append({"category": "backpack", "entity": key, "path": "backpacks/" + name, "full_path": path,
                     "sources": ["pack"], "stats": stats})
     return out
+
+
+def locomotion_stats(items):
+    """Four numbers of an enemy's LocomotionComponent that differ between units the way movement would
+    (Hunter 12 / 12 / 75 / 20, Charger 2.5 / 10 / 90 / 4, a tank 2 / 2 / 75 / 5). What each one is has not
+    been established: offered as unknown values."""
+    table = hd2db.table("LocomotionComponentData")
+    for it in items:
+        if it["category"] != "enemy_weapon":
+            continue
+        rec = table.record(int(it["entity"], 16)) if len(it["entity"]) == 16 else None
+        if rec is None or "damage row" in str(it.get("sources")):
+            continue
+        for sid, offset in (("locomotion_1", 4464), ("locomotion_2", 4468), ("locomotion_3", 4472), ("locomotion_4", 4496)):
+            raw_stat(it["stats"], sid, "LocomotionComponentData", it["entity"], offset, rec)
 
 
 def turret_stats(items):
@@ -893,6 +918,15 @@ def armor(T):
                      "stamina_recover_time_stand", "stamina_recover_time_crouch",
                      "stamina_recover_time_prone", "stamina_recover_delay"):
             stat(stats, name, "AvatarComponentData", key, "AvatarComponent", "movement_info." + name, rec)
+        # the stims the helldiver carries (the type library's own names: "max amount of stims")
+        pockets = hd2db.table("InventoryComponentData").record(ent)
+        if pockets is not None:
+            for sid, offset in (("stims_start", 48), ("stims_supply", 52), ("stims_max", 56)):
+                members = dict((m["offset"], m["storage"]) for m in gostructs.typelib()["types"]["InventoryComponent"]["members"])
+                assert members.get(offset) == "UINT32", (offset, members.get(offset))
+                stats.append({"id": sid, "table": "InventoryComponentData", "key": key, "record": "InventoryComponent",
+                              "field": "+%d" % offset, "offset": offset, "storage": "UINT32",
+                              "original": struct.unpack_from("<I", pockets, offset)[0]})
         out["avatar"].append({"entity": key, "path": hashnames.name(ent), "stats": stats})
     return out
 
@@ -980,6 +1014,7 @@ def main():
     items += packs(T)
     body_stats(items)
     items[:] = [it for it in items if not it.get("body") or any("error" not in s for s in it["stats"])]
+    locomotion_stats(items)
     for it in items:
         if it.get("body") and it["category"] == "unknown_weapon":
             v = dict((s["id"], s.get("original")) for s in it["stats"] if "error" not in s)

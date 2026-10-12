@@ -3273,7 +3273,7 @@ for rank, group in ipairs({
     { 'PROJECTILE', 'pellets velocity mass calibre drag gravity life_time penetration_slowdown arming_distance '
                     .. 'speed_multiplier explosion_delay explosion_proximity explosion_proximity_filter' },
     { 'FIRE', 'rpm rpm_low rpm_high arc_rpm arc_range arc_speed arc_chain_length arc_chain_split beam_range beam_radius '
-              .. 'windup_seconds winddown_seconds rpm_burst burst_rounds fire_mode_1 fire_mode_2 fire_mode_3 fire_mode_4 '
+              .. 'beam_rpm beam_mode beam_pulse_seconds windup_seconds winddown_seconds rpm_burst burst_rounds fire_mode_1 fire_mode_2 fire_mode_3 fire_mode_4 '
               .. 'suppressed silenced_sound' },
     { 'CHARGE', 'charge_time_min charge_time_full charge_time_over charge_speed_min charge_speed_over '
                 .. 'charge_damage_min charge_damage_over charge_penetration_min charge_penetration_over' },
@@ -3289,6 +3289,8 @@ for rank, group in ipairs({
     { 'SHIELD', 'shield_health shield_radius shield_recharge_delay shield_broken_delay shield_recharge_rate' },
     { 'BODY', 'health armor durable_resistance explosion_damage_multiplier constitution constitution_rate' },
     { 'TURRET', 'turn_speed_h turn_speed_v search_seconds_min search_seconds_max' },
+    { 'MOVEMENT (WHAT EACH DOES IS NOT KNOWN)', 'locomotion_1 locomotion_2 locomotion_3 locomotion_4' },
+    { 'STIMS', 'stims_start stims_supply stims_max' },
     { 'PACK', 'pack_recharge_seconds pack_launch_force pack_takeoff_seconds pack_forward_share pack_landing_force '
               .. 'pack_landing_seconds pack_steering pack_hover_seconds warp_distance warp_reach_up warp_reach_down '
               .. 'warp_heat_safe warp_heat_unsafe warp_heat_per_warp warp_cooling' },
@@ -3333,6 +3335,11 @@ local MENU_LABEL = {
     charge_penetration_over = 'Penetration when overcharged (x)',
     arc_speed = 'Arc speed', arc_chain_length = 'Arc chain length', arc_chain_split = 'Arc chain split',
     beam_range = 'Beam range', beam_radius = 'Beam radius',
+    beam_rpm = 'Beam shots a minute (pulsed beams)', beam_mode = 'Beam mode (1 steady, 2 pulsed)',
+    beam_pulse_seconds = 'Length of a pulse (s)',
+    stims_start = 'Stims at the start', stims_supply = 'Stims from a supply', stims_max = 'Stims, most carried',
+    locomotion_1 = 'Movement value 1 (Hunter 12, Charger 2.5)', locomotion_2 = 'Movement value 2 (Hunter 12, Charger 10)',
+    locomotion_3 = 'Movement value 3 (Hunter 75, Charger 90)', locomotion_4 = 'Movement value 4 (Hunter 20, Charger 4)',
     recoil_drift_h = 'Recoil drift, horizontal', recoil_drift_v = 'Recoil drift, vertical',
     recoil_climb_h = 'Recoil climb, horizontal', recoil_climb_v = 'Recoil climb, vertical',
     spread_h = 'Spread, horizontal', spread_v = 'Spread, vertical', sway = 'Sway', ergonomics = 'Ergonomics',
