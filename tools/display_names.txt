@@ -475,3 +475,5 @@ enemy_weapon|cyborg_command_bunker_top|Command Bunker (top)
 enemy_weapon|cyborg_turret_command_bunker_hmg|Command Bunker: turret
 enemy_weapon|cyborg_landed_dropship|Dropship (landed)
 enemy_weapon|cyborg_tank_base|Automaton tank (hull, base)
+stratagem_weapon|drone_mg_weapon|AX/AR-23 Guard Dog (gun)
+stratagem_weapon|hellbomb|Hellbomb: body

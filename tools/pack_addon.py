@@ -230,6 +230,14 @@ def package(kind, version=None, out_dir=None, flat=False):
     }
     if icon:
         files["icon.png"] = flat_files["icon.png"] = icon
+    if kind == "tuner":
+        # the menu's silhouettes and badges are adapted from wiki images (CC BY-NC-SA 4.0): the notice
+        # and the list of sources travel with the package
+        for name, source in (("UI-ATTRIBUTION.txt", "UI-ATTRIBUTION.txt"),
+                             ("UI-ASSET-SOURCES.json", os.path.join("assets", "wiki", "sources.json")),
+                             ("UI-TYPE-SOURCES.json", os.path.join("assets", "ui-types", "sources.json"))):
+            with open(os.path.join(ROOT, source), "rb") as f:
+                files[name] = flat_files[name] = f.read()
     out_dir = out_dir or os.path.join(ROOT, "dist")
     os.makedirs(out_dir, exist_ok=True)
     zip_path = os.path.join(out_dir, spec["zip"] % version)

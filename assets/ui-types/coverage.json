@@ -1,0 +1,612 @@
+[
+  {
+    "category": "enemy_weapon",
+    "name": "Agitator",
+    "icon": "wiki_faction_automaton"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "cha_warrior_big_tier2",
+    "icon": "wiki_faction_terminid"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Annihilator Tank",
+    "icon": "wiki_faction_automaton"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "cyborg_turret_autocannons",
+    "icon": "wiki_faction_automaton"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Automaton Fabricator",
+    "icon": "wiki_faction_automaton"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "cyborg_tank_base",
+    "icon": "wiki_faction_automaton"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Automaton: not identified",
+    "icon": "wiki_faction_automaton"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Barrager Tank",
+    "icon": "wiki_faction_automaton"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Berserker",
+    "icon": "wiki_faction_automaton"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Bile Spewer",
+    "icon": "wiki_faction_terminid"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "cha_scavenger_spitter",
+    "icon": "wiki_faction_terminid"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Bile Titan",
+    "icon": "wiki_faction_terminid"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "cha_warrior_acid",
+    "icon": "wiki_faction_terminid"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "cha_conscript_melee",
+    "icon": "wiki_faction_automaton"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Brood Commander",
+    "icon": "wiki_faction_terminid"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Cannon Turret",
+    "icon": "wiki_faction_automaton"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Charger",
+    "icon": "wiki_faction_terminid"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Charger Behemoth",
+    "icon": "wiki_faction_terminid"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Command Bunker",
+    "icon": "wiki_faction_automaton"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Commissar",
+    "icon": "wiki_faction_automaton"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "soldier_flamer",
+    "icon": "wiki_faction_automaton"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Crescent Overseer",
+    "icon": "wiki_faction_illuminate"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "cha_bodyhorror_helmetguy",
+    "icon": "wiki_faction_illuminate"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Devastator",
+    "icon": "wiki_faction_automaton"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "cha_dragon",
+    "icon": "wiki_faction_terminid"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Dropship",
+    "icon": "wiki_faction_automaton"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Elevated Overseer",
+    "icon": "wiki_faction_illuminate"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Factory Strider",
+    "icon": "wiki_faction_automaton"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Fleshmob",
+    "icon": "wiki_faction_illuminate"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "cha_exomech_ranged",
+    "icon": "wiki_faction_illuminate"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Gazer",
+    "icon": "wiki_faction_illuminate"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "cyborg_gunship",
+    "icon": "wiki_faction_automaton"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Harvester",
+    "icon": "wiki_faction_illuminate"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Heavy Devastator",
+    "icon": "wiki_faction_automaton"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "cha_warrior_plus",
+    "icon": "wiki_faction_terminid"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "cha_hive_lord",
+    "icon": "wiki_faction_terminid"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Hulk",
+    "icon": "wiki_faction_automaton"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Hunter",
+    "icon": "wiki_faction_terminid"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Illuminate Overship",
+    "icon": "wiki_faction_illuminate"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Illuminate: not identified",
+    "icon": "wiki_faction_illuminate"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Impaler",
+    "icon": "wiki_faction_terminid"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "soldier_machinegun_flm",
+    "icon": "wiki_faction_automaton"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "illuminate_war_machine",
+    "icon": "wiki_faction_illuminate"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "MG Emplacement",
+    "icon": "wiki_faction_automaton"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "MG Raider",
+    "icon": "wiki_faction_automaton"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "cyborg_turret_mortar",
+    "icon": "wiki_faction_automaton"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Nursing Spewer",
+    "icon": "wiki_faction_terminid"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Overseer",
+    "icon": "wiki_faction_illuminate"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Pyro Trooper",
+    "icon": "wiki_faction_automaton"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Radical",
+    "icon": "wiki_faction_automaton"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Rocket Devastator",
+    "icon": "wiki_faction_automaton"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "conscript_cannon",
+    "icon": "wiki_faction_automaton"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "cha_charger_burrower",
+    "icon": "wiki_faction_terminid"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "cha_boomer_burrower",
+    "icon": "wiki_faction_terminid"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "cha_warrior_burrower",
+    "icon": "wiki_faction_terminid"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Scavenger",
+    "icon": "wiki_faction_terminid"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "cyborg_walker_scout",
+    "icon": "wiki_faction_automaton"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Shredder Tank",
+    "icon": "wiki_faction_automaton"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Shrieker",
+    "icon": "wiki_faction_terminid"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "bug_spawner_shrieker",
+    "icon": "wiki_faction_terminid"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "cha_charger_acid",
+    "icon": "wiki_faction_terminid"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Spore Spewer",
+    "icon": "wiki_faction_terminid"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Stalker",
+    "icon": "wiki_faction_terminid"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "illuminate_attack_ship",
+    "icon": "wiki_faction_illuminate"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Terminid: not identified",
+    "icon": "wiki_faction_terminid"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Trooper",
+    "icon": "wiki_faction_automaton"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "cha_exomech_melee",
+    "icon": "wiki_faction_illuminate"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Voteless",
+    "icon": "wiki_faction_illuminate"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "cyborg_siege_engine",
+    "icon": "wiki_faction_automaton"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "cyborg_assault_walker",
+    "icon": "wiki_faction_automaton"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "illuminate_dropship",
+    "icon": "wiki_faction_illuminate"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "Warrior",
+    "icon": "wiki_faction_terminid"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "cha_observer",
+    "icon": "wiki_faction_illuminate"
+  },
+  {
+    "category": "enemy_weapon",
+    "name": "cha_bodyhorror_bladed",
+    "icon": "wiki_faction_illuminate"
+  },
+  {
+    "category": "status",
+    "name": "Acid",
+    "icon": "wiki_effect_acid"
+  },
+  {
+    "category": "status",
+    "name": "backpack_chemicals",
+    "icon": "wiki_effect_gas"
+  },
+  {
+    "category": "status",
+    "name": "barbwire",
+    "icon": "effect_thorns"
+  },
+  {
+    "category": "status",
+    "name": "bleed",
+    "icon": "wiki_effect_bleed"
+  },
+  {
+    "category": "status",
+    "name": "blind",
+    "icon": "effect_blind"
+  },
+  {
+    "category": "status",
+    "name": "blizzard",
+    "icon": "effect_cold"
+  },
+  {
+    "category": "status",
+    "name": "Burning",
+    "icon": "wiki_effect_fire"
+  },
+  {
+    "category": "status",
+    "name": "Bush",
+    "icon": "effect_plant"
+  },
+  {
+    "category": "status",
+    "name": "cactus",
+    "icon": "effect_thorns"
+  },
+  {
+    "category": "status",
+    "name": "choked",
+    "icon": "effect_breath"
+  },
+  {
+    "category": "status",
+    "name": "confusion",
+    "icon": "effect_confusion"
+  },
+  {
+    "category": "status",
+    "name": "Constitution",
+    "icon": "effect_shield"
+  },
+  {
+    "category": "status",
+    "name": "cyborg_fire",
+    "icon": "wiki_effect_fire"
+  },
+  {
+    "category": "status",
+    "name": "Dark",
+    "icon": "effect_void"
+  },
+  {
+    "category": "status",
+    "name": "deaf",
+    "icon": "effect_deaf"
+  },
+  {
+    "category": "status",
+    "name": "death_march",
+    "icon": "effect_march"
+  },
+  {
+    "category": "status",
+    "name": "electric",
+    "icon": "effect_electric"
+  },
+  {
+    "category": "status",
+    "name": "extreme_cold",
+    "icon": "effect_cold"
+  },
+  {
+    "category": "status",
+    "name": "Fire",
+    "icon": "wiki_effect_fire"
+  },
+  {
+    "category": "status",
+    "name": "flamerslowed",
+    "icon": "wiki_effect_fire"
+  },
+  {
+    "category": "status",
+    "name": "flashlighted",
+    "icon": "effect_light"
+  },
+  {
+    "category": "status",
+    "name": "Gas",
+    "icon": "wiki_effect_gas"
+  },
+  {
+    "category": "status",
+    "name": "gloom",
+    "icon": "effect_void"
+  },
+  {
+    "category": "status",
+    "name": "hidden",
+    "icon": "effect_hidden"
+  },
+  {
+    "category": "status",
+    "name": "Hotshot",
+    "icon": "effect_heat"
+  },
+  {
+    "category": "status",
+    "name": "illuminate_scrambler",
+    "icon": "effect_scramble"
+  },
+  {
+    "category": "status",
+    "name": "intense_heat",
+    "icon": "effect_heat"
+  },
+  {
+    "category": "status",
+    "name": "inverted_aim_assist",
+    "icon": "effect_aim"
+  },
+  {
+    "category": "status",
+    "name": "lava",
+    "icon": "wiki_effect_fire"
+  },
+  {
+    "category": "status",
+    "name": "mud",
+    "icon": "effect_mud"
+  },
+  {
+    "category": "status",
+    "name": "Poison",
+    "icon": "effect_poison"
+  },
+  {
+    "category": "status",
+    "name": "post_mortem_explosion",
+    "icon": "effect_explosion"
+  },
+  {
+    "category": "status",
+    "name": "pure_damage",
+    "icon": "effect_damage"
+  },
+  {
+    "category": "status",
+    "name": "Radiation",
+    "icon": "effect_radiation"
+  },
+  {
+    "category": "status",
+    "name": "rooted",
+    "icon": "effect_root"
+  },
+  {
+    "category": "status",
+    "name": "sand",
+    "icon": "effect_sand"
+  },
+  {
+    "category": "status",
+    "name": "sandstorm",
+    "icon": "effect_sand"
+  },
+  {
+    "category": "status",
+    "name": "slowed",
+    "icon": "effect_slow"
+  },
+  {
+    "category": "status",
+    "name": "smoke_covered",
+    "icon": "effect_smoke"
+  },
+  {
+    "category": "status",
+    "name": "snow",
+    "icon": "effect_cold"
+  },
+  {
+    "category": "status",
+    "name": "Stim",
+    "icon": "effect_heal"
+  },
+  {
+    "category": "status",
+    "name": "Stun",
+    "icon": "effect_stun"
+  },
+  {
+    "category": "status",
+    "name": "submerged",
+    "icon": "effect_water"
+  },
+  {
+    "category": "status",
+    "name": "thermite",
+    "icon": "wiki_effect_fire"
+  },
+  {
+    "category": "status",
+    "name": "thornbush",
+    "icon": "effect_thorns"
+  },
+  {
+    "category": "status",
+    "name": "tornadostun",
+    "icon": "effect_tornado"
+  },
+  {
+    "category": "status",
+    "name": "tremor",
+    "icon": "effect_tremor"
+  },
+  {
+    "category": "status",
+    "name": "weather_insulated",
+    "icon": "effect_shield"
+  }
+]

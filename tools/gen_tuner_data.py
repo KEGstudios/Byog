@@ -196,6 +196,9 @@ def group_of(category, internal, shown):
     m = re.match(r"^(Damage row) (\d+: .+)$", shown)
     if m:
         return "Damage rows no item uses", m.group(2), 1
+    m = re.match(r"^(Explosion row) (\d+: .+)$", shown)
+    if m:
+        return "Explosion rows no item uses", m.group(2), 1
     m = re.match(r"^([^:(]+?)(?: \(([^)]*)\))?(?:: (.+))?$", shown)
     if not m:
         return None
@@ -370,6 +373,7 @@ RANGES = [
     (r"_lingering_status$", 0, 30, 1),
     (r"_lingering_seconds$", 0, 3600, 0),
     (r"^heat_charge_", 0, 100000, 0),
+    (r"^heat_sinks_(start|supply|max)$", 0, 999, 1),
     (r"^explosion_proximity_filter$", 0, 4294967295, 1),
     (r"^weight$", 0, 2, 1),                        # an armor's class: 0 light, 1 medium, 2 heavy
     (r"^passive$", 0, 41, 1),                      # the number of an armor passive (the Passives list)

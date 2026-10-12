@@ -1,0 +1,42 @@
+BYOG UI — WIKI REFERENCE ASSETS
+
+Sources accessed 8 October 2026:
+https://helldivers.wiki.gg/wiki/Weapons
+https://helldivers.wiki.gg/wiki/Stratagems
+https://helldivers.wiki.gg/wiki/Armor
+
+Individual source pages, image URLs and original file hashes are recorded in
+sources.json. mapping.json associates catalog records with these references.
+coverage.json records both matches and generic fallbacks for the entire catalog.
+
+Game designs and renders: HELLDIVERS 2, Arrowhead Game Studios / Sony Interactive
+Entertainment and the respective rights holders of crossover equipment.
+Wiki contributors supplied the reference pages and imagery. The downloaded SVG
+files with embedded author credits identify Dogo314 ("Traced by Dogo314").
+Consult each linked file page for its specific authorship and rights notice.
+
+The wiki states that page content is under Creative Commons
+Attribution-NonCommercial-ShareAlike 4.0 unless otherwise noted:
+https://creativecommons.org/licenses/by-nc-sa/4.0/
+These adapted wiki icons are provided under those same terms where applicable;
+underlying game artwork remains subject to its respective rights holders.
+This does not change the license of the original BYOG program code.
+
+Adaptation: source alpha masks / visible SVG strokes compiled into small
+monochrome bitmaps, then merged horizontal rectangles for the existing Gui.rect
+renderer. No game material paths, PNG loader, native image API, or network calls
+were added to the runtime. Images are silhouettes and badges, not full-color
+photographs. Generic category symbols remain original BYOG UI artwork.
+
+Unverified internal entries, abstract groups, status effects and attachments
+keep generic symbols. In particular, the wiki search returned no LAS-22 Shear
+page on the review date; revolver_pistol_long has no verified public model name.
+No guessed model is assigned to these records.
+
+Faction and effect update (2026-10-08):
+https://helldivers.wiki.gg/wiki/Factions
+https://helldivers.wiki.gg/wiki/Status_Effects
+Three faction symbols and four damage symbols adapted to monochrome masks.
+SVG credits: traced/made by Dogo314; see original wiki file pages and applicable licenses.
+Other status pictograms are original code-native artwork (tools/ui_type_icons.py), not official game icons.
+Exact mappings and seven additional sources: assets/ui-types.

@@ -351,6 +351,9 @@ def resolve_weapon(T, ent):
                           ("temp_loss_per_second", "temp_loss_per_second"),
                           # a weapon that charges through its heat (the Quasar): the charge a shot needs,
                           # and how fast it builds and drains
+                          # the spare heat sinks of a weapon that has no magazines (Laser Cannon, Sickle)
+                          ("heat_sinks_start", "magazines"), ("heat_sinks_supply", "magazines_refill"),
+                          ("heat_sinks_max", "magazines_max"),
                           ("heat_charge_needed", "firing_charge"),
                           ("heat_charge_per_second", "charge_gain_per_second"),
                           ("heat_charge_loss_per_second", "charge_loss_per_second")):
@@ -722,6 +725,38 @@ MELEE = {
 }
 
 
+def other_explosions(T, items):
+    """Every explosion row no listed item uses, and that the mod does not borrow. The Hellbomb's is among
+    them: no entity of the tables carries it. The rows with exactly the wiki's Hellbomb numbers (10 000
+    damage; 17, 25 and 45 m: helldivers.wiki.gg, 2026-10-12) are named, the others listed by number."""
+    import blasts
+    used = set(row for row, _score, _why in blasts.pool())
+    for it in items:
+        for s in it["stats"]:
+            if s.get("table") == "ExplosionSettings":
+                used.add(int(s["key"]))
+    out = []
+    for row_id in sorted(T.exp_ix):
+        if not row_id or row_id in used:
+            continue
+        stats = []
+        explosion_stats(T, stats, "blast_", row_id)
+        if not any("error" not in s for s in stats):
+            continue
+        v = dict((s["id"], s.get("original")) for s in stats if "error" not in s)
+        numbers = (v.get("blast_damage"), v.get("blast_inner_radius"), v.get("blast_outer_radius"),
+                   v.get("blast_stagger_radius"))
+        if numbers == (10000, 17.0, 25.0, 45.0):
+            category, name, shown = "stratagem_weapon", "hellbomb_explosion_%d" % row_id, "Hellbomb: explosion (row %d)" % row_id
+        else:
+            category, name = "unknown_weapon", "explosion_row_%d" % row_id
+            shown = "Explosion row %d: %d damage, %g / %g m" % (row_id, v.get("blast_damage") or 0,
+                                                                v.get("blast_inner_radius") or 0, v.get("blast_outer_radius") or 0)
+        out.append({"category": category, "entity": "%016X" % row_id, "path": category + "s/" + name,
+                    "sources": ["explosion row"], "shown": shown, "stats": stats})
+    return out
+
+
 def other_damage(T, items):
     """Every damage row no listed item uses: the enemies' melee hits by name, the rest by number."""
     used = set()
@@ -979,6 +1014,7 @@ def main():
                                     "original": round(struct.unpack_from("<f", rec, 0)[0], 6)})
     items += live_stratagems()
     items += live_statuses(T)
+    items += other_explosions(T, items)
     items += other_damage(T, items)
     unnamed = sorted("%016X" % e for e in T.weapon.index if hashnames.name(e) is None)
     cat = {"snapshot": {"source": "FileDiver datalibrary mirror", "projectile_rows": T.projectile.count,

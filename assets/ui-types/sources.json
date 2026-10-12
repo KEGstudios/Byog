@@ -1,0 +1,58 @@
+[
+  {
+    "key": "wiki_faction_terminid",
+    "bitmap": "wiki_faction_terminid.png",
+    "page": "https://helldivers.wiki.gg/wiki/Factions",
+    "source_image": "https://helldivers.wiki.gg/images/Terminid_Icon.svg",
+    "image_sha256": "5959341bc4ea2ad997fe473cc9387d7c094046c8a52bbd899245ba861e5ccb6c",
+    "adaptation": "Cropped monochrome alpha mask"
+  },
+  {
+    "key": "wiki_faction_automaton",
+    "bitmap": "wiki_faction_automaton.png",
+    "page": "https://helldivers.wiki.gg/wiki/Factions",
+    "source_image": "https://helldivers.wiki.gg/images/Automaton_Icon.svg",
+    "image_sha256": "1262ff04a994d7e8ee49ed900b2bf1d01c689c8e0c0fac1cbf606f3794357d1e",
+    "adaptation": "Cropped monochrome alpha mask"
+  },
+  {
+    "key": "wiki_faction_illuminate",
+    "bitmap": "wiki_faction_illuminate.png",
+    "page": "https://helldivers.wiki.gg/wiki/Factions",
+    "source_image": "https://helldivers.wiki.gg/images/Illuminate_Icon.svg",
+    "image_sha256": "b8b11477f25aae1f881ffcf6a9f1346d55df7a2137470b6f38cf05c024a7d199",
+    "adaptation": "Cropped monochrome alpha mask"
+  },
+  {
+    "key": "wiki_effect_acid",
+    "bitmap": "wiki_effect_acid.png",
+    "page": "https://helldivers.wiki.gg/wiki/Status_Effects",
+    "source_image": "https://helldivers.wiki.gg/images/Damage_Acid_Icon.svg",
+    "image_sha256": "d226710dd78d458ed2ba0cc21ea428bbebcea33d8b59a819d166a21b84c9d229",
+    "adaptation": "Cropped monochrome alpha mask"
+  },
+  {
+    "key": "wiki_effect_bleed",
+    "bitmap": "wiki_effect_bleed.png",
+    "page": "https://helldivers.wiki.gg/wiki/Status_Effects",
+    "source_image": "https://helldivers.wiki.gg/images/Damage_Bleed_Icon.svg",
+    "image_sha256": "bfe018907f55284dc33398e3ae08af638b3f9a90af9743733a58d0b097640022",
+    "adaptation": "Cropped monochrome alpha mask"
+  },
+  {
+    "key": "wiki_effect_fire",
+    "bitmap": "wiki_effect_fire.png",
+    "page": "https://helldivers.wiki.gg/wiki/Status_Effects",
+    "source_image": "https://helldivers.wiki.gg/images/Damage_Fire_Icon.svg",
+    "image_sha256": "4cb8822149f417e5bac1e135b8ee00e47d99a25b8540fa0b8bb7d6477927931c",
+    "adaptation": "Cropped monochrome alpha mask"
+  },
+  {
+    "key": "wiki_effect_gas",
+    "bitmap": "wiki_effect_gas.png",
+    "page": "https://helldivers.wiki.gg/wiki/Status_Effects",
+    "source_image": "https://helldivers.wiki.gg/images/Damage_Gas_Icon.svg",
+    "image_sha256": "3ee11dd9b883a8c181efcf70f7c1de37cf1d1d8a975477337f6e8948cbab8943",
+    "adaptation": "Cropped monochrome alpha mask"
+  }
+]

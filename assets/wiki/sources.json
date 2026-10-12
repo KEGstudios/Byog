@@ -1,0 +1,3467 @@
+[
+  {
+    "key": "A-35_Recon",
+    "page": "https://helldivers.wiki.gg/wiki/A-35_Recon",
+    "source_image": "https://helldivers.wiki.gg/images/A-35_Recon_Armor_Render.png",
+    "image_sha256": "c7ab434211157787f3cc7e6c391479222c27e944cdce0086e4286c156c94b817",
+    "bitmap": "A-35_Recon.png",
+    "title": "A-35 Recon",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "A-9_Helljumper",
+    "page": "https://helldivers.wiki.gg/wiki/A-9_Helljumper",
+    "source_image": "https://helldivers.wiki.gg/images/A-9_Helljumper_Armor_Render.png",
+    "image_sha256": "dd318ff01d1c5945a169cd66db15dca5ef9775440b8f7122eb61ed4d4356bb4b",
+    "bitmap": "A-9_Helljumper.png",
+    "title": "A-9 Helljumper",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "AC-1_Dutiful",
+    "page": "https://helldivers.wiki.gg/wiki/AC-1_Dutiful",
+    "source_image": "https://helldivers.wiki.gg/images/AC-1_Dutiful_Armor_Render.png",
+    "image_sha256": "024e2637548253657570d2ec7f592cf8e3a54d9d62283b5abaae44cd244e7457",
+    "bitmap": "AC-1_Dutiful.png",
+    "title": "AC-1 Dutiful",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "AC-2_Obedient",
+    "page": "https://helldivers.wiki.gg/wiki/AC-2_Obedient",
+    "source_image": "https://helldivers.wiki.gg/images/AC-2_Obedient_Armor_Render.png",
+    "image_sha256": "2a1b567dc826f48ae90f6047435e87c91e536c09f16f00a8de1c403536b96190",
+    "bitmap": "AC-2_Obedient.png",
+    "title": "AC-2 Obedient",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "AD-11_Livewire",
+    "page": "https://helldivers.wiki.gg/wiki/AD-11_Livewire",
+    "source_image": "https://helldivers.wiki.gg/images/AD-11_Livewire_Armor_Render.png",
+    "image_sha256": "c399ae9a18ab0382ba421c8961a26c2021e8718b2b7c3f0c9f9030ea8a2122d3",
+    "bitmap": "AD-11_Livewire.png",
+    "title": "AD-11 Livewire",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "AD-26_Bleeding_Edge",
+    "page": "https://helldivers.wiki.gg/wiki/AD-26_Bleeding_Edge",
+    "source_image": "https://helldivers.wiki.gg/images/AD-26_Bleeding_Edge_Armor_Render.png",
+    "image_sha256": "96b0d0f2babeb226648f4a49d3486a09cffb36c443a6755f238697eebe35f9d3",
+    "bitmap": "AD-26_Bleeding_Edge.png",
+    "title": "AD-26 Bleeding Edge",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "AD-49_Apollonian",
+    "page": "https://helldivers.wiki.gg/wiki/AD-49_Apollonian",
+    "source_image": "https://helldivers.wiki.gg/images/AD-49_Apollonian_Armor_Render.png",
+    "image_sha256": "c8029f8687cf971734ac9b8d1df98ca46828a91aeaa0c25e8af9f85c5a54c53c",
+    "bitmap": "AD-49_Apollonian.png",
+    "title": "AD-49 Apollonian",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "AF-02_Haz-Master",
+    "page": "https://helldivers.wiki.gg/wiki/AF-02_Haz-Master",
+    "source_image": "https://helldivers.wiki.gg/images/AF-02_Haz-Master_Armor_Render.png",
+    "image_sha256": "ae515c0633efe9058b374d3686c3b86f86db70862ba898a52f22fac8910fb55e",
+    "bitmap": "AF-02_Haz-Master.png",
+    "title": "AF-02 Haz-Master",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "AF-50_Noxious_Ranger",
+    "page": "https://helldivers.wiki.gg/wiki/AF-50_Noxious_Ranger",
+    "source_image": "https://helldivers.wiki.gg/images/AF-50_Noxious_Ranger_Armor_Render.png",
+    "image_sha256": "c6e142fba3f268c9302c16dedec90c5caae58fcd39ac0203c6227e4829b901c0",
+    "bitmap": "AF-50_Noxious_Ranger.png",
+    "title": "AF-50 Noxious Ranger",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "AF-52_Lockdown",
+    "page": "https://helldivers.wiki.gg/wiki/AF-52_Lockdown",
+    "source_image": "https://helldivers.wiki.gg/images/AF-52_Lockdown_Armor_Render.png",
+    "image_sha256": "e9d4c9a3d5561382b7ca5317e5fef069da8101c34577957e97983e78429aad6d",
+    "bitmap": "AF-52_Lockdown.png",
+    "title": "AF-52 Lockdown",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "AF-91_Field_Chemist",
+    "page": "https://helldivers.wiki.gg/wiki/AF-91_Field_Chemist",
+    "source_image": "https://helldivers.wiki.gg/images/AF-91_Field_Chemist_Armor_Render.png",
+    "image_sha256": "9a1f952edc296081fad350e03179932dd665ec97f156be5b73544469a09423d4",
+    "bitmap": "AF-91_Field_Chemist.png",
+    "title": "AF-91 Field Chemist",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "B-01_Tactical_v1",
+    "page": "https://helldivers.wiki.gg/wiki/B-01_Tactical_v1",
+    "source_image": "https://helldivers.wiki.gg/images/B-01_Tactical_v1_Armor_Render.png",
+    "image_sha256": "78bfab804c3c1a7d0231e865012b687e8f07a68febec729c5ab7ef57fbd369bc",
+    "bitmap": "B-01_Tactical_v1.png",
+    "title": "B-01 Tactical v1",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "B-08_Light_Gunner",
+    "page": "https://helldivers.wiki.gg/wiki/B-08_Light_Gunner",
+    "source_image": "https://helldivers.wiki.gg/images/B-08_Light_Gunner_Armor_Render.png",
+    "image_sha256": "79e6d46cbcbcf045b10b6ff4adcdd8d4d8d25073beacf0e3655d74278624c638",
+    "bitmap": "B-08_Light_Gunner.png",
+    "title": "B-08 Light Gunner",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "B-22_Model_Citizen",
+    "page": "https://helldivers.wiki.gg/wiki/B-22_Model_Citizen",
+    "source_image": "https://helldivers.wiki.gg/images/B-22_Model_Citizen_Armor_Render.png",
+    "image_sha256": "15bf637d893f7c362628c923f0988ea8f21d39af2f8e7ba9a3939e5777a19ec2",
+    "bitmap": "B-22_Model_Citizen.png",
+    "title": "B-22 Model Citizen",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "B-24_Enforcer",
+    "page": "https://helldivers.wiki.gg/wiki/B-24_Enforcer",
+    "source_image": "https://helldivers.wiki.gg/images/B-24_Enforcer_Body_Icon.png",
+    "image_sha256": "82f2d12a5ec2cbc58bb024255f866c8e4a6fceb2ff7b40bfbc5748e144dcd32b",
+    "bitmap": "B-24_Enforcer.png",
+    "title": "B-24 Enforcer",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "B-27_Fortified_Commando",
+    "page": "https://helldivers.wiki.gg/wiki/B-27_Fortified_Commando",
+    "source_image": "https://helldivers.wiki.gg/images/B-27_Fortified_Commando_Armor_Render.png",
+    "image_sha256": "a947a1d4271745cc4f05e49e420f87f7064a7998dab42baedf1316aaf96ea81e",
+    "bitmap": "B-27_Fortified_Commando.png",
+    "title": "B-27 Fortified Commando",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "BFM-16_Tanker",
+    "page": "https://helldivers.wiki.gg/wiki/BFM-16_Tanker",
+    "source_image": "https://helldivers.wiki.gg/images/BFM-16_Tanker_Armor_Render.png",
+    "image_sha256": "eb2e7a22226b418c40d5d44ed7b1221776b474d7c89324b900da12f81d019d3f",
+    "bitmap": "BFM-16_Tanker.png",
+    "title": "BFM-16 Tanker",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "BFM-220_Ironclad",
+    "page": "https://helldivers.wiki.gg/wiki/BFM-220_Ironclad",
+    "source_image": "https://helldivers.wiki.gg/images/BFM-220_Ironclad_Armor_Render.png",
+    "image_sha256": "04a13480364d1abc3558fa9c4471f4340ff548060ab5ff4f32c1ab74ed9ba7b5",
+    "bitmap": "BFM-220_Ironclad.png",
+    "title": "BFM-220 Ironclad",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "BFM-77_Reformer",
+    "page": "https://helldivers.wiki.gg/wiki/BFM-77_Reformer",
+    "source_image": "https://helldivers.wiki.gg/images/BFM-77_Reformer_Armor_Render.png",
+    "image_sha256": "c1c630888f0c9d185a52368214a815c922cc60d13fac566778f5d7ed21ff0e2e",
+    "bitmap": "BFM-77_Reformer.png",
+    "title": "BFM-77 Reformer",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "BP-20_Correct_Officer",
+    "page": "https://helldivers.wiki.gg/wiki/BP-20_Correct_Officer",
+    "source_image": "https://helldivers.wiki.gg/images/BP-20_Correct_Officer_Armor_Render.png",
+    "image_sha256": "bd1a0553988cb9687a56812ebb1a32c99d14336daf0db5a44a5e7ef7fd5a7578",
+    "bitmap": "BP-20_Correct_Officer.png",
+    "title": "BP-20 Correct Officer",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "BP-32_Jackboot",
+    "page": "https://helldivers.wiki.gg/wiki/BP-32_Jackboot",
+    "source_image": "https://helldivers.wiki.gg/images/BP-32_Jackboot_Armor_Render.png",
+    "image_sha256": "c47d5e70933f87f2f69e0e94658aed84f5b3ec04584fe428ec1caeb91675ab0b",
+    "bitmap": "BP-32_Jackboot.png",
+    "title": "BP-32 Jackboot",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "BP-77_Grand_Juror",
+    "page": "https://helldivers.wiki.gg/wiki/BP-77_Grand_Juror",
+    "source_image": "https://helldivers.wiki.gg/images/BP-77_Grand_Juror_Armor_Render.png",
+    "image_sha256": "a23f2a1bc0c8fa6b4c39cbce196686a20ccbad31953f735bb905a89e018a8b11",
+    "bitmap": "BP-77_Grand_Juror.png",
+    "title": "BP-77 Grand Juror",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "CE-07_Demolition_Specialist",
+    "page": "https://helldivers.wiki.gg/wiki/CE-07_Demolition_Specialist",
+    "source_image": "https://helldivers.wiki.gg/images/CE-07_Demolition_Specialist_Armor_Render.png",
+    "image_sha256": "bdb67d7776e012299103624e1364cdd70461d7d6c02944ac0a305675f34956c9",
+    "bitmap": "CE-07_Demolition_Specialist.png",
+    "title": "CE-07 Demolition Specialist",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "CE-101_Guerilla_Gorilla",
+    "page": "https://helldivers.wiki.gg/wiki/CE-101_Guerilla_Gorilla",
+    "source_image": "https://helldivers.wiki.gg/images/CE-101_Guerilla_Gorilla_Armor_Render.png",
+    "image_sha256": "3ba79aa8e7670d70af697a35001ee59ab943eac9c7ce85d7603b7a5aa7751d11",
+    "bitmap": "CE-101_Guerilla_Gorilla.png",
+    "title": "CE-101 Guerilla Gorilla",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "CE-27_Ground_Breaker",
+    "page": "https://helldivers.wiki.gg/wiki/CE-27_Ground_Breaker",
+    "source_image": "https://helldivers.wiki.gg/images/CE-27_Ground_Breaker_Armor_Render.png",
+    "image_sha256": "f70331f4b97cdbf181e6171ea26fcb915014125d4f2a6f77bad6757d4c5384b3",
+    "bitmap": "CE-27_Ground_Breaker.png",
+    "title": "CE-27 Ground Breaker",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "CE-35_Trench_Engineer",
+    "page": "https://helldivers.wiki.gg/wiki/CE-35_Trench_Engineer",
+    "source_image": "https://helldivers.wiki.gg/images/CE-35_Trench_Engineer_Armor_Render.png",
+    "image_sha256": "c637912b0409cb7f187311d9019210496d3a997c86d8b48ce950d252fd925379",
+    "bitmap": "CE-35_Trench_Engineer.png",
+    "title": "CE-35 Trench Engineer",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "CE-64_Grenadier",
+    "page": "https://helldivers.wiki.gg/wiki/CE-64_Grenadier",
+    "source_image": "https://helldivers.wiki.gg/images/CE-64_Grenadier_Armor_Render.png",
+    "image_sha256": "c136984bd284295a6c21261932e682526a2322c2a19bb12681b054159b7f07f6",
+    "bitmap": "CE-64_Grenadier.png",
+    "title": "CE-64 Grenadier",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "CE-67_Titan",
+    "page": "https://helldivers.wiki.gg/wiki/CE-67_Titan",
+    "source_image": "https://helldivers.wiki.gg/images/CE-67_Titan_Armor_Render.png",
+    "image_sha256": "063d4345bd656cc65b59aadab3d87a7fb845068d76a45d440b5b5adfe7709857",
+    "bitmap": "CE-67_Titan.png",
+    "title": "CE-67 Titan",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "CE-74_Breaker",
+    "page": "https://helldivers.wiki.gg/wiki/CE-74_Breaker",
+    "source_image": "https://helldivers.wiki.gg/images/CE-74_Breaker_Armor_Render.png",
+    "image_sha256": "8d2a8f5983388331ec3cae50a8272b950a8620faee6c3cf540ec2eff3383905c",
+    "bitmap": "CE-74_Breaker.png",
+    "title": "CE-74 Breaker",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "CE-81_Juggernaut",
+    "page": "https://helldivers.wiki.gg/wiki/CE-81_Juggernaut",
+    "source_image": "https://helldivers.wiki.gg/images/CE-81_Juggernaut_Armor_Render.png",
+    "image_sha256": "2377085b64c267e6f091a5aaafa4f8ed5091dbfad724f30c04bffde90537ba6c",
+    "bitmap": "CE-81_Juggernaut.png",
+    "title": "CE-81 Juggernaut",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "CM-09_Bonesnapper",
+    "page": "https://helldivers.wiki.gg/wiki/CM-09_Bonesnapper",
+    "source_image": "https://helldivers.wiki.gg/images/CM-09_Bonesnapper_Armor_Render.png",
+    "image_sha256": "186e0611b26c869dca69119e7a7aeb6f08c5d07891147ca131dbba3c2bdeae86",
+    "bitmap": "CM-09_Bonesnapper.png",
+    "title": "CM-09 Bonesnapper",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "CM-10_Clinician",
+    "page": "https://helldivers.wiki.gg/wiki/CM-10_Clinician",
+    "source_image": "https://helldivers.wiki.gg/images/CM-10_Clinician_Armor_Render.png",
+    "image_sha256": "f2801e4674610b89d16a82e417d09be35fce9e17c715352d1058bd7eeab2dfad",
+    "bitmap": "CM-10_Clinician.png",
+    "title": "CM-10 Clinician",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "CM-14_Physician",
+    "page": "https://helldivers.wiki.gg/wiki/CM-14_Physician",
+    "source_image": "https://helldivers.wiki.gg/images/CM-14_Physician_Armor_Render.png",
+    "image_sha256": "e041658036dbad88a98272c102998700c250f6511501af8735ea7f481ef299ab",
+    "bitmap": "CM-14_Physician.png",
+    "title": "CM-14 Physician",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "CM-17_Butcher",
+    "page": "https://helldivers.wiki.gg/wiki/CM-17_Butcher",
+    "source_image": "https://helldivers.wiki.gg/images/CM-17_Butcher_Body_Icon.png",
+    "image_sha256": "3b1bde7fcb1d6791451e1f37e646128c1e374e9ee0e8a926143397800dee42c6",
+    "bitmap": "CM-17_Butcher.png",
+    "title": "CM-17 Butcher",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "CM-21_Trench_Paramedic",
+    "page": "https://helldivers.wiki.gg/wiki/CM-21_Trench_Paramedic",
+    "source_image": "https://helldivers.wiki.gg/images/CM-21_Trench_Paramedic_Armor_Render.png",
+    "image_sha256": "beb0c37f1c292403c5ff166eb04c56f85a55ce904d509a592844103f0ccb7ef2",
+    "bitmap": "CM-21_Trench_Paramedic.png",
+    "title": "CM-21 Trench Paramedic",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "CPG-48_Sapper",
+    "page": "https://helldivers.wiki.gg/wiki/CPG-48_Sapper",
+    "source_image": "https://helldivers.wiki.gg/images/CPG-48_Sapper_Armor_Render.png",
+    "image_sha256": "8583abfae214d289ff462389b21ddcbb06dcd409ea89964e5b69fa8e7a27bf15",
+    "bitmap": "CPG-48_Sapper.png",
+    "title": "CPG-48 Sapper",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "CPH-26_Commandant",
+    "page": "https://helldivers.wiki.gg/wiki/CPH-26_Commandant",
+    "source_image": "https://helldivers.wiki.gg/images/CPH-26_Commandant_Armor_Render.png",
+    "image_sha256": "b2ef3585a0f69233efdbcc5785d15ddc50365061ebbf7f8bf2fd9a13d57903fb",
+    "bitmap": "CPH-26_Commandant.png",
+    "title": "CPH-26 Commandant",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "CPR-80_Bulwark",
+    "page": "https://helldivers.wiki.gg/wiki/CPR-80_Bulwark",
+    "source_image": "https://helldivers.wiki.gg/images/CPR-80_Bulwark_Armor_Render.png",
+    "image_sha256": "99a24cd92b60839bec5dd32161fa4533c655a169db3aa7d08e9a9f24d010d445",
+    "bitmap": "CPR-80_Bulwark.png",
+    "title": "CPR-80 Bulwark",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "CW-22_Kodiak",
+    "page": "https://helldivers.wiki.gg/wiki/CW-22_Kodiak",
+    "source_image": "https://helldivers.wiki.gg/images/CW-22_Kodiak_Armor_Render.png",
+    "image_sha256": "2552220101ab1c55908236d4a9553c66b9ab68dc6d0a4e1c538f45426b26d289",
+    "bitmap": "CW-22_Kodiak.png",
+    "title": "CW-22 Kodiak",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "CW-36_Winter_Warrior",
+    "page": "https://helldivers.wiki.gg/wiki/CW-36_Winter_Warrior",
+    "source_image": "https://helldivers.wiki.gg/images/CW-36_Winter_Warrior_Armor_Render.png",
+    "image_sha256": "392b125f01e35a4df5e0a46114097ac63b917d5f8f377bfb3afbd3a9b97aa08b",
+    "bitmap": "CW-36_Winter_Warrior.png",
+    "title": "CW-36 Winter Warrior",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "CW-4_Arctic_Ranger",
+    "page": "https://helldivers.wiki.gg/wiki/CW-4_Arctic_Ranger",
+    "source_image": "https://helldivers.wiki.gg/images/CW-4_Arctic_Ranger_Armor_Render.png",
+    "image_sha256": "10d5a2a2ae1bb8b24cb22abf419f4f2e60db3d9ad59834471e28d653b1628f1a",
+    "bitmap": "CW-4_Arctic_Ranger.png",
+    "title": "CW-4 Arctic Ranger",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "CW-9_White_Wolf",
+    "page": "https://helldivers.wiki.gg/wiki/CW-9_White_Wolf",
+    "source_image": "https://helldivers.wiki.gg/images/CW-9_White_Wolf_Armor_Render.png",
+    "image_sha256": "99b98d8d81062bf72e9b4214f14bbaae4d3b7c4fb94f8575c9aab5b0eb58ff94",
+    "bitmap": "CW-9_White_Wolf.png",
+    "title": "CW-9 White Wolf",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "DP-00_Tactical",
+    "page": "https://helldivers.wiki.gg/wiki/DP-00_Tactical",
+    "source_image": "https://helldivers.wiki.gg/images/DP-00_Tactical_Armor_Render.png",
+    "image_sha256": "1e7fa639f0ba53b5540a94af22a6ccd5f4bd1f5b1af3d437fd5f6f1d178e6478",
+    "bitmap": "DP-00_Tactical.png",
+    "title": "DP-00 Tactical",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "DP-11_Champion_of_the_People",
+    "page": "https://helldivers.wiki.gg/wiki/DP-11_Champion_of_the_People",
+    "source_image": "https://helldivers.wiki.gg/images/DP-11_Champion_of_the_People_Armor_Render.png",
+    "image_sha256": "eba9cb1a77da7c96ed377149e55813114e25131b57f9120ca3ab38e6bce7b6ca",
+    "bitmap": "DP-11_Champion_of_the_People.png",
+    "title": "DP-11 Champion of the People",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "DP-40_Hero_of_the_Federation",
+    "page": "https://helldivers.wiki.gg/wiki/DP-40_Hero_of_the_Federation",
+    "source_image": "https://helldivers.wiki.gg/images/DP-40_Hero_of_the_Federation_Armor_Render.png",
+    "image_sha256": "df9b1883989ee7753fcee397ddfb61d3b664f6e480333857aef63f2ad22edc7b",
+    "bitmap": "DP-40_Hero_of_the_Federation.png",
+    "title": "DP-40 Hero of the Federation",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "DP-53_Savior_of_the_Free",
+    "page": "https://helldivers.wiki.gg/wiki/DP-53_Savior_of_the_Free",
+    "source_image": "https://helldivers.wiki.gg/images/DP-53_Savior_of_the_Free_Armor_Render.png",
+    "image_sha256": "8bcdcff80b1a4263d357f1f730708a8dd6dd40f74b7ef8ee441c26d963d8f485",
+    "bitmap": "DP-53_Savior_of_the_Free.png",
+    "title": "DP-53 Savior of the Free",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "DP-8_Mountain-Scaled",
+    "page": "https://helldivers.wiki.gg/wiki/DP-8_Mountain-Scaled",
+    "source_image": "https://helldivers.wiki.gg/images/DP-8_Mountain-Scaled_Armor_Render.png",
+    "image_sha256": "0248a4ad2d867d411bcd8b18a67b639e1fdb65b5b7179f8db46021abc440f55d",
+    "bitmap": "DP-8_Mountain-Scaled.png",
+    "title": "DP-8 Mountain-Scaled",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "DS-10_Big_Game_Hunter",
+    "page": "https://helldivers.wiki.gg/wiki/DS-10_Big_Game_Hunter",
+    "source_image": "https://helldivers.wiki.gg/images/DS-10_Big_Game_Hunter_Armor_Render.png",
+    "image_sha256": "5cc82e6aa96e1679b9216173545ba3b09fad5ca46b4ca8a1078c5ff334a258a6",
+    "bitmap": "DS-10_Big_Game_Hunter.png",
+    "title": "DS-10 Big Game Hunter",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "DS-191_Scorpion",
+    "page": "https://helldivers.wiki.gg/wiki/DS-191_Scorpion",
+    "source_image": "https://helldivers.wiki.gg/images/DS-191_Scorpion_Armor_Render.png",
+    "image_sha256": "2ad86df2848878c0f72011b747e3ccb5c540696d4807538244d2b9618f3fd4a7",
+    "bitmap": "DS-191_Scorpion.png",
+    "title": "DS-191 Scorpion",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "DS-42_Federation%27s_Blade",
+    "page": "https://helldivers.wiki.gg/wiki/DS-42_Federation%27s_Blade",
+    "source_image": "https://helldivers.wiki.gg/images/DS-42_Federation%27s_Blade_Armor_Render.png",
+    "image_sha256": "d8aeb7d9fbc60c1530be2317fd580e5a820723ec7db246c1d835b26683a028e3",
+    "bitmap": "DS-42_Federation%27s_Blade.png",
+    "title": "DS-42 Federation's Blade",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "EX-00_Prototype_X",
+    "page": "https://helldivers.wiki.gg/wiki/EX-00_Prototype_X",
+    "source_image": "https://helldivers.wiki.gg/images/EX-00_Prototype_X_Armor_Render.png",
+    "image_sha256": "9292c5eab204d2a759ac1948351a3169901d28daa7f32e46c8c97981ee2cbac0",
+    "bitmap": "EX-00_Prototype_X.png",
+    "title": "EX-00 Prototype X",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "EX-03_Prototype_3",
+    "page": "https://helldivers.wiki.gg/wiki/EX-03_Prototype_3",
+    "source_image": "https://helldivers.wiki.gg/images/EX-03_Prototype_3_Armor_Render.png",
+    "image_sha256": "03256de93a9722dbaea467db7da7cd04be73b03bde1f795f8e97806574a1dd80",
+    "bitmap": "EX-03_Prototype_3.png",
+    "title": "EX-03 Prototype 3",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "EX-16_Prototype_16",
+    "page": "https://helldivers.wiki.gg/wiki/EX-16_Prototype_16",
+    "source_image": "https://helldivers.wiki.gg/images/EX-16_Prototype_16_Armor_Render.png",
+    "image_sha256": "1689a314139f159dbdbe9c07dca220fec488d66dc9a07960a1a99391baaf5808",
+    "bitmap": "EX-16_Prototype_16.png",
+    "title": "EX-16 Prototype 16",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "FS-05_Marksman",
+    "page": "https://helldivers.wiki.gg/wiki/FS-05_Marksman",
+    "source_image": "https://helldivers.wiki.gg/images/FS-05_Marksman_Body_Icon.png",
+    "image_sha256": "a72f0525f4684936bd9c4bd7fe27353331e688ee708a05da598e4e1200b01d9e",
+    "bitmap": "FS-05_Marksman.png",
+    "title": "FS-05 Marksman",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "FS-11_Executioner",
+    "page": "https://helldivers.wiki.gg/wiki/FS-11_Executioner",
+    "source_image": "https://helldivers.wiki.gg/images/FS-11_Executioner_Armor_Render.png",
+    "image_sha256": "cd18e0b33f7794db23fee68fc64fca5293e091e4880a4a54e3c01d2fe89081ca",
+    "bitmap": "FS-11_Executioner.png",
+    "title": "FS-11 Executioner",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "FS-23_Battle_Master",
+    "page": "https://helldivers.wiki.gg/wiki/FS-23_Battle_Master",
+    "source_image": "https://helldivers.wiki.gg/images/FS-23_Battle_Master_Armor_Render.png",
+    "image_sha256": "89537a096ca44f35ae05ace2c007106c0a1dddad938fc9000aad693c14838d97",
+    "bitmap": "FS-23_Battle_Master.png",
+    "title": "FS-23 Battle Master",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "FS-34_Exterminator",
+    "page": "https://helldivers.wiki.gg/wiki/FS-34_Exterminator",
+    "source_image": "https://helldivers.wiki.gg/images/FS-34_Exterminator_Armor_Render.png",
+    "image_sha256": "1df0c08f63764df30fb879848d771eceb1b5588d00f77c99237b35bf84487a99",
+    "bitmap": "FS-34_Exterminator.png",
+    "title": "FS-34 Exterminator",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "FS-37_Ravager",
+    "page": "https://helldivers.wiki.gg/wiki/FS-37_Ravager",
+    "source_image": "https://helldivers.wiki.gg/images/FS-37_Ravager_Armor_Render.png",
+    "image_sha256": "4c909a17d84498fe5c87b635cdbec11e59a6ff5458567491fd590a8d4b7b5628",
+    "bitmap": "FS-37_Ravager.png",
+    "title": "FS-37 Ravager",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "FS-38_Eradicator",
+    "page": "https://helldivers.wiki.gg/wiki/FS-38_Eradicator",
+    "source_image": "https://helldivers.wiki.gg/images/FS-38_Eradicator_Armor_Render.png",
+    "image_sha256": "93113c84c40e468e380eb39041b7a5250bb6c6dc62b12882475615e498f40c0a",
+    "bitmap": "FS-38_Eradicator.png",
+    "title": "FS-38 Eradicator",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "FS-55_Devastator",
+    "page": "https://helldivers.wiki.gg/wiki/FS-55_Devastator",
+    "source_image": "https://helldivers.wiki.gg/images/FS-55_Devastator_Armor_Render.png",
+    "image_sha256": "dfb4e39745a19016e9a09b3f71f86f6358c9e32c7cb156158939b7aa86ee4f17",
+    "bitmap": "FS-55_Devastator.png",
+    "title": "FS-55 Devastator",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "FS-61_Dreadnought",
+    "page": "https://helldivers.wiki.gg/wiki/FS-61_Dreadnought",
+    "source_image": "https://helldivers.wiki.gg/images/FS-61_Dreadnought_Armor_Render.png",
+    "image_sha256": "69abf8482760bb2a6e7fdcc3c2531323fbcde5d8d00bd7f1a337f313797dba06",
+    "bitmap": "FS-61_Dreadnought.png",
+    "title": "FS-61 Dreadnought",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "GS-11_Democracy%27s_Deputy",
+    "page": "https://helldivers.wiki.gg/wiki/GS-11_Democracy%27s_Deputy",
+    "source_image": "https://helldivers.wiki.gg/images/GS-11_Democracy%27s_Deputy_Armor_Render.png",
+    "image_sha256": "0ba60296d30eee51a6dedab29cf4c6814b3d0f21ccbe9c8505410f9210136009",
+    "bitmap": "GS-11_Democracy%27s_Deputy.png",
+    "title": "GS-11 Democracy's Deputy",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "GS-17_Frontier_Marshal",
+    "page": "https://helldivers.wiki.gg/wiki/GS-17_Frontier_Marshal",
+    "source_image": "https://helldivers.wiki.gg/images/GS-17_Frontier_Marshal_Armor_Render.png",
+    "image_sha256": "daf9c6742fba0689fb6bfdf2c10c08917d0c06a15b3f2676c949819c6ebe52e2",
+    "bitmap": "GS-17_Frontier_Marshal.png",
+    "title": "GS-17 Frontier Marshal",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "GS-66_Lawmaker",
+    "page": "https://helldivers.wiki.gg/wiki/GS-66_Lawmaker",
+    "source_image": "https://helldivers.wiki.gg/images/GS-66_Lawmaker_Armor_Render.png",
+    "image_sha256": "e3963b2aa95b968ce53f132f3181065d25fb747fcc3a67dfc18aaa6ffdf99998",
+    "bitmap": "GS-66_Lawmaker.png",
+    "title": "GS-66 Lawmaker",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "I-09_Heatseeker",
+    "page": "https://helldivers.wiki.gg/wiki/I-09_Heatseeker",
+    "source_image": "https://helldivers.wiki.gg/images/I-09_Heatseeker_Armor_Render.png",
+    "image_sha256": "b3aafc7256d3b82b60c749c89b3dc486bc01143424a911e74b2204c90359d2fc",
+    "bitmap": "I-09_Heatseeker.png",
+    "title": "I-09 Heatseeker",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "I-102_Draconaught",
+    "page": "https://helldivers.wiki.gg/wiki/I-102_Draconaught",
+    "source_image": "https://helldivers.wiki.gg/images/I-102_Draconaught_Armor_Render.png",
+    "image_sha256": "7330c47f419a6e7096e4115a8dcbe54c295df4cb93bd575f247f59edfccb95c2",
+    "bitmap": "I-102_Draconaught.png",
+    "title": "I-102 Draconaught",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "I-44_Salamander",
+    "page": "https://helldivers.wiki.gg/wiki/I-44_Salamander",
+    "source_image": "https://helldivers.wiki.gg/images/I-44_Salamander_Armor_Render.png",
+    "image_sha256": "e94e3a470d99a1e835993dfac708b412c217a5c5aa7214852ecb0fd521927d3f",
+    "bitmap": "I-44_Salamander.png",
+    "title": "I-44 Salamander",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "I-92_Fire_Fighter",
+    "page": "https://helldivers.wiki.gg/wiki/I-92_Fire_Fighter",
+    "source_image": "https://helldivers.wiki.gg/images/I-92_Fire_Fighter_Armor_Render.png",
+    "image_sha256": "2f93f20ae3b89edadfea8176580dc077d6e4e86d9afab45db375ef5e2050afb4",
+    "bitmap": "I-92_Fire_Fighter.png",
+    "title": "I-92 Fire Fighter",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "IE-12_Righteous",
+    "page": "https://helldivers.wiki.gg/wiki/IE-12_Righteous",
+    "source_image": "https://helldivers.wiki.gg/images/IE-12_Righteous_Armor_Render.png",
+    "image_sha256": "d8e46bdfabc068d920914ac6b731c43dd6c9a51712c73a685811a0b1d3cf9c6e",
+    "bitmap": "IE-12_Righteous.png",
+    "title": "IE-12 Righteous",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "IE-3_Martyr",
+    "page": "https://helldivers.wiki.gg/wiki/IE-3_Martyr",
+    "source_image": "https://helldivers.wiki.gg/images/IE-3_Martyr_Armor_Render.png",
+    "image_sha256": "87c8f3ac406b62f846e6fcf858675b1aeddd3f4ce482223e2d9bafee547aa254",
+    "bitmap": "IE-3_Martyr.png",
+    "title": "IE-3 Martyr",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "IE-57_Hell-Bent",
+    "page": "https://helldivers.wiki.gg/wiki/IE-57_Hell-Bent",
+    "source_image": "https://helldivers.wiki.gg/images/IE-57_Hell-Bent_Armor_Render.png",
+    "image_sha256": "cbeb0e38fc7794b9bc07a289e7896aee48b26d5de2270462afe2228e8aa3965a",
+    "bitmap": "IE-57_Hell-Bent.png",
+    "title": "IE-57 Hell-Bent",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "KDM-500_Outrider",
+    "page": "https://helldivers.wiki.gg/wiki/KDM-500_Outrider",
+    "source_image": "https://helldivers.wiki.gg/images/KDM-500_Outrider_Armor_Render.png",
+    "image_sha256": "355bc7c583fc165cc319b12413ad29c5b28c7a0cb1476ec36181abb5371de255",
+    "bitmap": "KDM-500_Outrider.png",
+    "title": "KDM-500 Outrider",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "O-2_Heavy_Operator",
+    "page": "https://helldivers.wiki.gg/wiki/O-2_Heavy_Operator",
+    "source_image": "https://helldivers.wiki.gg/images/O-2_Heavy_Operator_Armor_Render.png",
+    "image_sha256": "d9a561e37d8c5a583340574723452afe457ae731c17972429c560f4fcc4c29b2",
+    "bitmap": "O-2_Heavy_Operator.png",
+    "title": "O-2 Heavy Operator",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "O-3_Free_Spirit",
+    "page": "https://helldivers.wiki.gg/wiki/O-3_Free_Spirit",
+    "source_image": "https://helldivers.wiki.gg/images/O-3_Free_Spirit_Armor_Render.png",
+    "image_sha256": "63ef617eee0df6de68b4fff344a1f181c3c6400776ff87b17a05a5a315f9ad7c",
+    "bitmap": "O-3_Free_Spirit.png",
+    "title": "O-3 Free Spirit",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "O-44_Bonded_Pilot",
+    "page": "https://helldivers.wiki.gg/wiki/O-44_Bonded_Pilot",
+    "source_image": "https://helldivers.wiki.gg/images/O-44_Bonded_Pilot_Armor_Render.png",
+    "image_sha256": "01357f3ced91b198478f6b967c9f129bc82676bc3083dba3739d49f52f257dad",
+    "bitmap": "O-44_Bonded_Pilot.png",
+    "title": "O-44 Bonded Pilot",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "PH-202_Twigsnapper",
+    "page": "https://helldivers.wiki.gg/wiki/PH-202_Twigsnapper",
+    "source_image": "https://helldivers.wiki.gg/images/PH-202_Twigsnapper_Armor_Render.png",
+    "image_sha256": "cc5039028478f5ce4f950282637ddacb1c1df51721d78601f48f3381b84bd1d6",
+    "bitmap": "PH-202_Twigsnapper.png",
+    "title": "PH-202 Twigsnapper",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "PH-56_Jaguar",
+    "page": "https://helldivers.wiki.gg/wiki/PH-56_Jaguar",
+    "source_image": "https://helldivers.wiki.gg/images/PH-56_Jaguar_Armor_Render.png",
+    "image_sha256": "cff8e18f2d7c75421ca74bae9e9b8791bb5749a44b1e85a4aa9927eee30105bc",
+    "bitmap": "PH-56_Jaguar.png",
+    "title": "PH-56 Jaguar",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "PH-9_Predator",
+    "page": "https://helldivers.wiki.gg/wiki/PH-9_Predator",
+    "source_image": "https://helldivers.wiki.gg/images/PH-9_Predator_Armor_Render.png",
+    "image_sha256": "2f983a56798e3a9c1e22552330a0898499ee4ea386fe1d95e4e4b775d90fd562",
+    "bitmap": "PH-9_Predator.png",
+    "title": "PH-9 Predator",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "RE-1861_Parade_Commander",
+    "page": "https://helldivers.wiki.gg/wiki/RE-1861_Parade_Commander",
+    "source_image": "https://helldivers.wiki.gg/images/RE-1861_Parade_Commander_Armor_Render.png",
+    "image_sha256": "ba074001abd180d2e65ab71eb3832b1e1526afdde5e359190fc87713e9c9d443",
+    "bitmap": "RE-1861_Parade_Commander.png",
+    "title": "RE-1861 Parade Commander",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "RE-2310_Honorary_Guard",
+    "page": "https://helldivers.wiki.gg/wiki/RE-2310_Honorary_Guard",
+    "source_image": "https://helldivers.wiki.gg/images/RE-2310_Honorary_Guard_Armor_Render.png",
+    "image_sha256": "5896ccc757085ed1ed637dbc738b76fc57a08f693de5031419a6b90176716554",
+    "bitmap": "RE-2310_Honorary_Guard.png",
+    "title": "RE-2310 Honorary Guard",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "RE-824_Bearer_of_the_Standard",
+    "page": "https://helldivers.wiki.gg/wiki/RE-824_Bearer_of_the_Standard",
+    "source_image": "https://helldivers.wiki.gg/images/RE-824_Bearer_of_the_Standard_Armor_Render.png",
+    "image_sha256": "5b68a64e6bf48431aa7407e9576048f8b59be0ea1f489b85525a03f61cee2f66",
+    "bitmap": "RE-824_Bearer_of_the_Standard.png",
+    "title": "RE-824 Bearer of the Standard",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "RS-100_Sanctioner",
+    "page": "https://helldivers.wiki.gg/wiki/RS-100_Sanctioner",
+    "source_image": "https://helldivers.wiki.gg/images/RS-100_Sanctioner_Armor_Render.png",
+    "image_sha256": "d566045de16a211bb597e6cb90e91c372ddc651e67f06e7d738dfbcd82c6f821",
+    "bitmap": "RS-100_Sanctioner.png",
+    "title": "RS-100 Sanctioner",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "RS-20_Constrictor",
+    "page": "https://helldivers.wiki.gg/wiki/RS-20_Constrictor",
+    "source_image": "https://helldivers.wiki.gg/images/RS-20_Constrictor_Armor_Render.png",
+    "image_sha256": "10a6632a1683e1cd0707282d54480dad66f5dd5bbd5fca7465179aaecd859345",
+    "bitmap": "RS-20_Constrictor.png",
+    "title": "RS-20 Constrictor",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "RS-40_Beast_of_Prey",
+    "page": "https://helldivers.wiki.gg/wiki/RS-40_Beast_of_Prey",
+    "source_image": "https://helldivers.wiki.gg/images/RS-40_Beast_of_Prey_Armor_Render.png",
+    "image_sha256": "8d1a51d06b98a2f10f903bc490d15fdb3f2148ced1d418aa335525f9072bcb3d",
+    "bitmap": "RS-40_Beast_of_Prey.png",
+    "title": "RS-40 Beast of Prey",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "RS-67_Null_Cipher",
+    "page": "https://helldivers.wiki.gg/wiki/RS-67_Null_Cipher",
+    "source_image": "https://helldivers.wiki.gg/images/RS-67_Null_Cipher_Armor_Render.png",
+    "image_sha256": "fe737bd30232cd097bb2371592bb09fda80939567f66e4479d212be73aa9bc99",
+    "bitmap": "RS-67_Null_Cipher.png",
+    "title": "RS-67 Null Cipher",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "RS-6_Fiend_Destroyer",
+    "page": "https://helldivers.wiki.gg/wiki/RS-6_Fiend_Destroyer",
+    "source_image": "https://helldivers.wiki.gg/images/RS-6_Fiend_Destroyer_Armor_Render.png",
+    "image_sha256": "59b46c46c8fe9319767ed1d0961d2dbbfb553806de9a91f1a81c3abecf3a5d53",
+    "bitmap": "RS-6_Fiend_Destroyer.png",
+    "title": "RS-6 Fiend Destroyer",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "RS-89_Shadow_Paragon",
+    "page": "https://helldivers.wiki.gg/wiki/RS-89_Shadow_Paragon",
+    "source_image": "https://helldivers.wiki.gg/images/RS-89_Shadow_Paragon_Armor_Render.png",
+    "image_sha256": "7dcb1414057e4e9f7a324765578a5de45f78e18ce1dae2029be1158488a16fa1",
+    "bitmap": "RS-89_Shadow_Paragon.png",
+    "title": "RS-89 Shadow Paragon",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "SA-04_Combat_Technician",
+    "page": "https://helldivers.wiki.gg/wiki/SA-04_Combat_Technician",
+    "source_image": "https://helldivers.wiki.gg/images/SA-04_Combat_Technician_Armor_Render.png",
+    "image_sha256": "e31aafda62c26d6f917b3aa12a2e41a60010e5bb561eafc98b1061fc8a6fc093",
+    "bitmap": "SA-04_Combat_Technician.png",
+    "title": "SA-04 Combat Technician",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "SA-12_Servo_Assisted",
+    "page": "https://helldivers.wiki.gg/wiki/SA-12_Servo_Assisted",
+    "source_image": "https://helldivers.wiki.gg/images/SA-12_Servo_Assisted_Armor_Render.png",
+    "image_sha256": "008cd77ea453bf87b939f568eb4d6ef0d45816871862c34778906c6049ec4ade",
+    "bitmap": "SA-12_Servo_Assisted.png",
+    "title": "SA-12 Servo Assisted",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "SA-25_Steel_Trooper",
+    "page": "https://helldivers.wiki.gg/wiki/SA-25_Steel_Trooper",
+    "source_image": "https://helldivers.wiki.gg/images/SA-25_Steel_Trooper_Armor_Render.png",
+    "image_sha256": "a0e2175dd314866d16a32c9cfccb8bb60f758eb2f38f9b0a3f0ee093e429db34",
+    "bitmap": "SA-25_Steel_Trooper.png",
+    "title": "SA-25 Steel Trooper",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "SA-32_Dynamo",
+    "page": "https://helldivers.wiki.gg/wiki/SA-32_Dynamo",
+    "source_image": "https://helldivers.wiki.gg/images/SA-32_Dynamo_Armor_Render.png",
+    "image_sha256": "c57c2c44e8a89e53f3243bbc6a04229e4a26cf1ceb1c777302b2c88f81a39fff",
+    "bitmap": "SA-32_Dynamo.png",
+    "title": "SA-32 Dynamo",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "SA-7_Headfirst",
+    "page": "https://helldivers.wiki.gg/wiki/SA-7_Headfirst",
+    "source_image": "https://helldivers.wiki.gg/images/SA-7_Headfirst_Armor_Render.png",
+    "image_sha256": "3de93639be1e7d4e88a71107c186af7a995e2b4ce45d9cffaaa3ef9679a47afb",
+    "bitmap": "SA-7_Headfirst.png",
+    "title": "SA-7 Headfirst",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "SA-8_Ram",
+    "page": "https://helldivers.wiki.gg/wiki/SA-8_Ram",
+    "source_image": "https://helldivers.wiki.gg/images/SA-8_Ram_Armor_Render.png",
+    "image_sha256": "dad2a9ad02136a90df2cd3c2935b9c9972f25a01bfa11789f14c045cecb03684",
+    "bitmap": "SA-8_Ram.png",
+    "title": "SA-8 Ram",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "SC-15_Drone_Master",
+    "page": "https://helldivers.wiki.gg/wiki/SC-15_Drone_Master",
+    "source_image": "https://helldivers.wiki.gg/images/SC-15_Drone_Master_Armor_Render.png",
+    "image_sha256": "16a69098fccd88ab493ee8be3fc1a405b8b5598fa354921fd86ab4738a3f03fb",
+    "bitmap": "SC-15_Drone_Master.png",
+    "title": "SC-15 Drone Master",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "SC-30_Trailblazer_Scout",
+    "page": "https://helldivers.wiki.gg/wiki/SC-30_Trailblazer_Scout",
+    "source_image": "https://helldivers.wiki.gg/images/SC-30_Trailblazer_Scout_Armor_Render.png",
+    "image_sha256": "426d67ef86c6135d451acbd57dfa74cee424c81210fd86a87e4ea81360d5fdf3",
+    "bitmap": "SC-30_Trailblazer_Scout.png",
+    "title": "SC-30 Trailblazer Scout",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "SC-34_Infiltrator",
+    "page": "https://helldivers.wiki.gg/wiki/SC-34_Infiltrator",
+    "source_image": "https://helldivers.wiki.gg/images/SC-34_Infiltrator_Armor_Render.png",
+    "image_sha256": "7e0bbfb6833c0961b4682273f359bc03a3779a7316cb58d25cddf8dca7513331",
+    "bitmap": "SC-34_Infiltrator.png",
+    "title": "SC-34 Infiltrator",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "SC-37_Legionnaire",
+    "page": "https://helldivers.wiki.gg/wiki/SC-37_Legionnaire",
+    "source_image": "https://helldivers.wiki.gg/images/SC-37_Legionnaire_Armor_Render.png",
+    "image_sha256": "470c9120f2ed7f720ec6b636396e6aeb42e73b8ca7876b5b9d0f7b2dc632741a",
+    "bitmap": "SC-37_Legionnaire.png",
+    "title": "SC-37 Legionnaire",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "SR-18_Roadblock",
+    "page": "https://helldivers.wiki.gg/wiki/SR-18_Roadblock",
+    "source_image": "https://helldivers.wiki.gg/images/SR-18_Roadblock_Armor_Render.png",
+    "image_sha256": "e889ea3d839102b68657b91c0d614e27b0950e3b36347087d3e51550b72b85dc",
+    "bitmap": "SR-18_Roadblock.png",
+    "title": "SR-18 Roadblock",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "SR-24_Street_Scout",
+    "page": "https://helldivers.wiki.gg/wiki/SR-24_Street_Scout",
+    "source_image": "https://helldivers.wiki.gg/images/SR-24_Street_Scout_Armor_Render.png",
+    "image_sha256": "3110325ab11652565c51e4cb1bf1c44a72c03aaac73269444dc605343eeafc7a",
+    "bitmap": "SR-24_Street_Scout.png",
+    "title": "SR-24 Street Scout",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "SR-64_Cinderblock",
+    "page": "https://helldivers.wiki.gg/wiki/SR-64_Cinderblock",
+    "source_image": "https://helldivers.wiki.gg/images/SR-64_Cinderblock_Armor_Render.png",
+    "image_sha256": "19b49c54a35f553d828ee13c12358a87ce4b30ff92d48156b4bf9f9760ee9bae",
+    "bitmap": "SR-64_Cinderblock.png",
+    "title": "SR-64 Cinderblock",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "TG-122_Demo-Trooper",
+    "page": "https://helldivers.wiki.gg/wiki/TG-122_Demo-Trooper",
+    "source_image": "https://helldivers.wiki.gg/images/TG-122_Demo-Trooper_Armor_Render.png",
+    "image_sha256": "7e3957f31b75bbb345e2faf6ace9c7cfddfeae8e2f33e21f04a014c972c734ad",
+    "bitmap": "TG-122_Demo-Trooper.png",
+    "title": "TG-122 Demo-Trooper",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "TG-8_Sharpshooter",
+    "page": "https://helldivers.wiki.gg/wiki/TG-8_Sharpshooter",
+    "source_image": "https://helldivers.wiki.gg/images/TG-8_Sharpshooter_Armor_Render.png",
+    "image_sha256": "3ad233593471b92669fa6d4072491e455fec4c3fb2b6a159c2683967a4f3d235",
+    "bitmap": "TG-8_Sharpshooter.png",
+    "title": "TG-8 Sharpshooter",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "TR-117_Alpha_Commander",
+    "page": "https://helldivers.wiki.gg/wiki/TR-117_Alpha_Commander",
+    "source_image": "https://helldivers.wiki.gg/images/TR-117_Alpha_Commander_Armor_Render.png",
+    "image_sha256": "b600972a9712b28227dfc7c1e8c9885f7aee28274dbfccca97088122257c6b5c",
+    "bitmap": "TR-117_Alpha_Commander.png",
+    "title": "TR-117 Alpha Commander",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "TR-40_Gold_Eagle",
+    "page": "https://helldivers.wiki.gg/wiki/TR-40_Gold_Eagle",
+    "source_image": "https://helldivers.wiki.gg/images/TR-40_Gold_Eagle_Armor_Render.png",
+    "image_sha256": "5712e68943903222c7030444a08560d2adff156209c90e6d7f0cf92ec5fbcbae",
+    "bitmap": "TR-40_Gold_Eagle.png",
+    "title": "TR-40 Gold Eagle",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "TR-62_Knight",
+    "page": "https://helldivers.wiki.gg/wiki/TR-62_Knight",
+    "source_image": "https://helldivers.wiki.gg/images/TR-62_Knight_Armor_Render.png",
+    "image_sha256": "073d28ea50e5c416e59d8dc9deb8a2f4f75f78a80cb356ddaf6e37827708deb6",
+    "bitmap": "TR-62_Knight.png",
+    "title": "TR-62 Knight",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "TR-7_Ambassador_of_the_Brand",
+    "page": "https://helldivers.wiki.gg/wiki/TR-7_Ambassador_of_the_Brand",
+    "source_image": "https://helldivers.wiki.gg/images/TR-7_Ambassador_of_the_Brand_Armor_Render.png",
+    "image_sha256": "001a1c63fef40c432246a1288921972939f29076f0a37a0ddc230b3391cddc22",
+    "bitmap": "TR-7_Ambassador_of_the_Brand.png",
+    "title": "TR-7 Ambassador of the Brand",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "TR-9_Cavalier_of_Democracy",
+    "page": "https://helldivers.wiki.gg/wiki/TR-9_Cavalier_of_Democracy",
+    "source_image": "https://helldivers.wiki.gg/images/TR-9_Cavalier_of_Democracy_Armor_Render.png",
+    "image_sha256": "002cc09cdafe8c38612a869a2a8a45ed309426ae2e2ddd2e9651b4df64145dc3",
+    "bitmap": "TR-9_Cavalier_of_Democracy.png",
+    "title": "TR-9 Cavalier of Democracy",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "UF-16_Inspector",
+    "page": "https://helldivers.wiki.gg/wiki/UF-16_Inspector",
+    "source_image": "https://helldivers.wiki.gg/images/UF-16_Inspector_Armor_Render.png",
+    "image_sha256": "9f8049e17255c89ade1416da50c14676e5c1d0349136da467089a475f81a556b",
+    "bitmap": "UF-16_Inspector.png",
+    "title": "UF-16 Inspector",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "UF-50_Bloodhound",
+    "page": "https://helldivers.wiki.gg/wiki/UF-50_Bloodhound",
+    "source_image": "https://helldivers.wiki.gg/images/UF-50_Bloodhound_Armor_Render.png",
+    "image_sha256": "f77f6deeb29ebef1a4711de75db8a86ca2b91f4d08644b9cb3eebcf52dbf9c79",
+    "bitmap": "UF-50_Bloodhound.png",
+    "title": "UF-50 Bloodhound",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "UF-84_Doubt_Killer",
+    "page": "https://helldivers.wiki.gg/wiki/UF-84_Doubt_Killer",
+    "source_image": "https://helldivers.wiki.gg/images/UF-84_Doubt_Killer_Armor_Render.png",
+    "image_sha256": "52926fba4055cd6e86f9ccef70fb53685b250ee5369c0ac823b9a7a132887bff",
+    "bitmap": "UF-84_Doubt_Killer.png",
+    "title": "UF-84 Doubt Killer",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "40-K_Meltagun",
+    "page": "https://helldivers.wiki.gg/wiki/40-K_Meltagun",
+    "source_image": "https://helldivers.wiki.gg/images/40-K_Meltagun_Support_Render.png",
+    "image_sha256": "1c8aa1b3d516b732d2c9a7b8842c78db048cef8fad25c4ed69f64941781c0cf2",
+    "bitmap": "40-K_Meltagun.png",
+    "title": "40-K Meltagun",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "AC-8_Autocannon",
+    "page": "https://helldivers.wiki.gg/wiki/AC-8_Autocannon",
+    "source_image": "https://helldivers.wiki.gg/images/AC-8_Autocannon_Support_Render.png",
+    "image_sha256": "fb974f1955dc2d3bd5be0bba9951a176e726295e905fe4334d0e2bb5b2e54194",
+    "bitmap": "AC-8_Autocannon.png",
+    "title": "AC-8 Autocannon",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "APW-1_Anti-Materiel_Rifle",
+    "page": "https://helldivers.wiki.gg/wiki/APW-1_Anti-Materiel_Rifle",
+    "source_image": "https://helldivers.wiki.gg/images/APW-1_Anti-Materiel_Rifle_Support_Render.png",
+    "image_sha256": "90bb8414f96e0700eea773737bc33f7d685bbc37b7da5f0df26a2f7b629868bb",
+    "bitmap": "APW-1_Anti-Materiel_Rifle.png",
+    "title": "APW-1 Anti-Materiel Rifle",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "AR-11_Arbitrator",
+    "page": "https://helldivers.wiki.gg/wiki/AR-11_Arbitrator",
+    "source_image": "https://helldivers.wiki.gg/images/AR-11_Arbitrator_Primary_Render.png",
+    "image_sha256": "27f453a4207c8aee27ae0d4f09cbd4d86bb7039e676346069184f290dacef880",
+    "bitmap": "AR-11_Arbitrator.png",
+    "title": "AR-11 Arbitrator",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "AR-23_Liberator",
+    "page": "https://helldivers.wiki.gg/wiki/AR-23_Liberator",
+    "source_image": "https://helldivers.wiki.gg/images/AR-23_Liberator_Primary_Render.png",
+    "image_sha256": "10b54c54268d9222b407e93c2870941795c911fc9cc2dee1cfcb1315c0822c4f",
+    "bitmap": "AR-23_Liberator.png",
+    "title": "AR-23 Liberator",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "AR-23A_Liberator_Carbine",
+    "page": "https://helldivers.wiki.gg/wiki/AR-23A_Liberator_Carbine",
+    "source_image": "https://helldivers.wiki.gg/images/AR-23A_Liberator_Carbine_Primary_Render.png",
+    "image_sha256": "790b286e3b8675da7a495ebcab90cb6d4ba71338ce721a5c117ecafb32f1ba20",
+    "bitmap": "AR-23A_Liberator_Carbine.png",
+    "title": "AR-23A Liberator Carbine",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "AR-23C_Liberator_Concussive",
+    "page": "https://helldivers.wiki.gg/wiki/AR-23C_Liberator_Concussive",
+    "source_image": "https://helldivers.wiki.gg/images/AR-23C_Liberator_Concussive_Primary_Render.png",
+    "image_sha256": "c1b952756f6a95411ece28748b832e37b9b358e7651c483f24773431666fd65a",
+    "bitmap": "AR-23C_Liberator_Concussive.png",
+    "title": "AR-23C Liberator Concussive",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "AR-23P_Liberator_Penetrator",
+    "page": "https://helldivers.wiki.gg/wiki/AR-23P_Liberator_Penetrator",
+    "source_image": "https://helldivers.wiki.gg/images/AR-23P_Liberator_Penetrator_Primary_Render.png",
+    "image_sha256": "ced7f7ab27580351e61b5dc46258c8c7b78162c94a41759389c6966087535b72",
+    "bitmap": "AR-23P_Liberator_Penetrator.png",
+    "title": "AR-23P Liberator Penetrator",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "AR-2_Coyote",
+    "page": "https://helldivers.wiki.gg/wiki/AR-2_Coyote",
+    "source_image": "https://helldivers.wiki.gg/images/AR-2_Coyote_Primary_Render.png",
+    "image_sha256": "898612fc1701eecfbde95d0ad18e244382805cd4b551a2143ccd96de0c8a47b3",
+    "bitmap": "AR-2_Coyote.png",
+    "title": "AR-2 Coyote",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "AR-32_Pacifier",
+    "page": "https://helldivers.wiki.gg/wiki/AR-32_Pacifier",
+    "source_image": "https://helldivers.wiki.gg/images/AR-32_Pacifier_Primary_Render.png",
+    "image_sha256": "0a434c6fb7462c9641b6630a837f6d1a1a2fc872ba40aec60ef18be2225f85f8",
+    "bitmap": "AR-32_Pacifier.png",
+    "title": "AR-32 Pacifier",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "AR-59_Suppressor",
+    "page": "https://helldivers.wiki.gg/wiki/AR-59_Suppressor",
+    "source_image": "https://helldivers.wiki.gg/images/AR-59_Suppressor_Primary_Render.png",
+    "image_sha256": "9e5459a9af45b044b9de2882cfe9feb11d6d00a8aff55bd996cb2d7444eb3f8a",
+    "bitmap": "AR-59_Suppressor.png",
+    "title": "AR-59 Suppressor",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "AR-61_Tenderizer",
+    "page": "https://helldivers.wiki.gg/wiki/AR-61_Tenderizer",
+    "source_image": "https://helldivers.wiki.gg/images/AR-61_Tenderizer_Primary_Render.png",
+    "image_sha256": "08c6e2aba46ee8693f8e67ddcebdaf112817b8c37571c7feaa863078f1c8cc6f",
+    "bitmap": "AR-61_Tenderizer.png",
+    "title": "AR-61 Tenderizer",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "AR-GL-21_One_Two",
+    "page": "https://helldivers.wiki.gg/wiki/AR/GL-21_One-Two",
+    "source_image": "https://helldivers.wiki.gg/images/AR-GL-21_One_Two_Primary_Render.png",
+    "image_sha256": "6e5ba9d9cd5842b89802a08e8b9bbc7c1c1e4b53801b422792dadd94b884d8b0",
+    "bitmap": "AR-GL-21_One_Two.png",
+    "title": "AR/GL-21 One-Two",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "ARC-12_Blitzer",
+    "page": "https://helldivers.wiki.gg/wiki/ARC-12_Blitzer",
+    "source_image": "https://helldivers.wiki.gg/images/ARC-12_Blitzer_Primary_Render.png",
+    "image_sha256": "c0afe35b53498a3b01c2ae01d3b14bde76fddf495d59443f47a7fe876da53e7a",
+    "bitmap": "ARC-12_Blitzer.png",
+    "title": "ARC-12 Blitzer",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "ARC-3_Arc_Thrower",
+    "page": "https://helldivers.wiki.gg/wiki/ARC-3_Arc_Thrower",
+    "source_image": "https://helldivers.wiki.gg/images/ARC-3_Arc_Thrower_Support_Render.png",
+    "image_sha256": "d4cd18a31c9a8eeda7789f31ea04b56e6dbabbe6c5c2f6526bfe8cfe543700c8",
+    "bitmap": "ARC-3_Arc_Thrower.png",
+    "title": "ARC-3 Arc Thrower",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "B-FLAM-80_Cremator",
+    "page": "https://helldivers.wiki.gg/wiki/B/FLAM-80_Cremator",
+    "source_image": "https://helldivers.wiki.gg/images/B-FLAM-80_Cremator_Support_Render.png",
+    "image_sha256": "5c9a0a9261290f256dd7b1fa39e66a88b0e861c15af7c87a0db7cadd58c67741",
+    "bitmap": "B-FLAM-80_Cremator.png",
+    "title": "B/FLAM-80 Cremator",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "B_MD_C4_Pack",
+    "page": "https://helldivers.wiki.gg/wiki/B/MD_C4_Pack",
+    "source_image": "https://helldivers.wiki.gg/images/B_MD_C4_Pack_Support_Render.png",
+    "image_sha256": "334c301ce468c4d213389acca074ea3eb41cee4fb4f6f6f0500685c76f5fe43b",
+    "bitmap": "B_MD_C4_Pack.png",
+    "title": "B/MD C4 Pack",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "BR-14_Adjudicator",
+    "page": "https://helldivers.wiki.gg/wiki/BR-14_Adjudicator",
+    "source_image": "https://helldivers.wiki.gg/images/BR-14_Adjudicator_Primary_Render.png",
+    "image_sha256": "4b2cf869141e8e1c64131bb8ac6adafce25979b3c83bf8d4212a7478ec2824b0",
+    "bitmap": "BR-14_Adjudicator.png",
+    "title": "BR-14 Adjudicator",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "CB-9_Exploding_Crossbow",
+    "page": "https://helldivers.wiki.gg/wiki/CB-9_Exploding_Crossbow",
+    "source_image": "https://helldivers.wiki.gg/images/CB-9_Exploding_Crossbow_Primary_Render.png",
+    "image_sha256": "28d70516adc90450bfd86356388fe6af47e527678c3a12463316c6f1b4f1bca7",
+    "bitmap": "CB-9_Exploding_Crossbow.png",
+    "title": "CB-9 Exploding Crossbow",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "CQC-19_Stun_Lance",
+    "page": "https://helldivers.wiki.gg/wiki/CQC-19_Stun_Lance",
+    "source_image": "https://helldivers.wiki.gg/images/CQC-19_Stun_Lance_Secondary_Render.png",
+    "image_sha256": "d7dd983c1852f2d2ed5d9abd8f5d1dd98728a04e1eb888db36d72f7601981a1b",
+    "bitmap": "CQC-19_Stun_Lance.png",
+    "title": "CQC-19 Stun Lance",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "CQC-1_One_True_Flag",
+    "page": "https://helldivers.wiki.gg/wiki/CQC-1_One_True_Flag",
+    "source_image": "https://helldivers.wiki.gg/images/CQC-1_One_True_Flag_Support_Render.png",
+    "image_sha256": "60d238ae307493fb80db0b2d4756de567e3f25024f45369547fae4742464b885",
+    "bitmap": "CQC-1_One_True_Flag.png",
+    "title": "CQC-1 One True Flag",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "CQC-20_Breaching_Hammer",
+    "page": "https://helldivers.wiki.gg/wiki/CQC-20_Breaching_Hammer",
+    "source_image": "https://helldivers.wiki.gg/images/CQC-20_Breaching_Hammer_Render.png",
+    "image_sha256": "a44c13e3a266eb4c00fbf7540f9d1b837200948341970c427d84ca12aecad0ef",
+    "bitmap": "CQC-20_Breaching_Hammer.png",
+    "title": "CQC-20 Breaching Hammer",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "CQC-2_Saber",
+    "page": "https://helldivers.wiki.gg/wiki/CQC-2_Saber",
+    "source_image": "https://helldivers.wiki.gg/images/CQC-2_Saber_Secondary_Render.png",
+    "image_sha256": "47b66c1bf197f6b540bfbc67b1d9c4ef5c2acea4322cd9fabe291fafba8cc11b",
+    "bitmap": "CQC-2_Saber.png",
+    "title": "CQC-2 Saber",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "CQC-30_Stun_Baton",
+    "page": "https://helldivers.wiki.gg/wiki/CQC-30_Stun_Baton",
+    "source_image": "https://helldivers.wiki.gg/images/CQC-30_Stun_Baton_Secondary_Render.png",
+    "image_sha256": "2185be30efdbd02661b613958f39dc06a0dc81b493d3f74119cd2efefeb99cf8",
+    "bitmap": "CQC-30_Stun_Baton.png",
+    "title": "CQC-30 Stun Baton",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "CQC-42_Machete",
+    "page": "https://helldivers.wiki.gg/wiki/CQC-42_Machete",
+    "source_image": "https://helldivers.wiki.gg/images/CQC-42_Machete_Secondary_Render.png",
+    "image_sha256": "acdd986853bf4c66085a495bb8356e765851f541f80a74171f007fc274d852c2",
+    "bitmap": "CQC-42_Machete.png",
+    "title": "CQC-42 Machete",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "CQC-5_Combat_Hatchet",
+    "page": "https://helldivers.wiki.gg/wiki/CQC-5_Combat_Hatchet",
+    "source_image": "https://helldivers.wiki.gg/images/CQC-5_Combat_Hatchet_Secondary_Render.png",
+    "image_sha256": "3e6bb2c4a93e114807172afd582859a33738d9776d1c39158d7bb2e46c0b1396",
+    "bitmap": "CQC-5_Combat_Hatchet.png",
+    "title": "CQC-5 Combat Hatchet",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "CQC-73_Entrenchment_Tool",
+    "page": "https://helldivers.wiki.gg/wiki/CQC-73_Entrenchment_Tool",
+    "source_image": "https://helldivers.wiki.gg/images/CQC-73_Entrenchment_Tool_Secondary_Render.png",
+    "image_sha256": "fd5a5cebbc2e18ef89b4202ee1d29dc26b44028bb290cd5aedfc6efb2a9ebe13",
+    "bitmap": "CQC-73_Entrenchment_Tool.png",
+    "title": "CQC-73 Entrenchment Tool",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "CQC-9_Defoliation_Tool",
+    "page": "https://helldivers.wiki.gg/wiki/CQC-9_Defoliation_Tool",
+    "source_image": "https://helldivers.wiki.gg/images/CQC-9_Defoliation_Tool_Support_Render.png",
+    "image_sha256": "659001e093aaa80faf934e98eb4891dcf65518edb2c800a58d3bcf1a50fcf919",
+    "bitmap": "CQC-9_Defoliation_Tool.png",
+    "title": "CQC-9 Defoliation Tool",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "DBS-2_Shotgun",
+    "page": "https://helldivers.wiki.gg/wiki/DBS-2_Double_Freedom",
+    "source_image": "https://helldivers.wiki.gg/images/DBS-2_Shotgun_Primary_Render.png",
+    "image_sha256": "ff215275d3f1828c45d7913239d2778fb4f87cb72ae7d23da9bfde3fe1835edf",
+    "bitmap": "DBS-2_Shotgun.png",
+    "title": "DBS-2 Double Freedom",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "EAT-17_Expendable_Anti-Tank",
+    "page": "https://helldivers.wiki.gg/wiki/EAT-17_Expendable_Anti-Tank",
+    "source_image": "https://helldivers.wiki.gg/images/EAT-17_Expendable_Anti-Tank_Support_Render.png",
+    "image_sha256": "31afaab3c2ab2d4c35b47caf3cc410898ece2c5eaf5a58af078b50f6b3a1c540",
+    "bitmap": "EAT-17_Expendable_Anti-Tank.png",
+    "title": "EAT-17 Expendable Anti-Tank",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "EAT-411_Leveller",
+    "page": "https://helldivers.wiki.gg/wiki/EAT-411_Leveller",
+    "source_image": "https://helldivers.wiki.gg/images/EAT-411_Leveller_Support_Render.png",
+    "image_sha256": "39f5bac391af6ece3f684373bb7ce8e74d0133a98b7cc9940fe5dca4fb93c2e8",
+    "bitmap": "EAT-411_Leveller.png",
+    "title": "EAT-411 Leveller",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "EAT-700_Expendable_Napalm",
+    "page": "https://helldivers.wiki.gg/wiki/EAT-700_Expendable_Napalm",
+    "source_image": "https://helldivers.wiki.gg/images/EAT-700_Expendable_Napalm_Support_Render.png",
+    "image_sha256": "515f7da73ca27ca32e1a19c2437538cdeb82efee0db6f94f0be08878154234c1",
+    "bitmap": "EAT-700_Expendable_Napalm.png",
+    "title": "EAT-700 Expendable Napalm",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "Entrenchment_Tool",
+    "page": "https://helldivers.wiki.gg/wiki/Entrenchment_Tool",
+    "source_image": "https://helldivers.wiki.gg/images/Entrenchment_Tool_Support_Render.png",
+    "image_sha256": "c0991632eb79261132966655e13d15a5a3cf24fe43ccf366458da630d140c6ef",
+    "bitmap": "Entrenchment_Tool.png",
+    "title": "Entrenchment Tool",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "FAF-14_Spear",
+    "page": "https://helldivers.wiki.gg/wiki/FAF-14_Spear",
+    "source_image": "https://helldivers.wiki.gg/images/FAF-14_Spear_Support_Render.png",
+    "image_sha256": "18347cc660b5661deb686d847497b7e90722e96f3bdee0c949fecae7dbe1bd74",
+    "bitmap": "FAF-14_Spear.png",
+    "title": "FAF-14 Spear",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "FLAM-40_Flamethrower",
+    "page": "https://helldivers.wiki.gg/wiki/FLAM-40_Flamethrower",
+    "source_image": "https://helldivers.wiki.gg/images/FLAM-40_Flamethrower_Support_Render.png",
+    "image_sha256": "c8f88464913ff18ee34526173acb4f37b3dd27453887556fc96724526d4ae622",
+    "bitmap": "FLAM-40_Flamethrower.png",
+    "title": "FLAM-40 Flamethrower",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "FLAM-66_Torcher",
+    "page": "https://helldivers.wiki.gg/wiki/FLAM-66_Torcher",
+    "source_image": "https://helldivers.wiki.gg/images/FLAM-66_Torcher_Primary_Render.png",
+    "image_sha256": "9bd6f3c6f2bcaf9d3a250ec7f466e5fbdd13ff6ad81c6c537c75de22873ff6ca",
+    "bitmap": "FLAM-66_Torcher.png",
+    "title": "FLAM-66 Torcher",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "G-109_Urchin",
+    "page": "https://helldivers.wiki.gg/wiki/G-109_Urchin",
+    "source_image": "https://helldivers.wiki.gg/images/G-109_Urchin_Throwable_Render.png",
+    "image_sha256": "a6cd54bf91fc15bff411fdb20221189438eaff72940d18cac411ba054a3c35c7",
+    "bitmap": "G-109_Urchin.png",
+    "title": "G-109 Urchin",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "G-10_Incendiary",
+    "page": "https://helldivers.wiki.gg/wiki/G-10_Incendiary",
+    "source_image": "https://helldivers.wiki.gg/images/G-10_Incendiary_Throwable_Render.png",
+    "image_sha256": "23a8789a1cffe86d4feaa5ef1aabafb41a3e2a7d589f9908cbf655d8792f6cf2",
+    "bitmap": "G-10_Incendiary.png",
+    "title": "G-10 Incendiary",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "G-123_Thermite",
+    "page": "https://helldivers.wiki.gg/wiki/G-123_Thermite",
+    "source_image": "https://helldivers.wiki.gg/images/G-123_Thermite_Throwable_Render.png",
+    "image_sha256": "67d15e09374345ba9dc47bea3f68ad119406a3861f90652be3c90fb7542bdf5e",
+    "bitmap": "G-123_Thermite.png",
+    "title": "G-123 Thermite",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "G-12_High_Explosive",
+    "page": "https://helldivers.wiki.gg/wiki/G-12_High_Explosive",
+    "source_image": "https://helldivers.wiki.gg/images/G-12_High_Explosive_Throwable_Render.png",
+    "image_sha256": "ac4f7e4585d6f50b950e5e73d8504d653dcdd128d959329ab71af0c5fb2fbed4",
+    "bitmap": "G-12_High_Explosive.png",
+    "title": "G-12 High Explosive",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "G-13_Incendiary_Impact",
+    "page": "https://helldivers.wiki.gg/wiki/G-13_Incendiary_Impact",
+    "source_image": "https://helldivers.wiki.gg/images/G-13_Incendiary_Impact_Throwable_Render.png",
+    "image_sha256": "3b150c1c1d493902f93a3921d3a6e64d1fd347401f2347a8cdb9f380c30ef4ac",
+    "bitmap": "G-13_Incendiary_Impact.png",
+    "title": "G-13 Incendiary Impact",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "G-142_Pyrotech",
+    "page": "https://helldivers.wiki.gg/wiki/G-142_Pyrotech",
+    "source_image": "https://helldivers.wiki.gg/images/G-142_Pyrotech_Throwable_Render.png",
+    "image_sha256": "2c210eeace59f5a78d5fc945733a3f7264eaaf4682622f1812b6328ecaff2203",
+    "bitmap": "G-142_Pyrotech.png",
+    "title": "G-142 Pyrotech",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "G-16_Impact",
+    "page": "https://helldivers.wiki.gg/wiki/G-16_Impact",
+    "source_image": "https://helldivers.wiki.gg/images/G-16_Impact_Throwable_Render.png",
+    "image_sha256": "b8da2d849c33182e7fa35b55d26dc2ab50d3c125b7dd230b17d89937887d09a0",
+    "bitmap": "G-16_Impact.png",
+    "title": "G-16 Impact",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "G-23_Stun",
+    "page": "https://helldivers.wiki.gg/wiki/G-23_Stun",
+    "source_image": "https://helldivers.wiki.gg/images/G-23_Stun_Throwable_Render.png",
+    "image_sha256": "fc7f1e800126a7281ba182250ef923b14dd59ee4c8b3803b6b5cab69c8cdde5e",
+    "bitmap": "G-23_Stun.png",
+    "title": "G-23 Stun",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "G-31_ARC",
+    "page": "https://helldivers.wiki.gg/wiki/G-31_Arc",
+    "source_image": "https://helldivers.wiki.gg/images/G-31_ARC_Throwable_Render.png",
+    "image_sha256": "c7f9f5d3de7527ba7a489820046687ad007d0a76725f840796f0a9abb10764f3",
+    "bitmap": "G-31_ARC.png",
+    "title": "G-31 Arc",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "G-3_Smoke",
+    "page": "https://helldivers.wiki.gg/wiki/G-3_Smoke",
+    "source_image": "https://helldivers.wiki.gg/images/G-3_Smoke_Throwable_Render.png",
+    "image_sha256": "702eb35c1ec5ea366e3aabaa4ec14ba9bfba5f35b08e1be2816f97b00fb2d188",
+    "bitmap": "G-3_Smoke.png",
+    "title": "G-3 Smoke",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "G-40-K_Melta_Mine",
+    "page": "https://helldivers.wiki.gg/wiki/G/40-K_Melta_Mine",
+    "source_image": "https://helldivers.wiki.gg/images/G-40-K_Melta_Mine_Throwable_Render.png",
+    "image_sha256": "286b02ba5bb2dfee1bd89726322508b2a06e036f1dc8114494e8abdcf801baf1",
+    "bitmap": "G-40-K_Melta_Mine.png",
+    "title": "G/40-K Melta Mine",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "G-48_Giga_Grenade",
+    "page": "https://helldivers.wiki.gg/wiki/G-48_Giga_Grenade",
+    "source_image": "https://helldivers.wiki.gg/images/G-48_Giga_Grenade_Throwable_Render.png",
+    "image_sha256": "a29a079d21c8d12cc9bc5e774a71b6d2cfa29985ae8723c07a0ec0c245747fcb",
+    "bitmap": "G-48_Giga_Grenade.png",
+    "title": "G-48 Giga Grenade",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "G-4_Gas",
+    "page": "https://helldivers.wiki.gg/wiki/G-4_Gas",
+    "source_image": "https://helldivers.wiki.gg/images/G-4_Gas_Throwable_Render.png",
+    "image_sha256": "d7844c93e5a0e2312301bb8ea5f0f4a225e8a8113f7bce2ef585d26feb423f49",
+    "bitmap": "G-4_Gas.png",
+    "title": "G-4 Gas",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "G-50_Seeker",
+    "page": "https://helldivers.wiki.gg/wiki/G-50_Seeker",
+    "source_image": "https://helldivers.wiki.gg/images/G-50_Seeker_Throwable_Render.png",
+    "image_sha256": "fe7499c4eacc9f4c339fa330b60028405b34af232947fe3c3cc4d43614ab175b",
+    "bitmap": "G-50_Seeker.png",
+    "title": "G-50 Seeker",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "G-60_Anti-Tank_Seeker",
+    "page": "https://helldivers.wiki.gg/wiki/G-60_Anti-Tank_Seeker",
+    "source_image": "https://helldivers.wiki.gg/images/G-60_Anti-Tank_Seeker_Throwable_Render.png",
+    "image_sha256": "0e53bdf92dbf4a9ee113b61b7dc7873d291a9f1c39c9f5adc358380d2d1fef9f",
+    "bitmap": "G-60_Anti-Tank_Seeker.png",
+    "title": "G-60 Anti-Tank Seeker",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "G-6_Frag",
+    "page": "https://helldivers.wiki.gg/wiki/G-6_Frag",
+    "source_image": "https://helldivers.wiki.gg/images/G-6_Frag_Throwable_Render.png",
+    "image_sha256": "266ee303e64f4d680f24674187ee0991bd98224c50ea199c8d5bb1a430a2a93d",
+    "bitmap": "G-6_Frag.png",
+    "title": "G-6 Frag",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "G-7_Pineapple",
+    "page": "https://helldivers.wiki.gg/wiki/G-7_Pineapple",
+    "source_image": "https://helldivers.wiki.gg/images/G-7_Pineapple_Throwable_Render.png",
+    "image_sha256": "d9becaf1f0a5b69034c156ce213645e32396da5b8dd7473f63bc53086f1b9155",
+    "bitmap": "G-7_Pineapple.png",
+    "title": "G-7 Pineapple",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "G-89_Smokescreen",
+    "page": "https://helldivers.wiki.gg/wiki/Smokescreen",
+    "source_image": "https://helldivers.wiki.gg/images/G-89_Smokescreen_Throwable_Render.png",
+    "image_sha256": "e98626af378c6ee2cb91c12ef50f1f85508e215bb0c813d5c3b76c6320c64d2b",
+    "bitmap": "G-89_Smokescreen.png",
+    "title": "Smokescreen",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "G-8_Immolation",
+    "page": "https://helldivers.wiki.gg/wiki/G-8_Immolation",
+    "source_image": "https://helldivers.wiki.gg/images/G-8_Immolation_Throwable_Render.png",
+    "image_sha256": "d44b1b269cce158082e748f88ee3b7b3a560a8d05befaec21f89f4f2451a4a31",
+    "bitmap": "G-8_Immolation.png",
+    "title": "G-8 Immolation",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "G-SH-39_Shield",
+    "page": "https://helldivers.wiki.gg/wiki/G/SH-39_Shield",
+    "source_image": "https://helldivers.wiki.gg/images/G-SH-39_Shield_Throwable_Render.png",
+    "image_sha256": "59c782b63affa9396ee28aed5557faf3380aeab362ee14b14b649372b941eff6",
+    "bitmap": "G-SH-39_Shield.png",
+    "title": "G/SH-39 Shield",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "GL-15_Evictor",
+    "page": "https://helldivers.wiki.gg/wiki/GL-15_Evictor",
+    "source_image": "https://helldivers.wiki.gg/images/GL-15_Evictor_Primary_Render.png",
+    "image_sha256": "238169ccdb41ef4c41d38963a8b0f7bae6369d4779435a5aebe5fdcd166f3330",
+    "bitmap": "GL-15_Evictor.png",
+    "title": "GL-15 Evictor",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "GL-21_Grenade_Launcher",
+    "page": "https://helldivers.wiki.gg/wiki/GL-21_Grenade_Launcher",
+    "source_image": "https://helldivers.wiki.gg/images/GL-21_Grenade_Launcher_Support_Render.png",
+    "image_sha256": "2eb18a466cfe8cabbcc41d26691ab74a49a7e7cbcd41130f5b5a623bebd35e9e",
+    "bitmap": "GL-21_Grenade_Launcher.png",
+    "title": "GL-21 Grenade Launcher",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "GL-28_Belt-Fed_Grenade_Launcher",
+    "page": "https://helldivers.wiki.gg/wiki/GL-28_Belt-Fed_Grenade_Launcher",
+    "source_image": "https://helldivers.wiki.gg/images/GL-28_Belt-Fed_Grenade_Launcher_Support_Render.png",
+    "image_sha256": "fd7ac0bd5f3af91e18360d6ff1f607a2d9e2784291c42b5bbed5824baa18b45d",
+    "bitmap": "GL-28_Belt-Fed_Grenade_Launcher.png",
+    "title": "GL-28 Belt-Fed Grenade Launcher",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "GL-52_De-Escalator",
+    "page": "https://helldivers.wiki.gg/wiki/GL-52_De-Escalator",
+    "source_image": "https://helldivers.wiki.gg/images/GL-52_De-Escalator_Support_Render.png",
+    "image_sha256": "bfd526705b3ebe9d9f145e067f2c43627beca1511a1036aa2297063f27b1144b",
+    "bitmap": "GL-52_De-Escalator.png",
+    "title": "GL-52 De-Escalator",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "GP-20_Ultimatum",
+    "page": "https://helldivers.wiki.gg/wiki/GP-20_Ultimatum",
+    "source_image": "https://helldivers.wiki.gg/images/GP-20_Ultimatum_Secondary_Render.png",
+    "image_sha256": "fd3e9ca1ab9949d0478b1b172dd955f2ec3c495f22610411ee50154c546b42f2",
+    "bitmap": "GP-20_Ultimatum.png",
+    "title": "GP-20 Ultimatum",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "GP-31_Grenade_Pistol",
+    "page": "https://helldivers.wiki.gg/wiki/GP-31_Grenade_Pistol",
+    "source_image": "https://helldivers.wiki.gg/images/GP-31_Grenade_Pistol_Secondary_Render.png",
+    "image_sha256": "1941e818afae223624576e83dd2234ba24335f8cc9f718981f12cf894426b0dd",
+    "bitmap": "GP-31_Grenade_Pistol.png",
+    "title": "GP-31 Grenade Pistol",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "GR-8_Recoilless_Rifle",
+    "page": "https://helldivers.wiki.gg/wiki/GR-8_Recoilless_Rifle",
+    "source_image": "https://helldivers.wiki.gg/images/GR-8_Recoilless_Rifle_Support_Render.png",
+    "image_sha256": "4df151cfb36269db36272cf1a4e8ddc29abb22b47382af78be301c7ac7566073",
+    "bitmap": "GR-8_Recoilless_Rifle.png",
+    "title": "GR-8 Recoilless Rifle",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "JAR-5_Dominator",
+    "page": "https://helldivers.wiki.gg/wiki/JAR-5_Dominator",
+    "source_image": "https://helldivers.wiki.gg/images/JAR-5_Dominator_Primary_Render.png",
+    "image_sha256": "4188f767123ff1dd20dccd858f8879870f927c399d047476e207283349d47d5f",
+    "bitmap": "JAR-5_Dominator.png",
+    "title": "JAR-5 Dominator",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "K-2_Throwing_Knife",
+    "page": "https://helldivers.wiki.gg/wiki/K-2_Throwing_Knife",
+    "source_image": "https://helldivers.wiki.gg/images/K-2_Throwing_Knife_Throwable_Render.png",
+    "image_sha256": "1fcf8908ea180f05b28f3ebf37e7975fe48ab751c89d2159282a540e55b922b8",
+    "bitmap": "K-2_Throwing_Knife.png",
+    "title": "K-2 Throwing Knife",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "LAS-12_Sai",
+    "page": "https://helldivers.wiki.gg/wiki/LAS-12_Sai",
+    "source_image": "https://helldivers.wiki.gg/images/LAS-12_Sai_Primary_Render.png",
+    "image_sha256": "d24ccba674918ab65200dfab5d57e6589be94fceae06540e5ab59b27868d4059",
+    "bitmap": "LAS-12_Sai.png",
+    "title": "LAS-12 Sai",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "LAS-13_Trident",
+    "page": "https://helldivers.wiki.gg/wiki/LAS-13_Trident",
+    "source_image": "https://helldivers.wiki.gg/images/LAS-13_Trident_Primary_Render.png",
+    "image_sha256": "04b26c35c10c4a68605bf98bb320283d3a907dab77e3c7c3527e6878269db6a4",
+    "bitmap": "LAS-13_Trident.png",
+    "title": "LAS-13 Trident",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "LAS-16_Sickle",
+    "page": "https://helldivers.wiki.gg/wiki/LAS-16_Sickle",
+    "source_image": "https://helldivers.wiki.gg/images/LAS-16_Sickle_Primary_Render.png",
+    "image_sha256": "c2caac7c473f57838977b24e337788a5b1d764a00ef56f32ea3e45bb94a1e345",
+    "bitmap": "LAS-16_Sickle.png",
+    "title": "LAS-16 Sickle",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "LAS-17_Double-Edge_Sickle",
+    "page": "https://helldivers.wiki.gg/wiki/LAS-17_Double-Edge_Sickle",
+    "source_image": "https://helldivers.wiki.gg/images/LAS-17_Double-Edge_Sickle_Primary_Render.png",
+    "image_sha256": "df5ff49c252f3203143056c2eafe9780e4a303e333532278cdc0484b9a7cac6f",
+    "bitmap": "LAS-17_Double-Edge_Sickle.png",
+    "title": "LAS-17 Double-Edge Sickle",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "LAS-58_Talon",
+    "page": "https://helldivers.wiki.gg/wiki/LAS-58_Talon",
+    "source_image": "https://helldivers.wiki.gg/images/LAS-58_Talon_Secondary_Render.png",
+    "image_sha256": "d8848f5a1b33d603aab5fce36e0f6beffb9dcf192b9af432e79917986b990e29",
+    "bitmap": "LAS-58_Talon.png",
+    "title": "LAS-58 Talon",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "LAS-5_Scythe",
+    "page": "https://helldivers.wiki.gg/wiki/LAS-5_Scythe",
+    "source_image": "https://helldivers.wiki.gg/images/LAS-5_Scythe_Primary_Render.png",
+    "image_sha256": "d27ce534e8691d1743b16a61c5a6d89148d933f13b7ed67ae696a19f1ae99501",
+    "bitmap": "LAS-5_Scythe.png",
+    "title": "LAS-5 Scythe",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "LAS-7_Dagger",
+    "page": "https://helldivers.wiki.gg/wiki/LAS-7_Dagger",
+    "source_image": "https://helldivers.wiki.gg/images/LAS-7_Dagger_Secondary_Render.png",
+    "image_sha256": "6303bcf238ce9ec38c12a9979bfbbed62efcb15d9c46fde995b67156b86a3713",
+    "bitmap": "LAS-7_Dagger.png",
+    "title": "LAS-7 Dagger",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "LAS-98_Laser_Cannon",
+    "page": "https://helldivers.wiki.gg/wiki/LAS-98_Laser_Cannon",
+    "source_image": "https://helldivers.wiki.gg/images/LAS-98_Laser_Cannon_Support_Render.png",
+    "image_sha256": "c7c414ecb1006c3d59dcfe02effba7ab79f88b241588c297de576986d2212fe3",
+    "bitmap": "LAS-98_Laser_Cannon.png",
+    "title": "LAS-98 Laser Cannon",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "LAS-99_Quasar_Cannon",
+    "page": "https://helldivers.wiki.gg/wiki/LAS-99_Quasar_Cannon",
+    "source_image": "https://helldivers.wiki.gg/images/LAS-99_Quasar_Cannon_Support_Render.png",
+    "image_sha256": "e262013986badb810fdc8b85c7ea0d3329ed7417d938cb7d4089851b56e765d6",
+    "bitmap": "LAS-99_Quasar_Cannon.png",
+    "title": "LAS-99 Quasar Cannon",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "M-1000_Maxigun",
+    "page": "https://helldivers.wiki.gg/wiki/M-1000_Maxigun",
+    "source_image": "https://helldivers.wiki.gg/images/M-1000_Maxigun_Support_Render.png",
+    "image_sha256": "54391569670a94c8c695a5c34b3735983ea9aad0c23962098694ff0364f2751a",
+    "bitmap": "M-1000_Maxigun.png",
+    "title": "M-1000 Maxigun",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "M-105_Stalwart",
+    "page": "https://helldivers.wiki.gg/wiki/M-105_Stalwart",
+    "source_image": "https://helldivers.wiki.gg/images/M-105_Stalwart_Support_Render.png",
+    "image_sha256": "f0c5a06451ef229cc5bae3e587d4c74d3dcca8c5ae3f3f7a41a61cc3f3b77b9e",
+    "bitmap": "M-105_Stalwart.png",
+    "title": "M-105 Stalwart",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "M6C-SOCOM_Pistol",
+    "page": "https://helldivers.wiki.gg/wiki/M6C/SOCOM_Pistol",
+    "source_image": "https://helldivers.wiki.gg/images/M6C-SOCOM_Pistol_Secondary_Render.png",
+    "image_sha256": "2d64d8888ad07b281188b97b98850598f2d05a5c93e6bdd9f43b5bf0e8db83b7",
+    "bitmap": "M6C-SOCOM_Pistol.png",
+    "title": "M6C/SOCOM Pistol",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "M7S_SMG",
+    "page": "https://helldivers.wiki.gg/wiki/M7S_SMG",
+    "source_image": "https://helldivers.wiki.gg/images/M7S_SMG_Primary_Render.png",
+    "image_sha256": "cd869c7ed59f10d395e6c3774111c2f1c09c1e0657a8e64980349201aee182e4",
+    "bitmap": "M7S_SMG.png",
+    "title": "M7S SMG",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "M90A_Shotgun",
+    "page": "https://helldivers.wiki.gg/wiki/M90A_Shotgun",
+    "source_image": "https://helldivers.wiki.gg/images/M90A_Shotgun_Primary_Render.png",
+    "image_sha256": "0ea09a41ba802308cbed2bb9c783c9e97850cd3e91504fd3efac2f2f3f731fdb",
+    "bitmap": "M90A_Shotgun.png",
+    "title": "M90A Shotgun",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "MA5C_Assault_Rifle",
+    "page": "https://helldivers.wiki.gg/wiki/MA5C_Assault_Rifle",
+    "source_image": "https://helldivers.wiki.gg/images/MA5C_Assault_Rifle_Primary_Render.png",
+    "image_sha256": "784a875e4bd495736da38f2b3be259820ef8d0f6f8da891f687824cf319652a3",
+    "bitmap": "MA5C_Assault_Rifle.png",
+    "title": "MA5C Assault Rifle",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "MG-206_Heavy_Machine_Gun",
+    "page": "https://helldivers.wiki.gg/wiki/MG-206_Heavy_Machine_Gun",
+    "source_image": "https://helldivers.wiki.gg/images/MG-206_Heavy_Machine_Gun_Support_Render.png",
+    "image_sha256": "eeb82510f5888ab3fd3972e89be09ab7ab2f6b4efb8f1154665f1d09c493e42a",
+    "bitmap": "MG-206_Heavy_Machine_Gun.png",
+    "title": "MG-206 Heavy Machine Gun",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "MG-43_Machine_Gun",
+    "page": "https://helldivers.wiki.gg/wiki/MG-43_Machine_Gun",
+    "source_image": "https://helldivers.wiki.gg/images/MG-43_Machine_Gun_Support_Render.png",
+    "image_sha256": "2c3c8714790efefb84fc1e902f88bf44f18aacbe9efaf41bd2cc159f69aa461e",
+    "bitmap": "MG-43_Machine_Gun.png",
+    "title": "MG-43 Machine Gun",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "MGX-42_Bullet_Storm",
+    "page": "https://helldivers.wiki.gg/wiki/MGX-42_Bullet_Storm",
+    "source_image": "https://helldivers.wiki.gg/images/MGX-42_Bullet_Storm_Support_Render.png",
+    "image_sha256": "ee2baf96e7349f44f5ab21240f2e82aadbe0da287c81e1935340e0bbad037880",
+    "bitmap": "MGX-42_Bullet_Storm.png",
+    "title": "MGX-42 Bullet Storm",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "MLS-4X_Commando",
+    "page": "https://helldivers.wiki.gg/wiki/MLS-4X_Commando",
+    "source_image": "https://helldivers.wiki.gg/images/MLS-4X_Commando_Support_Render.png",
+    "image_sha256": "b9f4da9fc1246592949ae9606bdc30319a03329880ed48eda92d03a7b7c15fb5",
+    "bitmap": "MLS-4X_Commando.png",
+    "title": "MLS-4X Commando",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "MP-98_Knight",
+    "page": "https://helldivers.wiki.gg/wiki/MP-98_Knight",
+    "source_image": "https://helldivers.wiki.gg/images/MP-98_Knight_Primary_Render.png",
+    "image_sha256": "bf8f3ba7243ceccfd30a2c57872c1d8650af3f27633fe340e6b4ad351cc9d7c6",
+    "bitmap": "MP-98_Knight.png",
+    "title": "MP-98 Knight",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "MS-11_Solo_Silo",
+    "page": "https://helldivers.wiki.gg/wiki/MS-11_Solo_Silo",
+    "source_image": "https://helldivers.wiki.gg/images/MS-11_Solo_Silo_Support_Render.png",
+    "image_sha256": "b43280111b72d257ca6c9a2dba9646fdbb17d1f84022072fe6b4dd075e7f0081",
+    "bitmap": "MS-11_Solo_Silo.png",
+    "title": "MS-11 Solo Silo",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "P-113_Verdict",
+    "page": "https://helldivers.wiki.gg/wiki/P-113_Verdict",
+    "source_image": "https://helldivers.wiki.gg/images/P-113_Verdict_Secondary_Render.png",
+    "image_sha256": "16178f6fbc6f6b771cbaee85b66770497f7b082efbf3aeac414b049f05a07e9d",
+    "bitmap": "P-113_Verdict.png",
+    "title": "P-113 Verdict",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "P-11_Stim_Pistol",
+    "page": "https://helldivers.wiki.gg/wiki/P-11_Stim_Pistol",
+    "source_image": "https://helldivers.wiki.gg/images/P-11_Stim_Pistol_Secondary_Render.png",
+    "image_sha256": "ba088009bbe8c5eb06f30d1a13aec9c5a094f584112ab89102037122abdeefc1",
+    "bitmap": "P-11_Stim_Pistol.png",
+    "title": "P-11 Stim Pistol",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "P-19_Redeemer",
+    "page": "https://helldivers.wiki.gg/wiki/P-19_Redeemer",
+    "source_image": "https://helldivers.wiki.gg/images/P-19_Redeemer_Secondary_Render.png",
+    "image_sha256": "72d0d79e2688fe24d39ee9889b6ff8141e51bff73c72786bc0f23e5502e26565",
+    "bitmap": "P-19_Redeemer.png",
+    "title": "P-19 Redeemer",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "P-2_Peacemaker",
+    "page": "https://helldivers.wiki.gg/wiki/P-2_Peacemaker",
+    "source_image": "https://helldivers.wiki.gg/images/P-2_Peacemaker_Secondary_Render.png",
+    "image_sha256": "734c7ddd2133f1802cc4a013c8a7f9fd41f472c9bf53277d1e388d87fad75591",
+    "bitmap": "P-2_Peacemaker.png",
+    "title": "P-2 Peacemaker",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "P-33_Missile_Pistol",
+    "page": "https://helldivers.wiki.gg/wiki/P-33_Missile_Pistol",
+    "source_image": "https://helldivers.wiki.gg/images/P-33_Missile_Pistol_Secondary_Render.png",
+    "image_sha256": "3a98cbf0bb75f3e783a2ef73b103e56c5a30dd8376fa72734e4851e4dda88efc",
+    "bitmap": "P-33_Missile_Pistol.png",
+    "title": "P-33 Missile Pistol",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "P-34_Breacher",
+    "page": "https://helldivers.wiki.gg/wiki/P-34_Breacher",
+    "source_image": "https://helldivers.wiki.gg/images/P-34_Breacher_Secondary_Render.png",
+    "image_sha256": "943dc9a5d3330f8604f1fafd1a8e727b482a54281799681e3cf3b917b5850639",
+    "bitmap": "P-34_Breacher.png",
+    "title": "P-34 Breacher",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "P-35_Re-Educator",
+    "page": "https://helldivers.wiki.gg/wiki/P-35_Re-Educator",
+    "source_image": "https://helldivers.wiki.gg/images/P-35_Re-Educator_Secondary_Render.png",
+    "image_sha256": "d3f3c727288095ac4d5b017936ea07be49c9c6d9e8baf0c9d9f061498c87c686",
+    "bitmap": "P-35_Re-Educator.png",
+    "title": "P-35 Re-Educator",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "P-40-K_Bolt_Pistol",
+    "page": "https://helldivers.wiki.gg/wiki/P/40-K_Bolt_Pistol",
+    "source_image": "https://helldivers.wiki.gg/images/P-40-K_Bolt_Pistol_Secondary_Render.png",
+    "image_sha256": "b5f395a1d83d2edb0e62ee5d54a37cc093c4fab1e329be8522f37b40833f4a29",
+    "bitmap": "P-40-K_Bolt_Pistol.png",
+    "title": "P/40-K Bolt Pistol",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "P-4_Senator",
+    "page": "https://helldivers.wiki.gg/wiki/P-4_Senator",
+    "source_image": "https://helldivers.wiki.gg/images/P-4_Senator_Secondary_Render.png",
+    "image_sha256": "29588100b42ff5bb559da209ffa06b9eca2b434824742e81258de76c09e8a418",
+    "bitmap": "P-4_Senator.png",
+    "title": "P-4 Senator",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "P-69_Veto",
+    "page": "https://helldivers.wiki.gg/wiki/P-69_Veto",
+    "source_image": "https://helldivers.wiki.gg/images/P-69_Veto_Secondary_Render.png",
+    "image_sha256": "3525e5c64482f1d048a332782aed3bdaff8f6194c8d15e297b710106b8d69eb0",
+    "bitmap": "P-69_Veto.png",
+    "title": "P-69 Veto",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "P-72_Crisper",
+    "page": "https://helldivers.wiki.gg/wiki/P-72_Crisper",
+    "source_image": "https://helldivers.wiki.gg/images/P-72_Crisper_Secondary_Render.png",
+    "image_sha256": "238f7ab3e0ac32ad1fe6812b1f329e441027403d4e4aed5ac8d3db95d7709d91",
+    "bitmap": "P-72_Crisper.png",
+    "title": "P-72 Crisper",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "P-92_Warrant",
+    "page": "https://helldivers.wiki.gg/wiki/P-92_Warrant",
+    "source_image": "https://helldivers.wiki.gg/images/P-92_Warrant_Secondary_Render.png",
+    "image_sha256": "4ff70c9f3813bf6f55e17401f12cec6a273ced2503c50fa64f6d9f9206b54bed",
+    "bitmap": "P-92_Warrant.png",
+    "title": "P-92 Warrant",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "PLAS-101_Purifier",
+    "page": "https://helldivers.wiki.gg/wiki/PLAS-101_Purifier",
+    "source_image": "https://helldivers.wiki.gg/images/PLAS-101_Purifier_Primary_Render.png",
+    "image_sha256": "c5e8eaa5d022d7e14e99f0f1113511106809e8ab6b3239f87d00aabab6da282a",
+    "bitmap": "PLAS-101_Purifier.png",
+    "title": "PLAS-101 Purifier",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "PLAS-15_Loyalist",
+    "page": "https://helldivers.wiki.gg/wiki/PLAS-15_Loyalist",
+    "source_image": "https://helldivers.wiki.gg/images/PLAS-15_Loyalist_Secondary_Render.png",
+    "image_sha256": "30dca54d114fd854b07ebbb6dfad79c8bf51cda5495a2fe0f69f2691bded9a5e",
+    "bitmap": "PLAS-15_Loyalist.png",
+    "title": "PLAS-15 Loyalist",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "PLAS-1_Scorcher",
+    "page": "https://helldivers.wiki.gg/wiki/PLAS-1_Scorcher",
+    "source_image": "https://helldivers.wiki.gg/images/PLAS-1_Scorcher_Primary_Render.png",
+    "image_sha256": "d66200718f6ee3bdec0ba17fbc89fab743500aab03b60cb3b26017a5d988ed8f",
+    "bitmap": "PLAS-1_Scorcher.png",
+    "title": "PLAS-1 Scorcher",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "PLAS-39_Accelerator_Rifle",
+    "page": "https://helldivers.wiki.gg/wiki/PLAS-39_Accelerator_Rifle",
+    "source_image": "https://helldivers.wiki.gg/images/PLAS-39_Accelerator_Rifle_Primary_Render.png",
+    "image_sha256": "a821271a2548a5eac40c6a835d022f2f34fa1f62933832f38eb02ea7e11b4fb3",
+    "bitmap": "PLAS-39_Accelerator_Rifle.png",
+    "title": "PLAS-39 Accelerator Rifle",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "PLAS-45_Epoch",
+    "page": "https://helldivers.wiki.gg/wiki/PLAS-45_Epoch",
+    "source_image": "https://helldivers.wiki.gg/images/PLAS-45_Epoch_Support_Render.png",
+    "image_sha256": "c9fae1dcf40933b5d729b24e1e0ad5153db575115b93adacf57a6035b7e76277",
+    "bitmap": "PLAS-45_Epoch.png",
+    "title": "PLAS-45 Epoch",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "R-2124_Constitution",
+    "page": "https://helldivers.wiki.gg/wiki/R-2124_Constitution",
+    "source_image": "https://helldivers.wiki.gg/images/R-2124_Constitution_Primary_Render.png",
+    "image_sha256": "541b0d13c4d27febae7dfbe88444fe36206751a4591bf64ca22414ad36b053cc",
+    "bitmap": "R-2124_Constitution.png",
+    "title": "R-2124 Constitution",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "R-2_Amendment",
+    "page": "https://helldivers.wiki.gg/wiki/R-2_Amendment",
+    "source_image": "https://helldivers.wiki.gg/images/R-2_Amendment_Primary_Render.png",
+    "image_sha256": "bfc1592de4ed6be5bb0d2266e59859473c7bde74dd26e2a56c2e335fb173d90c",
+    "bitmap": "R-2_Amendment.png",
+    "title": "R-2 Amendment",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "R-36_Eruptor",
+    "page": "https://helldivers.wiki.gg/wiki/R-36_Eruptor",
+    "source_image": "https://helldivers.wiki.gg/images/R-36_Eruptor_Primary_Render.png",
+    "image_sha256": "5f96c1facefc597789aceb596be7fa8ed3326a2f9fe6c857663bd608e5efd3f1",
+    "bitmap": "R-36_Eruptor.png",
+    "title": "R-36 Eruptor",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "R-40-K_Hot-Shot",
+    "page": "https://helldivers.wiki.gg/wiki/R/40-K_Hot-Shot_Marksman_Rifle",
+    "source_image": "https://helldivers.wiki.gg/images/R-40-K_Hot-Shot_Primary_Render.png",
+    "image_sha256": "639fba743220440cfe3b584c240bfb67eb67438cd6e1fa56da3e75e8bf13a33b",
+    "bitmap": "R-40-K_Hot-Shot.png",
+    "title": "R/40-K Hot-Shot Marksman Rifle",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "R-4_Hyena",
+    "page": "https://helldivers.wiki.gg/wiki/R-4_Hyena",
+    "source_image": "https://helldivers.wiki.gg/images/R-4_Hyena_Primary_Render.png",
+    "image_sha256": "29fc4d29467ce9caeed00b1a459cfb316a9b20d02a5a2cd218c41d1a42e86725",
+    "bitmap": "R-4_Hyena.png",
+    "title": "R-4 Hyena",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "R-63_Diligence",
+    "page": "https://helldivers.wiki.gg/wiki/R-63_Diligence",
+    "source_image": "https://helldivers.wiki.gg/images/R-63_Diligence_Primary_Render.png",
+    "image_sha256": "fa8c582ebbe2853f20e197b942015de0f31f79f4fd269ee0b896ac27644e76e1",
+    "bitmap": "R-63_Diligence.png",
+    "title": "R-63 Diligence",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "R-63CS_Diligence_Counter_Sniper",
+    "page": "https://helldivers.wiki.gg/wiki/R-63CS_Diligence_Counter_Sniper",
+    "source_image": "https://helldivers.wiki.gg/images/R-63CS_Diligence_Counter_Sniper_Primary_Render.png",
+    "image_sha256": "0f56c560f988e125d7789d14c271a2b3d1d1b3f1614ecc1a83f901933ba62260",
+    "bitmap": "R-63CS_Diligence_Counter_Sniper.png",
+    "title": "R-63CS Diligence Counter Sniper",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "R-6_Deadeye",
+    "page": "https://helldivers.wiki.gg/wiki/R-6_Deadeye",
+    "source_image": "https://helldivers.wiki.gg/images/R-6_Deadeye_Primary_Render.png",
+    "image_sha256": "9c0fccb7565f539e9f6673e73fb5cf2102b40b3174ce4b7f8d56d315eec30452",
+    "bitmap": "R-6_Deadeye.png",
+    "title": "R-6 Deadeye",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "R-72_Censor",
+    "page": "https://helldivers.wiki.gg/wiki/R-72_Censor",
+    "source_image": "https://helldivers.wiki.gg/images/R-72_Censor_Primary_Render.png",
+    "image_sha256": "3fccb30947ade8b29e90896b553bfd6ec7100706e894f18d5b935c8ba6a28132",
+    "bitmap": "R-72_Censor.png",
+    "title": "R-72 Censor",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "RL-77_Airburst_Rocket_Launcher",
+    "page": "https://helldivers.wiki.gg/wiki/RL-77_Airburst_Rocket_Launcher",
+    "source_image": "https://helldivers.wiki.gg/images/RL-77_Airburst_Rocket_Launcher_Support_Render.png",
+    "image_sha256": "95c666a5d953732947c660ec773ed1216a0af700ddc889623e59ca76c535f781",
+    "bitmap": "RL-77_Airburst_Rocket_Launcher.png",
+    "title": "RL-77 Airburst Rocket Launcher",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "RS-422_Railgun",
+    "page": "https://helldivers.wiki.gg/wiki/RS-422_Railgun",
+    "source_image": "https://helldivers.wiki.gg/images/RS-422_Railgun_Support_Render.png",
+    "image_sha256": "14a50e96da24e9636c14321adbe8c7e5c8355e13456550e04f4e85e6e700a420",
+    "bitmap": "RS-422_Railgun.png",
+    "title": "RS-422 Railgun",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "S-11_Speargun",
+    "page": "https://helldivers.wiki.gg/wiki/S-11_Speargun",
+    "source_image": "https://helldivers.wiki.gg/images/S-11_Speargun_Support_Render.png",
+    "image_sha256": "2ba952c8c06f83bb7a6603fd2e482202e27a38e7986f0d46426c0698e0d0eb09",
+    "bitmap": "S-11_Speargun.png",
+    "title": "S-11 Speargun",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "SG-20_Halt",
+    "page": "https://helldivers.wiki.gg/wiki/SG-20_Halt",
+    "source_image": "https://helldivers.wiki.gg/images/SG-20_Halt_Primary_Render.png",
+    "image_sha256": "af926bebfdce5c2c74cba12a41e0302e51d5dfb0d1aaed18c5e713b21d4f3c59",
+    "bitmap": "SG-20_Halt.png",
+    "title": "SG-20 Halt",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "SG-225_Breaker",
+    "page": "https://helldivers.wiki.gg/wiki/SG-225_Breaker",
+    "source_image": "https://helldivers.wiki.gg/images/SG-225_Breaker_Primary_Render.png",
+    "image_sha256": "edaf048a426eaa6c86d93cae246edc8fd26766762698cbbaa27e4eb626ccb691",
+    "bitmap": "SG-225_Breaker.png",
+    "title": "SG-225 Breaker",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "SG-225IE_Breaker_Incendiary",
+    "page": "https://helldivers.wiki.gg/wiki/SG-225IE_Breaker_Incendiary",
+    "source_image": "https://helldivers.wiki.gg/images/SG-225IE_Breaker_Incendiary_Primary_Render.png",
+    "image_sha256": "c3057f62cd3acae864df685464ceae10f10efe96e3aea4714b5e13274c1c5fdb",
+    "bitmap": "SG-225IE_Breaker_Incendiary.png",
+    "title": "SG-225IE Breaker Incendiary",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "SG-225SP_Breaker_Spray%26Pray",
+    "page": "https://helldivers.wiki.gg/wiki/SG-225SP_Breaker_Spray%26Pray",
+    "source_image": "https://helldivers.wiki.gg/images/SG-225SP_Breaker_Spray%26Pray_Primary_Render.png",
+    "image_sha256": "4546d7209538f96f62f87f3a03de69122a32015cccbc1545fcad0dd1f3c6134d",
+    "bitmap": "SG-225SP_Breaker_Spray%26Pray.png",
+    "title": "SG-225SP Breaker Spray&Pray",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "SG-22_Bushwhacker",
+    "page": "https://helldivers.wiki.gg/wiki/SG-22_Bushwhacker",
+    "source_image": "https://helldivers.wiki.gg/images/SG-22_Bushwhacker_Secondary_Render.png",
+    "image_sha256": "6e29a1634d051e6063964f4c7f2898b60f014994e2a28bda930598716dc5daca",
+    "bitmap": "SG-22_Bushwhacker.png",
+    "title": "SG-22 Bushwhacker",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "SG-451_Cookout",
+    "page": "https://helldivers.wiki.gg/wiki/SG-451_Cookout",
+    "source_image": "https://helldivers.wiki.gg/images/SG-451_Cookout_Primary_Render.png",
+    "image_sha256": "c8987dd34c5efb8378abb4f9deb87c165c18d7685e2ecfeda51535c961855e74",
+    "bitmap": "SG-451_Cookout.png",
+    "title": "SG-451 Cookout",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "SG-88_Break-Action_Shotgun",
+    "page": "https://helldivers.wiki.gg/wiki/SG-88_Break-Action_Shotgun",
+    "source_image": "https://helldivers.wiki.gg/images/SG-88_Break-Action_Shotgun_Support_Render.png",
+    "image_sha256": "f8ff2ee4368cbadc8cf403678a68c577d20e9149fc79c385eacf1d266d64c881",
+    "bitmap": "SG-88_Break-Action_Shotgun.png",
+    "title": "SG-88 Break-Action Shotgun",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "SG-8_Punisher",
+    "page": "https://helldivers.wiki.gg/wiki/SG-8_Punisher",
+    "source_image": "https://helldivers.wiki.gg/images/SG-8_Punisher_Primary_Render.png",
+    "image_sha256": "32b33cdd83b06cf0515bf523c43ca14ec1d8a3b9fc49107c46d19164a3ae8190",
+    "bitmap": "SG-8_Punisher.png",
+    "title": "SG-8 Punisher",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "SG-8P_Punisher_Plasma",
+    "page": "https://helldivers.wiki.gg/wiki/SG-8P_Punisher_Plasma",
+    "source_image": "https://helldivers.wiki.gg/images/SG-8P_Punisher_Plasma_Primary_Render.png",
+    "image_sha256": "e49386d8af5cd3a20a98ee2985a90dd92456b6b1f77b98b4e34bc55535fa5b74",
+    "bitmap": "SG-8P_Punisher_Plasma.png",
+    "title": "SG-8P Punisher Plasma",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "SG-8S_Slugger",
+    "page": "https://helldivers.wiki.gg/wiki/SG-8S_Slugger",
+    "source_image": "https://helldivers.wiki.gg/images/SG-8S_Slugger_Primary_Render.png",
+    "image_sha256": "d4e2ec99ea9b84bdc7b47320f5f30576569a483a4fd2c85b3dbd3f4806fa4b2a",
+    "bitmap": "SG-8S_Slugger.png",
+    "title": "SG-8S Slugger",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "SG-97_Shotgun",
+    "page": "https://helldivers.wiki.gg/wiki/SG-97_Sweeper",
+    "source_image": "https://helldivers.wiki.gg/images/SG-97_Shotgun_Primary_Render.png",
+    "image_sha256": "7fb96955a14e7d03a70320afcd18886f8f42b06e28beeca8c6c062a768c5fc4b",
+    "bitmap": "SG-97_Shotgun.png",
+    "title": "SG-97 Sweeper",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "SMG-203_Gallant",
+    "page": "https://helldivers.wiki.gg/wiki/SMG-203_Gallant",
+    "source_image": "https://helldivers.wiki.gg/images/SMG-203_Gallant_Primary_Render.png",
+    "image_sha256": "b8f252a71db4dc739eb91b8a6bc54d592e78621dfe528e809eb154c201acb32e",
+    "bitmap": "SMG-203_Gallant.png",
+    "title": "SMG-203 Gallant",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "SMG-32_Reprimand",
+    "page": "https://helldivers.wiki.gg/wiki/SMG-32_Reprimand",
+    "source_image": "https://helldivers.wiki.gg/images/SMG-32_Reprimand_Primary_Render.png",
+    "image_sha256": "b6e02699342a6ac40cc4a563205d80f0344a74964876c242179b887414b1547a",
+    "bitmap": "SMG-32_Reprimand.png",
+    "title": "SMG-32 Reprimand",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "SMG-37_Defender",
+    "page": "https://helldivers.wiki.gg/wiki/SMG-37_Defender",
+    "source_image": "https://helldivers.wiki.gg/images/SMG-37_Defender_Primary_Render.png",
+    "image_sha256": "56609121eb3f83f217fb957e6b7f5277f75dd8efb58f02e0aa459a92f865bcb7",
+    "bitmap": "SMG-37_Defender.png",
+    "title": "SMG-37 Defender",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "SMG-72_Pummeler",
+    "page": "https://helldivers.wiki.gg/wiki/SMG-72_Pummeler",
+    "source_image": "https://helldivers.wiki.gg/images/SMG-72_Pummeler_Primary_Render.png",
+    "image_sha256": "bfa698fe3808b510d17edef3a3ac7bb381d9f245d24540c032095e0001b6bd78",
+    "bitmap": "SMG-72_Pummeler.png",
+    "title": "SMG-72 Pummeler",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "SMGFLAM-34_Stoker",
+    "page": "https://helldivers.wiki.gg/wiki/SMG/FLAM-34_Stoker",
+    "source_image": "https://helldivers.wiki.gg/images/SMGFLAM-34_Stoker_Primary_Render.png",
+    "image_sha256": "cb0d54dc2eb605afa69a5966e13531dc76984bc18b321ca7ad99211ac00e5509",
+    "bitmap": "SMGFLAM-34_Stoker.png",
+    "title": "SMG/FLAM-34 Stoker",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "StA-11_SMG",
+    "page": "https://helldivers.wiki.gg/wiki/StA-11_SMG",
+    "source_image": "https://helldivers.wiki.gg/images/StA-11_SMG_Primary_Render.png",
+    "image_sha256": "54c773f35dd2d4fa6a72326771c2cfd805e2d52696fcf0bc23953584139d4801",
+    "bitmap": "StA-11_SMG.png",
+    "title": "StA-11 SMG",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "StA-52_Assault_Rifle",
+    "page": "https://helldivers.wiki.gg/wiki/StA-52_Assault_Rifle",
+    "source_image": "https://helldivers.wiki.gg/images/StA-52_Assault_Rifle_Primary_Render.png",
+    "image_sha256": "baec3b3b46c4603dcbd0c9651cb98e8d43d76830c1aed5866aaeca7d9afbfbc6",
+    "bitmap": "StA-52_Assault_Rifle.png",
+    "title": "StA-52 Assault Rifle",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "StA-X3_W.A.S.P._Launcher",
+    "page": "https://helldivers.wiki.gg/wiki/StA-X3_W.A.S.P._Launcher",
+    "source_image": "https://helldivers.wiki.gg/images/StA-X3_W.A.S.P._Launcher_Support_Render.png",
+    "image_sha256": "a87b2f2f7bb74c5b4c5fe873c84ba6ade5ffd7d4f757d2b7b4dca541845e50a5",
+    "bitmap": "StA-X3_W.A.S.P._Launcher.png",
+    "title": "StA-X3 W.A.S.P. Launcher",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "TED-63_Dynamite",
+    "page": "https://helldivers.wiki.gg/wiki/TED-63_Dynamite",
+    "source_image": "https://helldivers.wiki.gg/images/TED-63_Dynamite_Throwable_Render.png",
+    "image_sha256": "3bad34111231ba91741f4e084d7d326418ef40eff3f0553cb2b14b175c4b75f9",
+    "bitmap": "TED-63_Dynamite.png",
+    "title": "TED-63 Dynamite",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "TM-1_Lure_Mine",
+    "page": "https://helldivers.wiki.gg/wiki/TM-1_Lure_Mine",
+    "source_image": "https://helldivers.wiki.gg/images/TM-1_Lure_Mine_Throwable_Render.png",
+    "image_sha256": "5eba4193d878ab7f767e7bfb0895f2786b1696098c5ff833b6f42b02b4052e73",
+    "bitmap": "TM-1_Lure_Mine.png",
+    "title": "TM-1 Lure Mine",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "TX-41_Sterilizer",
+    "page": "https://helldivers.wiki.gg/wiki/TX-41_Sterilizer",
+    "source_image": "https://helldivers.wiki.gg/images/TX-41_Sterilizer_Support_Render.png",
+    "image_sha256": "534a3a9826f7bd071ded1457963d72be6d3a9c0350b2f7c89789c6aaccfbfb32",
+    "bitmap": "TX-41_Sterilizer.png",
+    "title": "TX-41 Sterilizer",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "VG-70_Variable",
+    "page": "https://helldivers.wiki.gg/wiki/VG-70_Variable",
+    "source_image": "https://helldivers.wiki.gg/images/VG-70_Variable_Primary_Render.png",
+    "image_sha256": "e4797d4c88b2d08d5ba2998c0d470d564f12f22042bbeeb008d1603d55d97c1c",
+    "bitmap": "VG-70_Variable.png",
+    "title": "VG-70 Variable",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Airburst_Rocket_Launcher",
+    "page": "https://helldivers.wiki.gg/wiki/File:Airburst_Rocket_Launcher_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Airburst_Rocket_Launcher_Stratagem_Icon_Background.svg",
+    "image_sha256": "ac5d9aeafd65ffc25dfc2d12b5a8300cabf1968dcec50ca02ad3607765c8f323",
+    "bitmap": "stratagem_Airburst_Rocket_Launcher.png",
+    "title": "Airburst Rocket Launcher",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Anti-Materiel_Rifle",
+    "page": "https://helldivers.wiki.gg/wiki/File:Anti-Materiel_Rifle_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Anti-Materiel_Rifle_Stratagem_Icon_Background.svg",
+    "image_sha256": "f94f63970458b084e91518bfeee419e962c5f7729e926ee516bd35a908447852",
+    "bitmap": "stratagem_Anti-Materiel_Rifle.png",
+    "title": "Anti-Materiel Rifle",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Anti-Personnel_Minefield",
+    "page": "https://helldivers.wiki.gg/wiki/File:Anti-Personnel_Minefield_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Anti-Personnel_Minefield_Stratagem_Icon_Background.svg",
+    "image_sha256": "4f1b23b95e935462a4c8d6033284d7b344d72b4eb64dd5fd8f0b8a3f42c6270f",
+    "bitmap": "stratagem_Anti-Personnel_Minefield.png",
+    "title": "Anti-Personnel Minefield",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Anti-Tank_Emplacement",
+    "page": "https://helldivers.wiki.gg/wiki/File:Anti-Tank_Emplacement_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Anti-Tank_Emplacement_Stratagem_Icon_Background.svg",
+    "image_sha256": "bf0aa98b143793c0f6ffd8fd6e446301e55872e5f48e85c5277ad2c8f2ff5e69",
+    "bitmap": "stratagem_Anti-Tank_Emplacement.png",
+    "title": "Anti-Tank Emplacement",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Anti-Tank_Mines",
+    "page": "https://helldivers.wiki.gg/wiki/File:Anti-Tank_Mines_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Anti-Tank_Mines_Stratagem_Icon_Background.svg",
+    "image_sha256": "76e2d8278634081d4001df0f35f8fa32d51ec9b26839e0045bcb63ac14dd295d",
+    "bitmap": "stratagem_Anti-Tank_Mines.png",
+    "title": "Anti-Tank Mines",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Arc_Thrower",
+    "page": "https://helldivers.wiki.gg/wiki/File:Arc_Thrower_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Arc_Thrower_Stratagem_Icon_Background.svg",
+    "image_sha256": "33e550ba91308b66eb13fdcd427e798f88f7eb846549d0544f851e572a84b7da",
+    "bitmap": "stratagem_Arc_Thrower.png",
+    "title": "Arc Thrower",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Autocannon_Sentry",
+    "page": "https://helldivers.wiki.gg/wiki/File:Autocannon_Sentry_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Autocannon_Sentry_Stratagem_Icon_Background.svg",
+    "image_sha256": "175fc97d8ae339ee58f17c5e3a40a69be8483ee9187ee59120a79928914251ae",
+    "bitmap": "stratagem_Autocannon_Sentry.png",
+    "title": "Autocannon Sentry",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Autocannon",
+    "page": "https://helldivers.wiki.gg/wiki/File:Autocannon_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Autocannon_Stratagem_Icon_Background.svg",
+    "image_sha256": "67eb9bb1e9d51e0e5afff9287f85b8d187e9488864852160486949a23d6db4ae",
+    "bitmap": "stratagem_Autocannon.png",
+    "title": "Autocannon",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Ballistic_Shield_Backpack",
+    "page": "https://helldivers.wiki.gg/wiki/File:Ballistic_Shield_Backpack_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Ballistic_Shield_Backpack_Stratagem_Icon_Background.svg",
+    "image_sha256": "2ca36f12ef126d22b44afa6adff2e1044f6d9510b1cf3c05ce9ce279b1c39d35",
+    "bitmap": "stratagem_Ballistic_Shield_Backpack.png",
+    "title": "Ballistic Shield Backpack",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Bastion_MK_XVI",
+    "page": "https://helldivers.wiki.gg/wiki/File:Bastion_MK_XVI_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Bastion_MK_XVI_Stratagem_Icon_Background.svg",
+    "image_sha256": "c85886fe42398d3f81692e463a7f829e8756c14ef38ad27128394e59b1ad84ce",
+    "bitmap": "stratagem_Bastion_MK_XVI.png",
+    "title": "Bastion MK XVI",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Belt-Fed_Grenade_Launcher",
+    "page": "https://helldivers.wiki.gg/wiki/File:Belt-Fed_Grenade_Launcher_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Belt-Fed_Grenade_Launcher_Stratagem_Icon_Background.svg",
+    "image_sha256": "5f9fd5dbcbc40be65d9e1cff0b02c2a8fb668e36295e7efc160d1ad4356ce4cf",
+    "bitmap": "stratagem_Belt-Fed_Grenade_Launcher.png",
+    "title": "Belt-Fed Grenade Launcher",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Breaching_Hammer",
+    "page": "https://helldivers.wiki.gg/wiki/File:Breaching_Hammer_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Breaching_Hammer_Stratagem_Icon_Background.svg",
+    "image_sha256": "f4fb4277aa38905f16459213b85a03ad699f02046d69cca86be304465353efda",
+    "bitmap": "stratagem_Breaching_Hammer.png",
+    "title": "Breaching Hammer",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Breakthrough_Exosuit",
+    "page": "https://helldivers.wiki.gg/wiki/File:Breakthrough_Exosuit_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Breakthrough_Exosuit_Stratagem_Icon_Background.svg",
+    "image_sha256": "7cdbd0c4cfd20f765a8d63a701cb7ab9c39f26973c4ec82cb40d0c9c17e64a8a",
+    "bitmap": "stratagem_Breakthrough_Exosuit.png",
+    "title": "Breakthrough Exosuit",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Bullet_Storm",
+    "page": "https://helldivers.wiki.gg/wiki/File:Bullet_Storm_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Bullet_Storm_Stratagem_Icon_Background.svg",
+    "image_sha256": "ba230926bdb52033397961cd1fdf4cb8bf8814c60f3d388f1d300376acdd7afa",
+    "bitmap": "stratagem_Bullet_Storm.png",
+    "title": "Bullet Storm",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_C4_Pack",
+    "page": "https://helldivers.wiki.gg/wiki/File:C4_Pack_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/C4_Pack_Stratagem_Icon_Background.svg",
+    "image_sha256": "82cc3ee6706d463a1f40d9e7ae187bbd8ef64ae0076d055c05a16f44cca71d0e",
+    "bitmap": "stratagem_C4_Pack.png",
+    "title": "C4 Pack",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Call_In_Super_Destroyer",
+    "page": "https://helldivers.wiki.gg/wiki/File:Call_In_Super_Destroyer_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Call_In_Super_Destroyer_Stratagem_Icon_Background.svg",
+    "image_sha256": "1cde459268b5eb4cde15a04ddeba66bdcc3ca1657896a9452b9b663b822c98f2",
+    "bitmap": "stratagem_Call_In_Super_Destroyer.png",
+    "title": "Call In Super Destroyer",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Cargo_Container",
+    "page": "https://helldivers.wiki.gg/wiki/File:Cargo_Container_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Cargo_Container_Stratagem_Icon_Background.svg",
+    "image_sha256": "6026c2b3543671b3ef969f3578b6e40eb6dfbcb423e35efd91b71213bb261cf8",
+    "bitmap": "stratagem_Cargo_Container.png",
+    "title": "Cargo Container",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Commando",
+    "page": "https://helldivers.wiki.gg/wiki/File:Commando_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Commando_Stratagem_Icon_Background.svg",
+    "image_sha256": "3019be3fcae3e631491e61c0727b7060eddf501de4a67e8de5c62e4a57d2cfe5",
+    "bitmap": "stratagem_Commando.png",
+    "title": "Commando",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Cremator",
+    "page": "https://helldivers.wiki.gg/wiki/File:Cremator_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Cremator_Stratagem_Icon_Background.svg",
+    "image_sha256": "59f0b8767ae98b9bb1f07c71cf6dcb1186dd2614f7426513e3e0d1a62b4d534a",
+    "bitmap": "stratagem_Cremator.png",
+    "title": "Cremator",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Dark_Fluid_Vessel",
+    "page": "https://helldivers.wiki.gg/wiki/File:Dark_Fluid_Vessel_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Dark_Fluid_Vessel_Stratagem_Icon_Background.svg",
+    "image_sha256": "f2ab2c4c5854f44ff3606ba1eebc59d8a635dc37de9a12d368ac15ddc1d41ee6",
+    "bitmap": "stratagem_Dark_Fluid_Vessel.png",
+    "title": "Dark Fluid Vessel",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_De-Escalator",
+    "page": "https://helldivers.wiki.gg/wiki/File:De-Escalator_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/De-Escalator_Stratagem_Icon_Background.svg",
+    "image_sha256": "8c49c3108cfc617046ec324887012e9f9375aa802b491ca260244bde3c972fac",
+    "bitmap": "stratagem_De-Escalator.png",
+    "title": "De-Escalator",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Defoliation_Tool",
+    "page": "https://helldivers.wiki.gg/wiki/File:Defoliation_Tool_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Defoliation_Tool_Stratagem_Icon_Background.svg",
+    "image_sha256": "94da221614d019e885390b41c6fcc1ba29ce6584dfb86805e703108e56ceb716",
+    "bitmap": "stratagem_Defoliation_Tool.png",
+    "title": "Defoliation Tool",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Directional_Shield",
+    "page": "https://helldivers.wiki.gg/wiki/File:Directional_Shield_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Directional_Shield_Stratagem_Icon_Background.svg",
+    "image_sha256": "ae7c978ebcb4ed0a8d8d0ebbf84de5fa66af4eccb1e18595d217e89ce3e87b53",
+    "bitmap": "stratagem_Directional_Shield.png",
+    "title": "Directional Shield",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Dog_Breath",
+    "page": "https://helldivers.wiki.gg/wiki/File:Dog_Breath_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Dog_Breath_Stratagem_Icon_Background.svg",
+    "image_sha256": "2a94c765f74ef3794db21fea98f4914782d026385f12fe840b30796f066f3530",
+    "bitmap": "stratagem_Dog_Breath.png",
+    "title": "Dog Breath",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Drill",
+    "page": "https://helldivers.wiki.gg/wiki/File:Drill_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Drill_Stratagem_Icon_Background.svg",
+    "image_sha256": "c451bc490238aafc086ffa7c6c9c6f1e8acbd9d193da39e5c9921e681aca9f85",
+    "bitmap": "stratagem_Drill.png",
+    "title": "Drill",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Eagle_110mm_Rocket_Pods",
+    "page": "https://helldivers.wiki.gg/wiki/File:Eagle_110mm_Rocket_Pods_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Eagle_110mm_Rocket_Pods_Stratagem_Icon_Background.svg",
+    "image_sha256": "9f53291e5e5a3e1b55b9cf1dcaff12619b2ce3baa58732ddbd1405d6753c66d9",
+    "bitmap": "stratagem_Eagle_110mm_Rocket_Pods.png",
+    "title": "Eagle 110mm Rocket Pods",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Eagle_500kg_Bomb",
+    "page": "https://helldivers.wiki.gg/wiki/File:Eagle_500kg_Bomb_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Eagle_500kg_Bomb_Stratagem_Icon_Background.svg",
+    "image_sha256": "4d37888ac5f7671c20f077ad4d8c185547be066bcc43963eaa314b6e0067665f",
+    "bitmap": "stratagem_Eagle_500kg_Bomb.png",
+    "title": "Eagle 500kg Bomb",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Eagle_Airstrike",
+    "page": "https://helldivers.wiki.gg/wiki/File:Eagle_Airstrike_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Eagle_Airstrike_Stratagem_Icon_Background.svg",
+    "image_sha256": "178fb75dbd55e146c2929053bec2542cba02488d70b9b6329ba69dde09558b80",
+    "bitmap": "stratagem_Eagle_Airstrike.png",
+    "title": "Eagle Airstrike",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Eagle_Cluster_Bomb",
+    "page": "https://helldivers.wiki.gg/wiki/File:Eagle_Cluster_Bomb_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Eagle_Cluster_Bomb_Stratagem_Icon_Background.svg",
+    "image_sha256": "94c27d986c264f04a48106c4eb9379f46f60b67cf324b5fd5943b80e925f08b3",
+    "bitmap": "stratagem_Eagle_Cluster_Bomb.png",
+    "title": "Eagle Cluster Bomb",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Eagle_Gas_Airstrike",
+    "page": "https://helldivers.wiki.gg/wiki/File:Eagle_Gas_Airstrike_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Eagle_Gas_Airstrike_Stratagem_Icon_Background.svg",
+    "image_sha256": "74edc2080e1c30f8ac354ff21786b18941b110a06cbd5d5908488e42f0ea4787",
+    "bitmap": "stratagem_Eagle_Gas_Airstrike.png",
+    "title": "Eagle Gas Airstrike",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Eagle_Napalm_Airstrike",
+    "page": "https://helldivers.wiki.gg/wiki/File:Eagle_Napalm_Airstrike_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Eagle_Napalm_Airstrike_Stratagem_Icon_Background.svg",
+    "image_sha256": "59b642017d3c44b7073eae642c150a71bf07cf930e04991be3c43b480b6261c7",
+    "bitmap": "stratagem_Eagle_Napalm_Airstrike.png",
+    "title": "Eagle Napalm Airstrike",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Eagle_Rearm",
+    "page": "https://helldivers.wiki.gg/wiki/File:Eagle_Rearm_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Eagle_Rearm_Stratagem_Icon_Background.svg",
+    "image_sha256": "0c59a9c4ca5abef9e2c21667a6905a4367f8a232a4ff0ad39b4a365ed0e34a14",
+    "bitmap": "stratagem_Eagle_Rearm.png",
+    "title": "Eagle Rearm",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Eagle_Smoke_Strike",
+    "page": "https://helldivers.wiki.gg/wiki/File:Eagle_Smoke_Strike_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Eagle_Smoke_Strike_Stratagem_Icon_Background.svg",
+    "image_sha256": "0069750d71ac6d50a8891ec6ec9bce153d46eed955961e9568ac31d834f52e5a",
+    "bitmap": "stratagem_Eagle_Smoke_Strike.png",
+    "title": "Eagle Smoke Strike",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Eagle_Strafing_Run",
+    "page": "https://helldivers.wiki.gg/wiki/File:Eagle_Strafing_Run_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Eagle_Strafing_Run_Stratagem_Icon_Background.svg",
+    "image_sha256": "88a6bb9783d22d2a555b0f7a4dbbfd42da4e77f7a86d3cf071db58b9895ab3e3",
+    "bitmap": "stratagem_Eagle_Strafing_Run.png",
+    "title": "Eagle Strafing Run",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Emancipator_Exosuit",
+    "page": "https://helldivers.wiki.gg/wiki/File:Emancipator_Exosuit_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Emancipator_Exosuit_Stratagem_Icon_Background.svg",
+    "image_sha256": "f30094e4741cd71251e20e523ff53b018ff52ebafde6dcce430d35f204256a81",
+    "bitmap": "stratagem_Emancipator_Exosuit.png",
+    "title": "Emancipator Exosuit",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_EMS_Mortar_Sentry",
+    "page": "https://helldivers.wiki.gg/wiki/File:EMS_Mortar_Sentry_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/EMS_Mortar_Sentry_Stratagem_Icon_Background.svg",
+    "image_sha256": "3c1b312190ca751e21c9cf58b07b66af03c305586e38282da754e44fd87ab296",
+    "bitmap": "stratagem_EMS_Mortar_Sentry.png",
+    "title": "EMS Mortar Sentry",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Epoch",
+    "page": "https://helldivers.wiki.gg/wiki/File:Epoch_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Epoch_Stratagem_Icon_Background.svg",
+    "image_sha256": "c7070237c6847c825a6612453eea13c02c59fb7eb0544050a20a7ee245d3bbbd",
+    "bitmap": "stratagem_Epoch.png",
+    "title": "Epoch",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Expendable_Anti-Tank",
+    "page": "https://helldivers.wiki.gg/wiki/File:Expendable_Anti-Tank_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Expendable_Anti-Tank_Stratagem_Icon_Background.svg",
+    "image_sha256": "cc67e91903854c2d340881e15e2ec49f830529f38ee5b37d297c4d3da32c5105",
+    "bitmap": "stratagem_Expendable_Anti-Tank.png",
+    "title": "Expendable Anti-Tank",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Expendable_Napalm",
+    "page": "https://helldivers.wiki.gg/wiki/File:Expendable_Napalm_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Expendable_Napalm_Stratagem_Icon_Background.svg",
+    "image_sha256": "89ba9a0c95270017a908d9b36a043b71975b2193dd0763219578bf93047cc3f3",
+    "bitmap": "stratagem_Expendable_Napalm.png",
+    "title": "Expendable Napalm",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Fast_Recon_Vehicle",
+    "page": "https://helldivers.wiki.gg/wiki/File:Fast_Recon_Vehicle_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Fast_Recon_Vehicle_Stratagem_Icon_Background.svg",
+    "image_sha256": "9cc2873656e4b4df6fee7965adcb9e41474026527fb357bdf08f3be780134e4f",
+    "bitmap": "stratagem_Fast_Recon_Vehicle.png",
+    "title": "Fast Recon Vehicle",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Flame_Sentry",
+    "page": "https://helldivers.wiki.gg/wiki/File:Flame_Sentry_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Flame_Sentry_Stratagem_Icon_Background.svg",
+    "image_sha256": "cc49c4f7d8080c707ea3c4de52683af646eeaa0ef0f1d05679efb3a98b1801d8",
+    "bitmap": "stratagem_Flame_Sentry.png",
+    "title": "Flame Sentry",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Flamethrower",
+    "page": "https://helldivers.wiki.gg/wiki/File:Flamethrower_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Flamethrower_Stratagem_Icon_Background.svg",
+    "image_sha256": "93b720d68924595e57389df645538d35f307bb05e2b9764ade51134403119434",
+    "bitmap": "stratagem_Flamethrower.png",
+    "title": "Flamethrower",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Gas_Mines",
+    "page": "https://helldivers.wiki.gg/wiki/File:Gas_Mines_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Gas_Mines_Stratagem_Icon_Background.svg",
+    "image_sha256": "99b1b3f7f611f5e38591fa3bf0fdf34243bcad6006eadbbaf2089ad18079c43c",
+    "bitmap": "stratagem_Gas_Mines.png",
+    "title": "Gas Mines",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Gas_Mortar_Sentry",
+    "page": "https://helldivers.wiki.gg/wiki/File:Gas_Mortar_Sentry_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Gas_Mortar_Sentry_Stratagem_Icon_Background.svg",
+    "image_sha256": "82db4f7e43292a966c2af4eadbd4c0d7d05f7b32f851595accfadddda3ced91a",
+    "bitmap": "stratagem_Gas_Mortar_Sentry.png",
+    "title": "Gas Mortar Sentry",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Gatling_Sentry",
+    "page": "https://helldivers.wiki.gg/wiki/File:Gatling_Sentry_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Gatling_Sentry_Stratagem_Icon_Background.svg",
+    "image_sha256": "6316561bea1cccad73b00665bdd2b97fd5e17dfa58301684c64b195fbd8022f5",
+    "bitmap": "stratagem_Gatling_Sentry.png",
+    "title": "Gatling Sentry",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Grenade_Launcher",
+    "page": "https://helldivers.wiki.gg/wiki/File:Grenade_Launcher_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Grenade_Launcher_Stratagem_Icon_Background.svg",
+    "image_sha256": "b353172da53d8e04dc7cd5148fbf9c9b28a36e2a310da1fe6f89e4da57c8bdd2",
+    "bitmap": "stratagem_Grenade_Launcher.png",
+    "title": "Grenade Launcher",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Grenadier_Battlement",
+    "page": "https://helldivers.wiki.gg/wiki/File:Grenadier_Battlement_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Grenadier_Battlement_Stratagem_Icon_Background.svg",
+    "image_sha256": "5fd455b474cb0d907535bc16bf354e099dc83734e0a833837de7c884a79b0b9c",
+    "bitmap": "stratagem_Grenadier_Battlement.png",
+    "title": "Grenadier Battlement",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Guard_Dog",
+    "page": "https://helldivers.wiki.gg/wiki/File:Guard_Dog_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Guard_Dog_Stratagem_Icon_Background.svg",
+    "image_sha256": "abcc554c590dd3eab241f51897edcb79f7e38d7302d569fb7070362935ceb7d9",
+    "bitmap": "stratagem_Guard_Dog.png",
+    "title": "Guard Dog",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Heavy_Machine_Gun",
+    "page": "https://helldivers.wiki.gg/wiki/File:Heavy_Machine_Gun_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Heavy_Machine_Gun_Stratagem_Icon_Background.svg",
+    "image_sha256": "c1852417d6e4012b0f8b83c5f4ec3024c7a4ebcf7a924282350d3222b74efa55",
+    "bitmap": "stratagem_Heavy_Machine_Gun.png",
+    "title": "Heavy Machine Gun",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Hellbomb",
+    "page": "https://helldivers.wiki.gg/wiki/File:Hellbomb_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Hellbomb_Stratagem_Icon_Background.svg",
+    "image_sha256": "cfc6c85af2e11348fba64f003a12d849888145454e20d2343e0063a9455938c0",
+    "bitmap": "stratagem_Hellbomb.png",
+    "title": "Hellbomb",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_HMG_Emplacement",
+    "page": "https://helldivers.wiki.gg/wiki/File:HMG_Emplacement_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/HMG_Emplacement_Stratagem_Icon_Background.svg",
+    "image_sha256": "f56d2196732a44264a5fdc7a499fa757ebeec3c4fc5e152fe800a85abbaf6fc4",
+    "bitmap": "stratagem_HMG_Emplacement.png",
+    "title": "HMG Emplacement",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Hot_Dog",
+    "page": "https://helldivers.wiki.gg/wiki/File:Hot_Dog_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Hot_Dog_Stratagem_Icon_Background.svg",
+    "image_sha256": "15efe65fc34dbb82851521f7bc662d05082466f1460b493f58e1cc6a3a1d749b",
+    "bitmap": "stratagem_Hot_Dog.png",
+    "title": "Hot Dog",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Hover_Pack",
+    "page": "https://helldivers.wiki.gg/wiki/File:Hover_Pack_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Hover_Pack_Stratagem_Icon_Background.svg",
+    "image_sha256": "a4a79beba5c84694297f812e6a70629911cd104adb67d4e28c826348b6baa93e",
+    "bitmap": "stratagem_Hover_Pack.png",
+    "title": "Hover Pack",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Incendiary_Mines",
+    "page": "https://helldivers.wiki.gg/wiki/File:Incendiary_Mines_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Incendiary_Mines_Stratagem_Icon_Background.svg",
+    "image_sha256": "e1d46f79a3d6e406a549c1d535b456d334b805282e2ee10388c1c61c59d7036f",
+    "bitmap": "stratagem_Incendiary_Mines.png",
+    "title": "Incendiary Mines",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Incinerator_FRV",
+    "page": "https://helldivers.wiki.gg/wiki/File:Incinerator_FRV_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Incinerator_FRV_Stratagem_Icon_Background.svg",
+    "image_sha256": "9cee5951f13be844c4d864005dd3ad41effd6a73f3b01a1b35d5219758294940",
+    "bitmap": "stratagem_Incinerator_FRV.png",
+    "title": "Incinerator FRV",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Jump_Pack",
+    "page": "https://helldivers.wiki.gg/wiki/File:Jump_Pack_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Jump_Pack_Stratagem_Icon_Background.svg",
+    "image_sha256": "24aa0b7c3dc1c01ed2b946633145050cb32de19086a506333d0ef853a4e1b4f1",
+    "bitmap": "stratagem_Jump_Pack.png",
+    "title": "Jump Pack",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_K-9",
+    "page": "https://helldivers.wiki.gg/wiki/File:K-9_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/K-9_Stratagem_Icon_Background.svg",
+    "image_sha256": "2935c65faf292bf28f15bb52bd2b83777e9daaafbfc42e0c191d2d5aa6d04df7",
+    "bitmap": "stratagem_K-9.png",
+    "title": "K-9",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Laser_Cannon",
+    "page": "https://helldivers.wiki.gg/wiki/File:Laser_Cannon_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Laser_Cannon_Stratagem_Icon_Background.svg",
+    "image_sha256": "6749c7b860edc55d69e6df6079e14b2ef6a1666106f37ab966bac65d7e2621e4",
+    "bitmap": "stratagem_Laser_Cannon.png",
+    "title": "Laser Cannon",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Laser_Sentry",
+    "page": "https://helldivers.wiki.gg/wiki/File:Laser_Sentry_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Laser_Sentry_Stratagem_Icon_Background.svg",
+    "image_sha256": "13d816b819a85609a5c1e3f2908645e9fb34a69c81d5332f8949ec955c5abf1f",
+    "bitmap": "stratagem_Laser_Sentry.png",
+    "title": "Laser Sentry",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Leveller",
+    "page": "https://helldivers.wiki.gg/wiki/File:Leveller_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Leveller_Stratagem_Icon_Background.svg",
+    "image_sha256": "a32e263a88291a1b68867b9add49e6ef3850ea1edb4554f1229685b8a4694542",
+    "bitmap": "stratagem_Leveller.png",
+    "title": "Leveller",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Lumberer_Exosuit",
+    "page": "https://helldivers.wiki.gg/wiki/File:Lumberer_Exosuit_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Lumberer_Exosuit_Stratagem_Icon_Background.svg",
+    "image_sha256": "dfaf863f8245566fd4b42b31d3cce1a4c85901d57cebe458fc2f5553d51d2970",
+    "bitmap": "stratagem_Lumberer_Exosuit.png",
+    "title": "Lumberer Exosuit",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Machine_Gun_Sentry",
+    "page": "https://helldivers.wiki.gg/wiki/File:Machine_Gun_Sentry_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Machine_Gun_Sentry_Stratagem_Icon_Background.svg",
+    "image_sha256": "b508ed70d8f7fe8c318aa4bfb5d0fd199a2ca1004a688d20a14f7ac65e129f77",
+    "bitmap": "stratagem_Machine_Gun_Sentry.png",
+    "title": "Machine Gun Sentry",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Machine_Gun",
+    "page": "https://helldivers.wiki.gg/wiki/File:Machine_Gun_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Machine_Gun_Stratagem_Icon_Background.svg",
+    "image_sha256": "69c54de68d489329b0c24870e38f372d86e63de04077b852c07afb3918629625",
+    "bitmap": "stratagem_Machine_Gun.png",
+    "title": "Machine Gun",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Maelstrom",
+    "page": "https://helldivers.wiki.gg/wiki/File:Maelstrom_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Maelstrom_Stratagem_Icon_Background.svg",
+    "image_sha256": "226cd5c8ac29c87053f6ce34fce75f76b80b6332edd4e05a9d42073622fb8cc5",
+    "bitmap": "stratagem_Maelstrom.png",
+    "title": "Maelstrom",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Maxigun",
+    "page": "https://helldivers.wiki.gg/wiki/File:Maxigun_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Maxigun_Stratagem_Icon_Background.svg",
+    "image_sha256": "a23c40e613269fad9e26dc14f0d6f3226881d639086013aa1897b1e3c3a9e110",
+    "bitmap": "stratagem_Maxigun.png",
+    "title": "Maxigun",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Meltagun",
+    "page": "https://helldivers.wiki.gg/wiki/File:Meltagun_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Meltagun_Stratagem_Icon_Background.svg",
+    "image_sha256": "8effadd3d319869d910d1565e78bc68e53b65db7a5e06e58e26f3cf0bf02ad74",
+    "bitmap": "stratagem_Meltagun.png",
+    "title": "Meltagun",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Mortar_Sentry",
+    "page": "https://helldivers.wiki.gg/wiki/File:Mortar_Sentry_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Mortar_Sentry_Stratagem_Icon_Background.svg",
+    "image_sha256": "09cbf6cfd25fe38abed85dca0c6a69f4c89702742f0cbb0e318483bc75db4461",
+    "bitmap": "stratagem_Mortar_Sentry.png",
+    "title": "Mortar Sentry",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_One_True_Flag",
+    "page": "https://helldivers.wiki.gg/wiki/File:One_True_Flag_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/One_True_Flag_Stratagem_Icon_Background.svg",
+    "image_sha256": "d8aa5aef261fd38d57b0f8ade27fe88c873c8eeed9875d72fdd0ff90d3a0ea6b",
+    "bitmap": "stratagem_One_True_Flag.png",
+    "title": "One True Flag",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Orbital_120mm_HE_Barrage",
+    "page": "https://helldivers.wiki.gg/wiki/File:Orbital_120mm_HE_Barrage_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Orbital_120mm_HE_Barrage_Stratagem_Icon_Background.svg",
+    "image_sha256": "89edc49ead3b1e514660f3c4ca0f0d5dcc33cedea60fc33d5c1f647bc26a6e49",
+    "bitmap": "stratagem_Orbital_120mm_HE_Barrage.png",
+    "title": "Orbital 120mm HE Barrage",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Orbital_380mm_HE_Barrage",
+    "page": "https://helldivers.wiki.gg/wiki/File:Orbital_380mm_HE_Barrage_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Orbital_380mm_HE_Barrage_Stratagem_Icon_Background.svg",
+    "image_sha256": "10a804d800f1c139301c9133dd5d121daad8e62d3437b78f2073a4b047ec271b",
+    "bitmap": "stratagem_Orbital_380mm_HE_Barrage.png",
+    "title": "Orbital 380mm HE Barrage",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Orbital_Airburst_Strike",
+    "page": "https://helldivers.wiki.gg/wiki/File:Orbital_Airburst_Strike_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Orbital_Airburst_Strike_Stratagem_Icon_Background.svg",
+    "image_sha256": "81c8966f74322c9162a6d0150c0ed9a02f015374fc2ac9220953422cb912ee97",
+    "bitmap": "stratagem_Orbital_Airburst_Strike.png",
+    "title": "Orbital Airburst Strike",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Orbital_EMS_Strike",
+    "page": "https://helldivers.wiki.gg/wiki/File:Orbital_EMS_Strike_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Orbital_EMS_Strike_Stratagem_Icon_Background.svg",
+    "image_sha256": "8689d8343178fce908beedc8a29d89412fdf529fface66fd47ed64f2e3e11e5b",
+    "bitmap": "stratagem_Orbital_EMS_Strike.png",
+    "title": "Orbital EMS Strike",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Orbital_Gas_Strike",
+    "page": "https://helldivers.wiki.gg/wiki/File:Orbital_Gas_Strike_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Orbital_Gas_Strike_Stratagem_Icon_Background.svg",
+    "image_sha256": "d3a1c13c46bdeb2ced900ed0d77bf7eaf1ff80d0681a85143eeeb8a53983a277",
+    "bitmap": "stratagem_Orbital_Gas_Strike.png",
+    "title": "Orbital Gas Strike",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Orbital_Gatling_Barrage",
+    "page": "https://helldivers.wiki.gg/wiki/File:Orbital_Gatling_Barrage_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Orbital_Gatling_Barrage_Stratagem_Icon_Background.svg",
+    "image_sha256": "2f2374207ebb7ef04544ca8dc0072024016e4fa574d20490efa3f28a68e0982d",
+    "bitmap": "stratagem_Orbital_Gatling_Barrage.png",
+    "title": "Orbital Gatling Barrage",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Orbital_Illumination_Flare",
+    "page": "https://helldivers.wiki.gg/wiki/File:Orbital_Illumination_Flare_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Orbital_Illumination_Flare_Stratagem_Icon_Background.svg",
+    "image_sha256": "72957ba213f7a5f4165b868267c5eac50653bf21934eb9dee18e9d36b78112a3",
+    "bitmap": "stratagem_Orbital_Illumination_Flare.png",
+    "title": "Orbital Illumination Flare",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Orbital_Laser",
+    "page": "https://helldivers.wiki.gg/wiki/File:Orbital_Laser_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Orbital_Laser_Stratagem_Icon_Background.svg",
+    "image_sha256": "a241702e55eef35c7b2e30da9c1cd113713363724ac5c40c6b1c682da9068c43",
+    "bitmap": "stratagem_Orbital_Laser.png",
+    "title": "Orbital Laser",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Orbital_Napalm_Barrage",
+    "page": "https://helldivers.wiki.gg/wiki/File:Orbital_Napalm_Barrage_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Orbital_Napalm_Barrage_Stratagem_Icon_Background.svg",
+    "image_sha256": "a9830e099d5851a81204c75c1839a9a55f654258278cbe2b0388e71781118753",
+    "bitmap": "stratagem_Orbital_Napalm_Barrage.png",
+    "title": "Orbital Napalm Barrage",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Orbital_Precision_Strike",
+    "page": "https://helldivers.wiki.gg/wiki/File:Orbital_Precision_Strike_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Orbital_Precision_Strike_Stratagem_Icon_Background.svg",
+    "image_sha256": "7fd9c02e466ea1afb69f7db9f85195435ef9b23e6a1024c9373fb5e7ef40f65c",
+    "bitmap": "stratagem_Orbital_Precision_Strike.png",
+    "title": "Orbital Precision Strike",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Orbital_Railcannon_Strike",
+    "page": "https://helldivers.wiki.gg/wiki/File:Orbital_Railcannon_Strike_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Orbital_Railcannon_Strike_Stratagem_Icon_Background.svg",
+    "image_sha256": "3137fc94fdfa5a27b58a42155fd336c63ccb0921d99699f19a474be7840b43ef",
+    "bitmap": "stratagem_Orbital_Railcannon_Strike.png",
+    "title": "Orbital Railcannon Strike",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Orbital_Smoke_Strike",
+    "page": "https://helldivers.wiki.gg/wiki/File:Orbital_Smoke_Strike_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Orbital_Smoke_Strike_Stratagem_Icon_Background.svg",
+    "image_sha256": "0a5c099d1eeb8d0da09958fbbef3731b598bfeb4fd4bd11da66699b2b5b5be19",
+    "bitmap": "stratagem_Orbital_Smoke_Strike.png",
+    "title": "Orbital Smoke Strike",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Orbital_Walking_Barrage",
+    "page": "https://helldivers.wiki.gg/wiki/File:Orbital_Walking_Barrage_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Orbital_Walking_Barrage_Stratagem_Icon_Background.svg",
+    "image_sha256": "3477fdcdd7a39fe1ac33c3eef00c84507155d92df80e70b55ed1877f596b8785",
+    "bitmap": "stratagem_Orbital_Walking_Barrage.png",
+    "title": "Orbital Walking Barrage",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Patriot_Exosuit",
+    "page": "https://helldivers.wiki.gg/wiki/File:Patriot_Exosuit_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Patriot_Exosuit_Stratagem_Icon_Background.svg",
+    "image_sha256": "2fcacd5ebc1666789cb58bb70e8fc92c3000b75e6d97c65c9f8e7991e253cdb0",
+    "bitmap": "stratagem_Patriot_Exosuit.png",
+    "title": "Patriot Exosuit",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Portable_Hellbomb",
+    "page": "https://helldivers.wiki.gg/wiki/File:Portable_Hellbomb_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Portable_Hellbomb_Stratagem_Icon_Background.svg",
+    "image_sha256": "63663a150b218ccd55e50f70170bf7cb0d09e6523f5b76dc421e05a0866b22e2",
+    "bitmap": "stratagem_Portable_Hellbomb.png",
+    "title": "Portable Hellbomb",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Quasar_Cannon",
+    "page": "https://helldivers.wiki.gg/wiki/File:Quasar_Cannon_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Quasar_Cannon_Stratagem_Icon_Background.svg",
+    "image_sha256": "18a019708f743d2273dfd330e85890207be4810a2fc7f9bf49a8186208b161b2",
+    "bitmap": "stratagem_Quasar_Cannon.png",
+    "title": "Quasar Cannon",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Railgun",
+    "page": "https://helldivers.wiki.gg/wiki/File:Railgun_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Railgun_Stratagem_Icon_Background.svg",
+    "image_sha256": "67b5a40ab9643863f5e418af663dcdcc4fc48513d062a1481aeee5d8beb7c744",
+    "bitmap": "stratagem_Railgun.png",
+    "title": "Railgun",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Recoilless_Rifle",
+    "page": "https://helldivers.wiki.gg/wiki/File:Recoilless_Rifle_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Recoilless_Rifle_Stratagem_Icon_Background.svg",
+    "image_sha256": "18a1347e1a4b4cf964d1667a5b6af852d596fea2825336d29629d56a8aee5567",
+    "bitmap": "stratagem_Recoilless_Rifle.png",
+    "title": "Recoilless Rifle",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Reinforce",
+    "page": "https://helldivers.wiki.gg/wiki/File:Reinforce_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Reinforce_Stratagem_Icon_Background.svg",
+    "image_sha256": "582b962417bf4a1b7f20f7ae8a01f5c0a09487298e2e2cce4681b610b664655f",
+    "bitmap": "stratagem_Reinforce.png",
+    "title": "Reinforce",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Resupply",
+    "page": "https://helldivers.wiki.gg/wiki/File:Resupply_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Resupply_Stratagem_Icon_Background.svg",
+    "image_sha256": "fa09f9dce42c4c67d14499b17377a2d4c5352e214c4b71ef7cb1537f9385fb9f",
+    "bitmap": "stratagem_Resupply.png",
+    "title": "Resupply",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Rocket_Sentry",
+    "page": "https://helldivers.wiki.gg/wiki/File:Rocket_Sentry_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Rocket_Sentry_Stratagem_Icon_Background.svg",
+    "image_sha256": "d52b24c6fe053b9c43c3ce813d5cb62a792042a6ff03a0a45680c3206247c07e",
+    "bitmap": "stratagem_Rocket_Sentry.png",
+    "title": "Rocket Sentry",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Rover",
+    "page": "https://helldivers.wiki.gg/wiki/File:Rover_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Rover_Stratagem_Icon_Background.svg",
+    "image_sha256": "1b56b26e89734e2afe971491ec06da2a9ea2b108c5d5c31750714e69681e9e40",
+    "bitmap": "stratagem_Rover.png",
+    "title": "Rover",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_SEAF_Artillery",
+    "page": "https://helldivers.wiki.gg/wiki/File:SEAF_Artillery_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/SEAF_Artillery_Stratagem_Icon_Background.svg",
+    "image_sha256": "2e107d91ced2d95e2a0bc6262861abe03a3ec980034d68e9851b5448f9020d8f",
+    "bitmap": "stratagem_SEAF_Artillery.png",
+    "title": "SEAF Artillery",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Seismic_Probe",
+    "page": "https://helldivers.wiki.gg/wiki/File:Seismic_Probe_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Seismic_Probe_Stratagem_Icon_Background.svg",
+    "image_sha256": "d066bbd68f5fbe887f358b097037b13f712baf6a8ac2f6ccbf5e2c9d93e795a8",
+    "bitmap": "stratagem_Seismic_Probe.png",
+    "title": "Seismic Probe",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Shield_Generator_Pack",
+    "page": "https://helldivers.wiki.gg/wiki/File:Shield_Generator_Pack_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Shield_Generator_Pack_Stratagem_Icon_Background.svg",
+    "image_sha256": "dd15d6f54305ad38df411034036c662d0677c098540a4fe8dbd65be87bf7aae8",
+    "bitmap": "stratagem_Shield_Generator_Pack.png",
+    "title": "Shield Generator Pack",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Shield_Generator_Relay",
+    "page": "https://helldivers.wiki.gg/wiki/File:Shield_Generator_Relay_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Shield_Generator_Relay_Stratagem_Icon_Background.svg",
+    "image_sha256": "a34b53769041b19a831e3001b99e898c53a70e1553393fefc315158e360022a3",
+    "bitmap": "stratagem_Shield_Generator_Relay.png",
+    "title": "Shield Generator Relay",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Solo_Silo",
+    "page": "https://helldivers.wiki.gg/wiki/File:Solo_Silo_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Solo_Silo_Stratagem_Icon_Background.svg",
+    "image_sha256": "71962be819c9678525be7c7e08e0981a1efc764c39a06236e1e2c6892e5d56d4",
+    "bitmap": "stratagem_Solo_Silo.png",
+    "title": "Solo Silo",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_SOS_Beacon",
+    "page": "https://helldivers.wiki.gg/wiki/File:SOS_Beacon_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/SOS_Beacon_Stratagem_Icon_Background.svg",
+    "image_sha256": "805446476d9608eaaadc7e4e37c8def3efab9f6b80b38ecd424fedb49649e37d",
+    "bitmap": "stratagem_SOS_Beacon.png",
+    "title": "SOS Beacon",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Spear",
+    "page": "https://helldivers.wiki.gg/wiki/File:Spear_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Spear_Stratagem_Icon_Background.svg",
+    "image_sha256": "c938f2eb4411fb9aab44c10309fcaf88134ff41165732ff1244611bf556f2b35",
+    "bitmap": "stratagem_Spear.png",
+    "title": "Spear",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Speargun",
+    "page": "https://helldivers.wiki.gg/wiki/File:Speargun_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Speargun_Stratagem_Icon_Background.svg",
+    "image_sha256": "7d3efe36c62ec3ee7ee3536892cb8f71f5389f40b41f00433c55162eaebbd56e",
+    "bitmap": "stratagem_Speargun.png",
+    "title": "Speargun",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Stalwart",
+    "page": "https://helldivers.wiki.gg/wiki/File:Stalwart_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Stalwart_Stratagem_Icon_Background.svg",
+    "image_sha256": "39ee6864a3ad3f1d7c3ff43ec60a477de3d471ebb749a4032948b3e91233bfc0",
+    "bitmap": "stratagem_Stalwart.png",
+    "title": "Stalwart",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Sterilizer",
+    "page": "https://helldivers.wiki.gg/wiki/File:Sterilizer_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Sterilizer_Stratagem_Icon_Background.svg",
+    "image_sha256": "b877148beba90bf13b726f7d98a343cbcc102f261dde7fc18c26ac565e75a32b",
+    "bitmap": "stratagem_Sterilizer.png",
+    "title": "Sterilizer",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Super_Earth_Flag",
+    "page": "https://helldivers.wiki.gg/wiki/File:Super_Earth_Flag_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Super_Earth_Flag_Stratagem_Icon_Background.svg",
+    "image_sha256": "6347c36ba2ecefac790fffce576a82bd5fdfa955ab9353af578a00da0a9b1d42",
+    "bitmap": "stratagem_Super_Earth_Flag.png",
+    "title": "Super Earth Flag",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Supply_FRV",
+    "page": "https://helldivers.wiki.gg/wiki/File:Supply_FRV_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Supply_FRV_Stratagem_Icon_Background.svg",
+    "image_sha256": "2ba9eabcaace6603b440093dea6428ef435e2f6b6d58c8fbae0c149d0988823d",
+    "bitmap": "stratagem_Supply_FRV.png",
+    "title": "Supply FRV",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Supply_Pack",
+    "page": "https://helldivers.wiki.gg/wiki/File:Supply_Pack_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Supply_Pack_Stratagem_Icon_Background.svg",
+    "image_sha256": "25d909e591084b8338d23c6f1b416e2428836ec72d3bf5e92bba7bd1f076957d",
+    "bitmap": "stratagem_Supply_Pack.png",
+    "title": "Supply Pack",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Tactical_Video_Camera",
+    "page": "https://helldivers.wiki.gg/wiki/File:Tactical_Video_Camera_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Tactical_Video_Camera_Stratagem_Icon_Background.svg",
+    "image_sha256": "8dc249d3bdc87acf87e546240bbeea339c5345031f9842fd4a3434ba5a02be5b",
+    "bitmap": "stratagem_Tactical_Video_Camera.png",
+    "title": "Tactical Video Camera",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Tesla_Tower",
+    "page": "https://helldivers.wiki.gg/wiki/File:Tesla_Tower_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Tesla_Tower_Stratagem_Icon_Background.svg",
+    "image_sha256": "b32b4057cecd81e8e08d61b97ee870c7a629c259e2bad1072803915717ec615e",
+    "bitmap": "stratagem_Tesla_Tower.png",
+    "title": "Tesla Tower",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Upload_Data",
+    "page": "https://helldivers.wiki.gg/wiki/File:Upload_Data_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Upload_Data_Stratagem_Icon_Background.svg",
+    "image_sha256": "413ff6fe3f0e3e27e8b3d1388f47043b30049c79161752159d66b1e051a557e2",
+    "bitmap": "stratagem_Upload_Data.png",
+    "title": "Upload Data",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_W.A.S.P._Launcher",
+    "page": "https://helldivers.wiki.gg/wiki/File:W.A.S.P._Launcher_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/W.A.S.P._Launcher_Stratagem_Icon_Background.svg",
+    "image_sha256": "180348056ac6b105e6ebccde1ca53b470b8c0e79bb5804453e44689f448e822a",
+    "bitmap": "stratagem_W.A.S.P._Launcher.png",
+    "title": "W.A.S.P. Launcher",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "stratagem_Warp_Pack",
+    "page": "https://helldivers.wiki.gg/wiki/File:Warp_Pack_Stratagem_Icon_Background.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Warp_Pack_Stratagem_Icon_Background.svg",
+    "image_sha256": "ae67ba214206590a63aff2b4fcd54ca919bee49e013f096acccf83d9a5885f5f",
+    "bitmap": "stratagem_Warp_Pack.png",
+    "title": "Warp Pack",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "passive_Acclimated",
+    "page": "https://helldivers.wiki.gg/wiki/File:Acclimated_Armor_Passive_Icon.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Acclimated_Armor_Passive_Icon.svg",
+    "image_sha256": "205d623551d0fd1b0da64d1aa2708f004ae1dc1a8f742502dbb9d5088840d916",
+    "bitmap": "passive_Acclimated.png",
+    "title": "Acclimated",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "passive_Adreno-Defibrillator",
+    "page": "https://helldivers.wiki.gg/wiki/File:Adreno-Defibrillator_Armor_Passive_Icon.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Adreno-Defibrillator_Armor_Passive_Icon.svg",
+    "image_sha256": "b0d0549935ea52fa5304f527eeb2ae2369fab677d54979617715dd1262f8b000",
+    "bitmap": "passive_Adreno-Defibrillator.png",
+    "title": "Adreno-Defibrillator",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "passive_Advanced_Filtration",
+    "page": "https://helldivers.wiki.gg/wiki/File:Advanced_Filtration_Armor_Passive_Icon.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Advanced_Filtration_Armor_Passive_Icon.svg",
+    "image_sha256": "d03e13ae257d4aa3fd0942f8cc4b4934c99282a452250607b978d20fee5a1f62",
+    "bitmap": "passive_Advanced_Filtration.png",
+    "title": "Advanced Filtration",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "passive_Ballistic_Padding",
+    "page": "https://helldivers.wiki.gg/wiki/File:Ballistic_Padding_Armor_Passive_Icon.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Ballistic_Padding_Armor_Passive_Icon.svg",
+    "image_sha256": "4137c9a232ad9915bf3e2c2b5c616b286705749b1070bbc51cfea92c3bb5a93b",
+    "bitmap": "passive_Ballistic_Padding.png",
+    "title": "Ballistic Padding",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "passive_Blunt-Force_Mitigation",
+    "page": "https://helldivers.wiki.gg/wiki/File:Blunt-Force_Mitigation_Armor_Passive_Icon.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Blunt-Force_Mitigation_Armor_Passive_Icon.svg",
+    "image_sha256": "dcfb57fc4a90ad2fa9c8a6330836ccd9a6f2b9d237ab1ac4334201960fadc5c4",
+    "bitmap": "passive_Blunt-Force_Mitigation.png",
+    "title": "Blunt-Force Mitigation",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "passive_Concussive_Padding",
+    "page": "https://helldivers.wiki.gg/wiki/File:Concussive_Padding_Armor_Passive_Icon.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Concussive_Padding_Armor_Passive_Icon.svg",
+    "image_sha256": "fe49713a59c44261cf2a7763eeb9dc920e3a19077552757c9015bf2c1b12c0cd",
+    "bitmap": "passive_Concussive_Padding.png",
+    "title": "Concussive Padding",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "passive_Democracy_Protects",
+    "page": "https://helldivers.wiki.gg/wiki/File:Democracy_Protects_Armor_Passive_Icon.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Democracy_Protects_Armor_Passive_Icon.svg",
+    "image_sha256": "c7ec001424d4970b8f8ff716b88d7e559076106befd37759b95bb10a481a7d15",
+    "bitmap": "passive_Democracy_Protects.png",
+    "title": "Democracy Protects",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "passive_Desert_Stormer",
+    "page": "https://helldivers.wiki.gg/wiki/File:Desert_Stormer_Armor_Passive_Icon.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Desert_Stormer_Armor_Passive_Icon.svg",
+    "image_sha256": "7725d8e105047cd8775e6ed84a97e318d7676593da4ac45950b7eebe9923cc4c",
+    "bitmap": "passive_Desert_Stormer.png",
+    "title": "Desert Stormer",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "passive_Electrical_Conduit",
+    "page": "https://helldivers.wiki.gg/wiki/File:Electrical_Conduit_Armor_Passive_Icon.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Electrical_Conduit_Armor_Passive_Icon.svg",
+    "image_sha256": "4d43bb1a5423ae5dd390c98b29f55e855cdda6a5d2824ce9e2fd75f260e4dde5",
+    "bitmap": "passive_Electrical_Conduit.png",
+    "title": "Electrical Conduit",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "passive_Engineering_Kit",
+    "page": "https://helldivers.wiki.gg/wiki/File:Engineering_Kit_Armor_Passive_Icon.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Engineering_Kit_Armor_Passive_Icon.svg",
+    "image_sha256": "f1da3f847f9f09e16e6ed802e6228fa490b62a40fc1fdc4dc6b5a011e125eab6",
+    "bitmap": "passive_Engineering_Kit.png",
+    "title": "Engineering Kit",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "passive_Extra_Padding",
+    "page": "https://helldivers.wiki.gg/wiki/File:Extra_Padding_Armor_Passive_Icon.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Extra_Padding_Armor_Passive_Icon.svg",
+    "image_sha256": "ab8363092834f871d9ccfbc8b0e74f69317187698a21db1c80ac3caf9d76262c",
+    "bitmap": "passive_Extra_Padding.png",
+    "title": "Extra Padding",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "passive_Feet_First",
+    "page": "https://helldivers.wiki.gg/wiki/File:Feet_First_Armor_Passive_Icon.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Feet_First_Armor_Passive_Icon.svg",
+    "image_sha256": "e1f4c0d9e662af9cebce6e1e8e363374419fac59e2e4ed942b0a2cdb521229fc",
+    "bitmap": "passive_Feet_First.png",
+    "title": "Feet First",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "passive_Fortified",
+    "page": "https://helldivers.wiki.gg/wiki/File:Fortified_Armor_Passive_Icon.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Fortified_Armor_Passive_Icon.svg",
+    "image_sha256": "90251fb6b92602145ed4b7cff2f0c33e63920da8660314cb67fa770d23574fd0",
+    "bitmap": "passive_Fortified.png",
+    "title": "Fortified",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "passive_Gunslinger",
+    "page": "https://helldivers.wiki.gg/wiki/File:Gunslinger_Armor_Passive_Icon.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Gunslinger_Armor_Passive_Icon.svg",
+    "image_sha256": "6636727a605b4530ec347f52f7aa033a06a66a278358a771e0598e080b3c6b5e",
+    "bitmap": "passive_Gunslinger.png",
+    "title": "Gunslinger",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "passive_Inflammable",
+    "page": "https://helldivers.wiki.gg/wiki/File:Inflammable_Armor_Passive_Icon.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Inflammable_Armor_Passive_Icon.svg",
+    "image_sha256": "205d623551d0fd1b0da64d1aa2708f004ae1dc1a8f742502dbb9d5088840d916",
+    "bitmap": "passive_Inflammable.png",
+    "title": "Inflammable",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "passive_Integrated_Explosives",
+    "page": "https://helldivers.wiki.gg/wiki/File:Integrated_Explosives_Armor_Passive_Icon.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Integrated_Explosives_Armor_Passive_Icon.svg",
+    "image_sha256": "ccc1782ccca46aa49765b88ec2e1e19b29fe36da45e9f30d535342dcb09448eb",
+    "bitmap": "passive_Integrated_Explosives.png",
+    "title": "Integrated Explosives",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "passive_Kinetic_Displacement_Mitigation",
+    "page": "https://helldivers.wiki.gg/wiki/File:Kinetic_Displacement_Mitigation_Armor_Passive_Icon.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Kinetic_Displacement_Mitigation_Armor_Passive_Icon.svg",
+    "image_sha256": "c9bac1c934053cf3f86babbeaa7a926b907cb38224c2abb83b9b13ecbf05b22e",
+    "bitmap": "passive_Kinetic_Displacement_Mitigation.png",
+    "title": "Kinetic Displacement Mitigation",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "passive_Med-Kit",
+    "page": "https://helldivers.wiki.gg/wiki/File:Med-Kit_Armor_Passive_Icon.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Med-Kit_Armor_Passive_Icon.svg",
+    "image_sha256": "21e70b3a83018a3ce01586e31d2b6493cd0910c92b0a525b32189f7ff4ddcd47",
+    "bitmap": "passive_Med-Kit.png",
+    "title": "Med-Kit",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "passive_Oxygenator",
+    "page": "https://helldivers.wiki.gg/wiki/File:Oxygenator_Armor_Passive_Icon.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Oxygenator_Armor_Passive_Icon.svg",
+    "image_sha256": "fa2738ef1739b05995b972ae8cfb359668213fdd0662e525527f702842cf3f98",
+    "bitmap": "passive_Oxygenator.png",
+    "title": "Oxygenator",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "passive_Peak_Physique",
+    "page": "https://helldivers.wiki.gg/wiki/File:Peak_Physique_Armor_Passive_Icon.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Peak_Physique_Armor_Passive_Icon.svg",
+    "image_sha256": "490d59a1ccc846eb66ccd3f6e0b0becf310b274ddcfbe43c25750ec1df19d493",
+    "bitmap": "passive_Peak_Physique.png",
+    "title": "Peak Physique",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "passive_Reduced_Signature",
+    "page": "https://helldivers.wiki.gg/wiki/File:Reduced_Signature_Armor_Passive_Icon.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Reduced_Signature_Armor_Passive_Icon.svg",
+    "image_sha256": "f49617e34cdc8fb6127c36dd2019c3fcc055080b57dc92642f23db124db288c6",
+    "bitmap": "passive_Reduced_Signature.png",
+    "title": "Reduced Signature",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "passive_Reinforced_Epaulettes",
+    "page": "https://helldivers.wiki.gg/wiki/File:Reinforced_Epaulettes_Armor_Passive_Icon.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Reinforced_Epaulettes_Armor_Passive_Icon.svg",
+    "image_sha256": "92851cadad204186ffa2051cab1f3fe4c5a79e2520e23c16073979c068ff4c7b",
+    "bitmap": "passive_Reinforced_Epaulettes.png",
+    "title": "Reinforced Epaulettes",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "passive_Rock_Solid",
+    "page": "https://helldivers.wiki.gg/wiki/File:Rock_Solid_Armor_Passive_Icon.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Rock_Solid_Armor_Passive_Icon.svg",
+    "image_sha256": "917407da2fcfa83028157ed32994e4601e94b260359d93328cb12b93fe62a5c8",
+    "bitmap": "passive_Rock_Solid.png",
+    "title": "Rock Solid",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "passive_Scout",
+    "page": "https://helldivers.wiki.gg/wiki/File:Scout_Armor_Passive_Icon.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Scout_Armor_Passive_Icon.svg",
+    "image_sha256": "61350532c38af9cfb391f28f3e48cd1781ce25973338951c85a9288b0c18726d",
+    "bitmap": "passive_Scout.png",
+    "title": "Scout",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "passive_Servo-Assisted",
+    "page": "https://helldivers.wiki.gg/wiki/File:Servo-Assisted_Armor_Passive_Icon.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Servo-Assisted_Armor_Passive_Icon.svg",
+    "image_sha256": "faa78d34dc4fb57e5d716b74e7628f23c749be95912c0347d872bfe00680769e",
+    "bitmap": "passive_Servo-Assisted.png",
+    "title": "Servo-Assisted",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "passive_Siege-Ready",
+    "page": "https://helldivers.wiki.gg/wiki/File:Siege-Ready_Armor_Passive_Icon.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Siege-Ready_Armor_Passive_Icon.svg",
+    "image_sha256": "cb90246c6c7ed904b9c07dd21c1ce65221e3dd7c790529d4c59eb10ae435de42",
+    "bitmap": "passive_Siege-Ready.png",
+    "title": "Siege-Ready",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "passive_Supplemental_Adrenaline",
+    "page": "https://helldivers.wiki.gg/wiki/File:Supplemental_Adrenaline_Armor_Passive_Icon.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Supplemental_Adrenaline_Armor_Passive_Icon.svg",
+    "image_sha256": "01a336d4a310cd61224a47db63d944a73257c8c0358d96731be76e4bce9eec67",
+    "bitmap": "passive_Supplemental_Adrenaline.png",
+    "title": "Supplemental Adrenaline",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "passive_True_Grit",
+    "page": "https://helldivers.wiki.gg/wiki/File:True_Grit_Armor_Passive_Icon.svg",
+    "source_image": "https://helldivers.wiki.gg/images/True_Grit_Armor_Passive_Icon.svg",
+    "image_sha256": "bd048802710c6c9265b83403e794838316e34b8c5fb4d3a47522bf818a1acf6c",
+    "bitmap": "passive_True_Grit.png",
+    "title": "True Grit",
+    "reviewed": "2026-10-08"
+  },
+  {
+    "key": "passive_Unflinching",
+    "page": "https://helldivers.wiki.gg/wiki/File:Unflinching_Armor_Passive_Icon.svg",
+    "source_image": "https://helldivers.wiki.gg/images/Unflinching_Armor_Passive_Icon.svg",
+    "image_sha256": "1fe9f0c972061b477ac7e8934b9ba85ee93d695b364a91f86e873db2f403142b",
+    "bitmap": "passive_Unflinching.png",
+    "title": "Unflinching",
+    "reviewed": "2026-10-08"
+  }
+]

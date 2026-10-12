@@ -2416,7 +2416,7 @@ class Startup(unittest.TestCase):
     def test_attachment_values_point_into_the_delta_storage(self):
         blob, _stats = gen_tuner_data.generate()
         flagged = [x.split("|") for x in blob.splitlines() if x.startswith("F|") and x.endswith("|A")]
-        self.assertEqual(len(flagged), 107)       # 18: the reload set by the magazine; 3: what a suppressor sets
+        self.assertEqual(len(flagged), 113)       # 18: the reload set by the magazine; 3: what a suppressor sets
         self.assertTrue(all(f[3] == "ComponentEntityDeltaStorage" and f[4] == "data" for f in flagged))
         data_start = __import__("deltas")._load()["xo"]
         _it, s = catalog_stat("assault_rifle", "capacity")
