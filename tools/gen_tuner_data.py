@@ -99,9 +99,18 @@ MODIFIERS = {0: "ergonomics", 1: "sway", 2: "recoil_h", 3: "recoil_h_alt", 4: "r
 MODIFIERS_AT, MODIFIER_SLOTS, WEAPON_DATA = 956, 8, 236     # weapon_stat_modifiers; the component's delta index
 
 
-def attachment_items():
-    """Every attachment that changes a weapon's handling, with the numbers it changes."""
+def attachment_items(cat):
+    """Every attachment that changes a weapon's handling, with the numbers it changes; and every magazine
+    that is not the default one of a weapon (that one's values are the weapon's own in the menu)."""
     import build_catalog
+    magazine = [(sid, build_catalog.off("WeaponMagazineComponent", path)[0])
+                for sid, path in (("capacity", "magazine_capacity"), ("mags_start", "magazines"),
+                                  ("mags_supply", "magazines_refill"), ("mags_max", "magazines_max"))]
+    defaults = set()
+    for it in cat["items"]:
+        if len(it.get("entity", "")) == 16:
+            for _slot, item, _res in deltas.default_attachments(int(it["entity"], 16)):
+                defaults.add(item)
     assert build_catalog.off("WeaponDataComponent", "weapon_stat_modifiers")[0] == MODIFIERS_AT
     assert deltas.COMPONENT_INDEX[WEAPON_DATA] == "WeaponDataComponent"
     data_start = deltas._load()["xo"]
@@ -115,12 +124,24 @@ def attachment_items():
             name = data[base + name_at:data.index(b"\0", base + name_at)].decode("ascii", "replace").strip()
             item_id, = struct.unpack_from("<I", data, at + 8)
             resource, = struct.unpack_from("<Q", data, at + 32)
-            words = {}
+            words, stats = {}, []
             for component, offset, size, raw, where in (deltas.resource_deltas(resource) or []) if resource else []:
                 if component == WEAPON_DATA:
                     for k in range(0, size - size % 4, 4):
                         words[offset + k] = (raw[k:k + 4], where + k)
-            stats = []
+                kind = deltas.COMPONENT_INDEX.get(component)
+                if item_id in defaults or size != 4:
+                    continue
+                if kind == "WeaponMagazineComponent":
+                    for sid, at_ in magazine:
+                        if at_ == offset:
+                            stats.append({"id": sid, "table": "ComponentEntityDeltaStorage", "key": "data",
+                                          "offset": where - data_start, "storage": "UINT32",
+                                          "original": struct.unpack("<I", raw)[0]})
+                elif kind == "WeaponReloadComponent" and offset == 56:
+                    stats.append({"id": "reload_seconds", "table": "ComponentEntityDeltaStorage", "key": "data",
+                                  "offset": where - data_start, "storage": "FP32",
+                                  "original": round(struct.unpack("<f", raw)[0], 6)})
             for slot in range(MODIFIER_SLOTS):
                 o = MODIFIERS_AT + slot * 8
                 if o in words and o + 4 in words:
@@ -345,6 +366,8 @@ RANGES = [
     (r"^penetration_slowdown$", 0, 1, 0),
     (r"^arming_distance$", 0, 10000, 0),
     (r"^capacity$", 1, 9999, 1),
+    (r"^held_rounds(_2)?$", 1, 999, 1),
+    (r"^rounds_per_load$", 1, 999, 1),
     (r"^beam_(range|radius)$", 0, 5000, 0),
     (r"^arc_speed$", 0, 100000, 0),
     (r"^arc_chain_(length|split)$", 0, 100, 1),
@@ -377,6 +400,7 @@ RANGES = [
     (r"^beam_mode$", 0, 3, 1),
     (r"^beam_pulse_seconds$", 0, 60, 0),
     (r"^locomotion_\d$", -100000, 100000, 0),
+    (r"^heat_cooling_[ab]$", 0, 100000, 0),
     (r"^heat_charge_", 0, 100000, 0),
     (r"^heat_sinks_(start|supply|max)$", 0, 999, 1),
     (r"^explosion_proximity_filter$", 0, 4294967295, 1),
@@ -495,7 +519,7 @@ def generate(builds=None, indexes=None):
     magazines = {}          # item index -> (catalog item, {stat: (stat entry, attachment entry)})
     armors, armor_shown = armor_items(cat)
     display.update(armor_shown)
-    attached, attached_shown = attachment_items()
+    attached, attached_shown = attachment_items(cat)
     display.update(attached_shown)
     for it in cat["items"] + armors + attached:
         category = CATEGORY.get(it["category"])

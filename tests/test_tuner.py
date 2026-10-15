@@ -1755,7 +1755,8 @@ def check_keys_can_be_changed(mutate=None):
         rig.settle()
         rig.game.lua.execute(FAKE_ENGINE)
         rig.game.press(F9)
-        rig.game.press(F7); rig.game.press(F7)                         # Keys
+        rig.game.press(F7); rig.game.press(F7)                         # Settings
+        rig.game.press(RIGHT)                                          # its keys column
         text = shown(rig)
         assert "Search" in text and "F3" in text and "Reset the keys" in text, text[:900]
         for _ in range(12):
@@ -1825,7 +1826,8 @@ def check_the_game_input_can_be_blocked(mutate=None):
         assert "menu: game input given back" in rig.game.read_out("byog.log")
         rig.game.press(F9)                                             # open again: the same filter, not a second one
         assert not rig.game.game_gets_keys() and len(rig.game.hooks) == 1
-        rig.game.press(F7); rig.game.press(F7)
+        rig.game.press(F7); rig.game.press(F7)                         # Settings
+        rig.game.press(RIGHT)                                          # its keys column
         for _ in range(15):
             rig.game.press(DOWN)
         assert "Block game input while the menu is open" in shown(rig)
@@ -2167,7 +2169,10 @@ def check_packs_turrets_attachments(mutate=None):
         assert abs(rig.mem.peek(rig.keyed_field("DetectorComponentData", GATLING, 0), "<f") - 0.1) < 1e-6
         # the grip's number is in the delta storage's data, at the place the generator names
         import gen_tuner_data
-        grip = next(s["offset"] for it in gen_tuner_data.attachment_items()[0] if it["path"].endswith("/vertical_grip")
+        import json
+        with open(os.path.join(ROOT, "data", "catalog.json"), encoding="utf-8") as f:
+            whole = json.load(f)
+        grip = next(s["offset"] for it in gen_tuner_data.attachment_items(whole)[0] if it["path"].endswith("/vertical_grip")
                     for s in it["stats"] if s["id"] == "mod_recoil_v")
         storage = rig.blocks["ComponentEntityDeltaStorage"][0] + 24
         data_at = rig.mem.peek(storage + 64, "<Q")
@@ -2416,7 +2421,7 @@ class Startup(unittest.TestCase):
     def test_attachment_values_point_into_the_delta_storage(self):
         blob, _stats = gen_tuner_data.generate()
         flagged = [x.split("|") for x in blob.splitlines() if x.startswith("F|") and x.endswith("|A")]
-        self.assertEqual(len(flagged), 113)       # 18: the reload set by the magazine; 3: what a suppressor sets
+        self.assertEqual(len(flagged), 114)       # 18: the reload set by the magazine; 3: what a suppressor sets; 1: a cooling value
         self.assertTrue(all(f[3] == "ComponentEntityDeltaStorage" and f[4] == "data" for f in flagged))
         data_start = __import__("deltas")._load()["xo"]
         _it, s = catalog_stat("assault_rifle", "capacity")

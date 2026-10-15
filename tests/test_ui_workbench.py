@@ -127,6 +127,7 @@ class Workbench(unittest.TestCase):
     def test_context_hints_during_capture_and_confirmation(self):
         r=MenuRig()
         r.menu.page=3
+        r.menu.set_col=2  # the keys column of the Settings page
         r.press(0x0D)
         self.assertEqual(r.menu.mode,'capture')
         text=r.draw()
@@ -176,6 +177,7 @@ class Workbench(unittest.TestCase):
     def test_rebinding_through_keys_page_updates_hint(self):
         r=MenuRig()
         r.menu.page=3
+        r.menu.set_col=2  # the keys column of the Settings page
         r.menu.key_row=14  # accept
         r.press(0x0D)
         r.press(0x77)  # F8

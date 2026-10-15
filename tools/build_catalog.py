@@ -321,6 +321,17 @@ def resolve_weapon(T, ent):
         for sid, path in (("rounds_max", "ammo_capacity"), ("rounds_supply", "ammo_refill"),
                           ("rounds_start", "ammo")):
             stat(stats, sid, "WeaponRoundsComponentData", key, "WeaponRoundsComponent", path, rounds)
+        # the rounds the weapon itself holds, per kind of round (a CApiVector2: two floats; Deadeye 8,
+        # Punisher 8 and 8), and the rounds of one load
+        kinds = dict((m["offset"], m["type"]) for m in gostructs.typelib()["types"]["WeaponRoundsComponent"]["members"])
+        assert kinds.get(72) == "CApiVector2" and 80 in kinds and 92 in kinds, kinds
+        for sid, offset, storage, fmt in (("held_rounds", 72, "FP32", "<f"), ("held_rounds_2", 76, "FP32", "<f"),
+                                          ("rounds_per_load", 92, "UINT32", "<I")):
+            v = struct.unpack_from(fmt, rounds, offset)[0]
+            if 1 <= v < 100000:
+                stats.append({"id": sid, "table": "WeaponRoundsComponentData", "key": key,
+                              "record": "WeaponRoundsComponent", "field": "+%d" % offset, "offset": offset,
+                              "storage": storage, "original": round(v, 6) if storage == "FP32" else v})
     # Weapons that spin up before they fire, and weapons that are charged. Field names and what they mean
     # are the game's own, as FileDiver's structures record them ("Time until the weapon fully winds up",
     # "Min-, Full-, and Over-Charged states", "The value to multiply the projectile damage with when at
@@ -355,6 +366,9 @@ def resolve_weapon(T, ent):
     heat = T.heat.record(ent)
     if heat:
         source.append("heat")
+        # cooling after an overheat: one of two unnamed floats (see tools' notes for v2.1.4)
+        raw_stat(stats, "heat_cooling_a", "WeaponHeatComponentData", key, 132, heat)
+        raw_stat(stats, "heat_cooling_b", "WeaponHeatComponentData", key, 140, heat)
         for sid, path in (("overheat_temperature", "overheat_temperature"),
                           ("temp_gain_per_shot", "temp_gain_per_shot"),
                           ("temp_gain_per_second", "temp_gain_per_second"),

@@ -2,3 +2,4 @@
 # From the testers' sheet (column "Kaldırılmalı mı?"). An item listed here is left out of the data,
 # so neither the menu nor config.txt knows it.
 weapon|pump_shotgun_flm|a second "SG-8 Punisher" in the list; the testers asked for one of the two to go (pump_shotgun stays)
+stratagem_weapon|hellbomb_explosion_125|the user tested rows 111 and 125 in game (2026-10-13): each changes the Hellbomb, and asked for one of the two to stay (111 stays)
