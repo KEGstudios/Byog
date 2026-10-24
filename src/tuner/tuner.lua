@@ -3012,6 +3012,11 @@ local MENU_ZH = {
     ["Rounds put in at a time"] = "每次装填发数",
     ["Cooling value A (maybe after an overheat)"] = "冷却值 A (可能为过热后)",
     ["Cooling value B (maybe after an overheat)"] = "冷却值 B (可能为过热后)",
+    ["Times %s for every item of \"%s\""] = "对“%s”中的每一项乘以 %s",
+    ["- Reset every change of the active preset"] = "- 重置当前预设的所有更改",
+    ["Put every value of \"%s\" back to the game's own?   %s yes   %s no"] = "将“%s”的所有数值恢复为游戏原值？   %s 是   %s 否",
+    ["Every value is the game's own again"] = "所有数值已恢复为游戏原值",
+    ["%d items changed"] = "已更改 %d 项",
     ["Menu size"] = "菜单大小", ["Full screen"] = "全屏", ["Settings"] = "设置", ["column"] = "列",
     -- v2.1.x values, added after the pull request: translated by the mod's author, not checked by a native speaker
     ["Beam shots a minute (pulsed beams)"] = "光束每分钟发射次数 (脉冲光束)",
@@ -5974,6 +5979,32 @@ end
 local function menu_say(text, now)
     menu.note, menu.note_until = text, (now or A.now()) + 4
 end
+-- The change of a selected value as a factor, when the same change makes sense for other items: a number
+-- that was not 0 and is not a kind (a status, a fire mode, an item to borrow from).
+menu.not_scalable = { '_type$', 'fire_mode', '_filter$', '^blast_from$', '^beam_mode$', 'silenced', 'suppressed',
+                      '^burst_rounds$', '^mags_', '^held_rounds' }
+function menu.ratio_of(item, stat, value)
+    local field = item.stats[stat] and item.stats[stat].field
+    if not field or type(value) ~= 'number' or type(field.stock) ~= 'number' or field.stock == 0 then return nil end
+    if value == field.stock then return nil end
+    for _, pattern in ipairs(menu.not_scalable) do
+        if stat:find(pattern) then return nil end
+    end
+    return value / field.stock
+end
+-- every item of the category that has the value: its own game value times the factor
+function menu.apply_all(item, stat, ratio, now)
+    local count = 0
+    for index = 0, #ITEMS do
+        local other = ITEMS[index]
+        local field = other and other.category == item.category and other.stats[stat] and other.stats[stat].field
+        if field and type(field.stock) == 'number' and field.stock ~= 0 then
+            menu_set(other, stat, field.stock * ratio, now)
+            count = count + 1
+        end
+    end
+    menu_say(L('%d items changed'):format(count), now)
+end
 
 -- ---- the game's own view of the keyboard and the mouse
 -- While the menu is open the game must not act on a key or on the mouse.
@@ -6334,7 +6365,7 @@ local function menu_items_input(now, lists)
 end
 
 local function menu_presets_input(now)
-    local rows = #menu.presets + 2
+    local rows = #menu.presets + 3
     menu.preset_row = math.max(1, math.min(rows, menu.preset_row))
     if menu_act('up', now) then menu.preset_row = math.max(1, menu.preset_row - 1) end
     if menu_act('down', now) then menu.preset_row = math.min(rows, menu.preset_row + 1) end
@@ -6361,6 +6392,8 @@ local function menu_presets_input(now)
     if not name then
         if menu.preset_row == #menu.presets + 1 then
             create(function() return {} end)
+        elseif menu.preset_row == #menu.presets + 3 then
+            menu.mode, menu.ask = 'confirm', { reset = true }
         else
             create(function()
                 local copy = {}
@@ -6402,7 +6435,12 @@ end
 
 local function menu_confirm_input(now)
     local name = menu.ask.name
-    if menu_act('accept', now, true) then
+    if menu.ask.reset and menu_act('accept', now, true) then
+        menu.mode, menu.ask = 'list', nil
+        for key in pairs(overrides) do overrides[key] = nil end
+        menu.dirty_at = now
+        menu_say(L('Every value is the game\'s own again'), now)
+    elseif menu_act('accept', now, true) then
         menu.mode, menu.ask = 'list', nil
         local dir = ensure_out_dir()
         if dir then os.remove(dir .. '\\' .. preset_file(name)) end
@@ -10215,7 +10253,7 @@ local function menu_draw(now)
                     rect(TABLE,y,720,28,255,26,32,36)
                     if entry.n==at then outline(TABLE,y,720,28,menu.focus=='stats') end
                     fit(label,TABLE+8+inset,y+7,700-inset,15,true)
-                    area(TABLE,y,720,28,function() menu.focus='stats'; menu.toggle(item,entry.key) end)
+                    area(TABLE,y,720,28,function() menu.stat[item],menu.focus=entry.n,'stats'; menu.toggle(item,entry.key) end)
                 elseif entry and entry.stat then
                     local stat,owner=entry.stat,entry.owner or item
                     local value,changed=menu_value(owner,stat)
@@ -10243,6 +10281,23 @@ local function menu_draw(now)
                 end
             end
             gray(string.format('%d %s %d',at,L('of'),#stats),TABLE,under,14)
+            -- a strip beside the table: ten rows up / down, and where the shown rows are in the whole list
+            if #rows > MENU_ROWS then
+                local SX, height_ = TABLE + 726, MENU_ROWS * 30
+                local function step(by)
+                    menu.focus = 'stats'
+                    menu.stat[item] = math.max(1, math.min(#stats, at + by))
+                end
+                outline(SX, TOP, 30, height_, false)
+                rect(SX + 1, TOP + 1, 28, 34, 255, 40, 43, 30); fit('^', SX + 10, TOP + 9, 14, 16, true)
+                rect(SX + 1, TOP + height_ - 35, 28, 34, 255, 40, 43, 30); fit('v', SX + 10, TOP + height_ - 27, 14, 16, true)
+                area(SX, TOP, 30, 36, function() step(-10) end)
+                area(SX, TOP + height_ - 36, 30, 36, function() step(10) end)
+                local track = height_ - 76
+                local thumb = math.max(20, track * MENU_ROWS / #rows)
+                local thumb_y = TOP + 38 + (track - thumb) * (top - 1) / math.max(1, #rows - MENU_ROWS)
+                rect(SX + 8, thumb_y, 14, thumb, 255, 255, 214, 0)
+            end
             local stat,owner=stats[at],menu.owner(item,at)
             outline(INS,106,390,498,false)
             local iy=124
@@ -10278,6 +10333,14 @@ local function menu_draw(now)
                         wrap(L(menu.descriptions[stat]),INS+16,iy+4,358,14,2,false)
                     end
                     action_button('accept','Enter value',INS+16,474,358,function() edit_value(owner,stat) end)
+                    local ratio = menu.ratio_of(owner, stat, value)
+                    if ratio then
+                        local label = L('Times %s for every item of "%s"'):format(menu.readable_number(ratio),
+                            L(MENU_CATEGORY_NAME[owner.category] or owner.category))
+                        outline(INS+16,574,358,38,false)
+                        fit(label,INS+26,584,338,15,true)
+                        area(INS+16,574,358,38,function() menu.apply_all(owner,stat,ratio,now) end)
+                    end
                 else
                     wrap(value and menu.donor_shown(value) or L('its own'),INS+16,iy,358,18,2,true)
                     wrap(key('left') .. ' / ' .. key('right') .. '  ' .. L('change'),INS+16,434,358,16,2,false)
@@ -10343,7 +10406,7 @@ local function menu_draw(now)
     elseif menu.page == 2 then
         gray(L('Presets'),24,116,24)
         local visible = math.floor((PANEL_H - 160 - TOP) / 26)
-        local first_preset = math.max(1, math.min(menu.preset_row - 8, #menu.presets + 3 - visible))
+        local first_preset = math.max(1, math.min(menu.preset_row - 8, #menu.presets + 4 - visible))
         for n, name in ipairs(menu.presets) do
             local here = n == menu.preset_row
             local y = TOP + (n - first_preset) * 26
@@ -10370,7 +10433,8 @@ local function menu_draw(now)
                 end
             end
         end
-        for n, label in ipairs({ '+ New preset (empty)', '+ New preset (copy of the active one)' }) do
+        for n, label in ipairs({ '+ New preset (empty)', '+ New preset (copy of the active one)',
+                                 '- Reset every change of the active preset' }) do
             local index = #menu.presets + n
             local y = TOP + (index - first_preset) * 26
             if index >= first_preset and index < first_preset + visible then row(L(label), 24, y, 620, index == menu.preset_row, index == menu.preset_row
@@ -10381,6 +10445,9 @@ local function menu_draw(now)
             rect(16, PANEL_H - 104, 520, 24, 255, 255, 214, 0)
             if layers then text(L('Name') .. ': ' .. menu.box.text .. '_', 24, PANEL_H - 101, 17, 255, 0, 0, 0)
             else yellow(L('Name') .. ': ' .. menu.box.text .. '_', 24, PANEL_H - 101, 17) end
+        elseif menu.ask and menu.ask.reset then
+            yellow(L('Put every value of "%s" back to the game\'s own?   %s yes   %s no'):format(tostring(preset_name),
+                   key('accept'), key('back')), 24, PANEL_H - 101, 17)
         elseif menu.ask then
             yellow(L('Delete the preset "%s"?   %s yes   %s no'):format(menu.ask.name, key('accept'), key('back')), 24,
                    PANEL_H - 101, 17)

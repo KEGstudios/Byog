@@ -100,6 +100,35 @@ class MenuRig:
 
 
 class Workbench(unittest.TestCase):
+    def test_the_value_list_scrolls_with_the_arrows_beside_it(self):
+        # seen on the mod's page (v2.1.3): with the mouse the list could not be moved past HANDLING
+        r=MenuRig()
+        r.menu.stat[r.item]=1
+        self.assertIn('v',r.draw().splitlines())
+        r.click_text('v')
+        self.assertEqual(r.menu.stat[r.item],11)
+        r.click_text('^')
+        self.assertEqual(r.menu.stat[r.item],1)
+
+    def test_one_change_for_every_item_of_the_category(self):
+        r=MenuRig()
+        r.api.set(r.item,'damage',r.item.stats['damage'].field.stock*2,r.ui.now)
+        r.menu.stat[r.item]=next(n for n in range(1,200) if r.api.rows(r.item)[1][n]=='damage')
+        r.click_text('Times 2 for every item of "Weapons"')
+        self.assertGreater(len(list(r.api.overrides.keys())),50)
+
+    def test_every_change_can_be_reset_from_the_presets_page(self):
+        r=MenuRig()
+        r.api.set(r.item,'damage',1,r.ui.now)
+        self.assertEqual(len(list(r.api.overrides.keys())),1)
+        r.menu.page=2
+        r.menu.preset_row=len(list(r.menu.presets.values()))+3
+        r.press(0x0D)
+        self.assertEqual(r.menu.mode,'confirm')
+        self.assertIn('back to the game',r.draw())
+        r.press(0x0D)
+        self.assertEqual(len(list(r.api.overrides.keys())),0)
+
     def test_text_only_fallback_marks_category_and_group(self):
         r=MenuRig()
         r.menu.layers=False
